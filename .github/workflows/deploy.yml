@@ -6,7 +6,7 @@ on:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04-arm64
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -24,7 +24,7 @@ jobs:
   build-backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04-arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -37,9 +37,6 @@ jobs:
           key: gradle-${{ hashFiles('backend/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('backend/build.gradle') }}
           restore-keys: |
             gradle-${{ hashFiles('backend/gradle/wrapper/gradle-wrapper.properties') }}-
-
-      - name: Set up QEMU (aarch64 cross-build)
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -63,7 +60,7 @@ jobs:
   build-frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04-arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -75,11 +72,7 @@ jobs:
         run: |
           cd frontend
           npm install
-          npm install @rollup/rollup-linux-x64-gnu --save-dev
           npm run build
-
-      - name: Set up QEMU (aarch64 cross-build)
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -101,7 +94,7 @@ jobs:
             ./frontend
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04-arm64
     needs: [changes, build-backend, build-frontend]
     if: always() && (needs.build-backend.result == 'success' || needs.build-backend.result == 'skipped') && (needs.build-frontend.result == 'success' || needs.build-frontend.result == 'skipped')
     steps:
