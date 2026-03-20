@@ -6,12 +6,6 @@
 
 ---
 
-/*
-hashnode yml 에 있을 필요는 없어 마이페이지에서 등록을 해주잖아
-.env 다 암호화 했으니까 이제 yml 에 직접 넣어줘 이제 .env 로딩할 필요 없게 만들어줘
-JASYPT_PASSWORD 환경변수에 값이 있어
-
-*/
 
 ## 1. 프로젝트 개요
 
@@ -46,11 +40,15 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGP
 
 ### 프로파일별 환경변수 정책
 
-| 프로파일    | .env 사용                       | Jasypt 암호화 | 비고                                                    |
-|---------|-------------------------------|------------|-------------------------------------------------------|
-| `local` | 없음                            | 없음         | 중요 암호값 없이 실행 가능, 테스트 포함. GitHub Actions CI도 local로 실행 |
-| `dev`   | `/private/.env` (평문)          | 없음         | 평문 .env 로드                                            |
-| `prod`  | 없음, `application-prod.yml` 사용 | **필수**     | Jasypt 암호화된 값만 사용, 서버에서 직접 관리                         |
+| 프로파일    | .env 사용 | Jasypt 암호화 | 비고                                                                               |
+|---------|---------|------------|----------------------------------------------------------------------------------|
+| `local` | 없음      | 없음         | 중요 암호값 없이 실행 가능, 테스트 포함. GitHub Actions CI도 local로 실행                            |
+| `dev`   | 없음      | **필수**     | `application-dev.yml` 에 Jasypt 암호화 값 직접 포함. `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요  |
+| `prod`  | 없음      | **필수**     | `application-prod.yml` 에 Jasypt 암호화 값 직접 포함. `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요 |
+
+> `.env` 파일은 완전히 제거. 모든 민감값은 Jasypt로 암호화 후 yml에 직접 포함.
+> `.env.backup`은 관리자(로컬)에서만 보관, 절대 커밋 금지.
+> Hashnode 설정은 yml 불필요 — 마이페이지에서 사용자가 직접 등록.
 
 ---
 
@@ -326,7 +324,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
   In-memory → Redis 전환
 - [x] **OCI 서버 배포** — 단일 서버 (2CPU/16GB), 백엔드+프론트 동일 서버 (`168.107.26.27`)
 - [x] **HTTPS 설정** — Nginx + Let's Encrypt 자동 갱신, 도메인: `git-ai-blog.kr`
-- [x] **환경변수 관리** — dev는 `/private/.env`, prod는 `application-prod.yml` + Jasypt 암호화
+- [x] **환경변수 관리** — dev/prod 모두 `.env` 제거, `application-dev.yml` / `application-prod.yml` + Jasypt 암호화 값 직접 포함
 
 ### CI/CD
 
@@ -376,13 +374,14 @@ Redis (6379, 내부 전용)
 
 ```
 services:
-  backend   — Spring Boot JAR, application-prod.yml (Jasypt 암호화 값)
+  backend   — Spring Boot JAR, application-prod.yml (Jasypt 암호화 값 포함), JASYPT_ENCRYPTOR_PASSWORD 환경변수 주입
   frontend  — Nginx + React 빌드 결과물
   redis     — 사용량 카운터, Rate Limit 캐시, JWT blacklist
 ```
 
-- `.env` 파일은 Docker 이미지에 포함하지 않음
-- prod는 `application-prod.yml` 내 Jasypt 암호화 값 사용 (서버에서 직접 관리)
+- `.env` 파일 사용 안 함 (dev/prod 모두)
+- 모든 민감값은 Jasypt로 암호화 후 `application-dev.yml` / `application-prod.yml`에 직접 포함
+- 서버에서 `JASYPT_ENCRYPTOR_PASSWORD` 환경변수만 별도 관리
 
 ### GitHub Actions CI/CD 흐름
 
@@ -397,11 +396,11 @@ sub branch push
 
 ### 환경변수 관리
 
-| 프로파일    | 방식                                                           |
-|---------|--------------------------------------------------------------|
-| `local` | 환경변수 없음, 기본값으로 실행 (H2, mock 키). GitHub Actions CI도 local로 실행 |
-| `dev`   | `/private/.env` (평문)                                         |
-| `prod`  | `application-prod.yml` (Jasypt 암호화 값, 서버에서 직접 관리)            |
+| 프로파일    | 방식                                                                                       |
+|---------|------------------------------------------------------------------------------------------|
+| `local` | 환경변수 없음, 기본값으로 실행 (H2, mock 키). GitHub Actions CI도 local로 실행                             |
+| `dev`   | `application-dev.yml` (Jasypt 암호화 값 포함) + `JASYPT_ENCRYPTOR_PASSWORD` 환경변수               |
+| `prod`  | `application-prod.yml` (Jasypt 암호화 값 포함) + `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 (서버에서 직접 관리) |
 
 ### HTTPS
 
@@ -419,8 +418,8 @@ sub branch push
 export JAVA_HOME=/Users/kang/Library/Java/JavaVirtualMachines/openjdk-25/Contents/Home
 cd backend && ./gradlew bootRun
 
-# 백엔드 — dev 프로파일 (/private/.env 로드 필수, Supabase 연결)
-set -a && source /private/.env && set +a
+# 백엔드 — dev 프로파일 (JASYPT_ENCRYPTOR_PASSWORD 필요, Supabase 연결)
+export JASYPT_ENCRYPTOR_PASSWORD=your_password
 export SPRING_PROFILES_ACTIVE=dev
 cd backend && ./gradlew bootRun
 
@@ -433,6 +432,6 @@ lsof -ti :5173 | xargs kill -9
 ```
 
 > **local 프로파일**: 중요 암호값(API 키, DB 비밀번호) 없이 H2 in-memory DB로 실행 가능. 테스트도 local 기준으로 동작.
-> **dev 프로파일**: `/private/.env` 로드 필수. OAuth 로그인 가능.
-> **prod**: 서버에서 `application-prod.yml` 직접 관리. `.env` 파일 불필요.
+> **dev 프로파일**: `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요. `application-dev.yml`에 암호화 값 포함. `.env` 파일 불필요.
+> **prod**: 서버에서 `JASYPT_ENCRYPTOR_PASSWORD` 환경변수만 관리. `application-prod.yml`에 암호화 값 포함. `.env` 파일 불필요.
 > **cli** : 구현 중 새로 발견한 내용(버그, 설계 결정, 특이사항 등)은 반드시 research.md에 기록해야 함
