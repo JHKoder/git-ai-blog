@@ -325,7 +325,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **Redis 도입** — `AiUsageLimiter`, `RateLimitCache`, `ImageUsageLimiter`, `TokenUsageTracker`, JWT blacklist
   In-memory → Redis 전환
 - [x] **OCI 서버 배포** — 단일 서버 (2CPU/16GB), 백엔드+프론트 동일 서버 (`168.107.26.27`)
-- [x] **HTTPS 설정** — Nginx + Let's Encrypt 자동 갱신, 도메인: `git-ai-blog.kr`
+- [x] **HTTPS 설정** — Nginx + Let's Encrypt 자동 갱신, 도메인: `git-ai-blog.kr`. nginx.conf에 http→https 강제 리다이렉트 + SSL 블록 구성
 - [x] **환경변수 관리** — dev/prod 모두 `.env` 제거, `application-dev.yml` / `application-prod.yml` + Jasypt 암호화 값 직접 포함
 
 ### CI/CD
@@ -364,6 +364,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 
 - IP: `168.107.26.27`
 - 도메인: `git-ai-blog.kr`
+- OS: Ubuntu 20.04 (server-setup.sh apt 기반)
 - 사양: 2CPU / 16GB RAM
 - SSH 키: `/private` 경로
 
@@ -389,7 +390,12 @@ services:
 
 - `.env` 파일 사용 안 함 (dev/prod 모두)
 - 모든 민감값은 Jasypt로 암호화 후 `application-dev.yml` / `application-prod.yml`에 직접 포함
-- 서버에서 `JASYPT_ENCRYPTOR_PASSWORD` 환경변수만 별도 관리
+- 서버 `server-setup.sh`의 `.env`는 단 두 개만 허용:
+  ```
+  JASYPT_ENCRYPTOR_PASSWORD=...
+  SPRING_PROFILES_ACTIVE=prod
+  ```
+- `DOCKER_USERNAME`, `DOCKER_HUB_TOKEN`은 GitHub Secrets에서만 관리 (서버 `.env` 불포함)
 
 ### GitHub Actions CI/CD 흐름
 
@@ -407,24 +413,27 @@ sub branch push
 ```
 main push
   │
-  ├─[build-backend job]──────────────────────────────────────┐
+  ├─[build-backend job]  (backend/** 변경 시에만)────────────┐
+  │   runs-on: ubuntu-22.04                                  │
   │   actions/checkout                                        │
   │   Cache Gradle (~/.gradle)                               │
-  │   QEMU + Buildx 설정                                      │
+  │   Docker Buildx 설정                                      │
   │   Docker Hub 로그인                                        │
   │   docker buildx build --platform linux/arm64             │
   │     ./backend → jhkoders/aiblog-backend:latest  ──push──►│
   │                                                           │
-  ├─[build-frontend job]─────────────────────────────────────┤
+  ├─[build-frontend job] (frontend/** 변경 시에만)────────────┤
+  │   runs-on: ubuntu-22.04                                   │
   │   actions/checkout                                        │
   │   Node 20 setup                                           │
-  │   npm install && npm run build  (x64 러너에서 실행)         │
-  │   QEMU + Buildx 설정                                      │
+  │   npm install && npm run build                            │
+  │   Docker Buildx 설정                                      │
   │   Docker Hub 로그인                                        │
   │   docker buildx build --platform linux/arm64             │
   │     ./frontend (dist 포함) → jhkoders/aiblog-frontend ──►│
   │                                                           │
   └─[deploy job]  needs: [build-backend, build-frontend]◄────┘
+      (build job success 또는 skipped 이면 항상 실행)
       appleboy/ssh-action → opc@168.107.26.27
         cd /home/opc/app
         docker compose pull backend frontend   ← Docker Hub에서 latest pull
@@ -450,6 +459,7 @@ main push
 - systemd 타이머로 자동 갱신 (Ubuntu 기본 포함)
 - Nginx post-renew hook으로 자동 reload
 - Nginx 80 → 443 redirect 설정
+- **모든 진입점은 `https://git-ai-blog.kr` 경로로만 접속** (http → https 강제 리다이렉트)
 
 ---
 
