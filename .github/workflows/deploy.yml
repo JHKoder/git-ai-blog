@@ -24,7 +24,7 @@ jobs:
   build-backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-22.04-arm64
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +60,7 @@ jobs:
   build-frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-22.04-arm64
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -94,7 +94,7 @@ jobs:
             ./frontend
 
   deploy:
-    runs-on: ubuntu-22.04-arm64
+    runs-on: ubuntu-22.04
     needs: [ changes, build-backend, build-frontend ]
     if: always() && (needs.build-backend.result == 'success' || needs.build-backend.result == 'skipped') && (needs.build-frontend.result == 'success' || needs.build-frontend.result == 'skipped')
     steps:
