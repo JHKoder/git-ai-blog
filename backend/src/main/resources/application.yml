@@ -18,38 +18,35 @@ jasypt:
 
 db:
   encryption:
-    key: ${DB_ENCRYPTION_KEY:bG9jYWwtZW5jcnlwdGlvbi1rZXktMzItYnl0ZXMhIQ==}
+    key: ENC(ETl3xrQc7DC/P3Fj6eeoyxF1PF61ofcDcVgWR0ZgyDbdrSvRQjGPcuEYRG9TGKZK)
 
 jwt:
-  secret: ${JWT_SECRET:local-jwt-secret-key-must-be-at-least-512-bits-long-for-security}
+  secret: ENC(vIYDUePfglwxyetw0/0LUx5P5E5hNCuhxmAYDVixz6Bl0QV3E+ikHey0YESW/HL+)
   expiration: 86400000
   refresh-expiration: 2592000000
 
 ai:
   claude:
-    api-key: ${CLAUDE_API_KEY:}
+    api-key: ENC(AmNmqQC8IVQXprZkDIr0aVDYZdSvZc9yJ1WyFGElE21u6Huz8YrUs9YRROsuRItQcVLgbFSLGozFxuwkV0e9P3r+62BVwcjAlzk6HFpkW9zYj4ABkOxSjSuBn1DB4x//6zg5DPeDftwrctmInXdMCs4HNDiW+hBW)
     base-url: https://api.anthropic.com
   grok:
-    api-key: ${GROK_API_KEY:}
+    api-key: ENC(u6xPbuBZwRQu8eC1V2MBnDx6Jvbt+mIg/1Ez5mOOJP1eaQSdd5VmgNdLho1Ir2NCgcsog7/6jCmpYMEJ2Unu97sTURPiTmdUy3qaSV8k/Ab2EEEMBtIovnXQ3x1wDHfS)
     base-url: https://api.x.ai
   gpt:
     api-key: ${GPT_API_KEY:}
   gemini:
-    api-key: ${GEMINI_API_KEY:}
+    api-key: ENC(2zM5+cyCPuTdnB0/KdyvOHwLvHRxvj0zcUt3E6EZfP94emME2vcPep6qppcdtIEo)
 
 cloudinary:
-  cloud-name: ${CLOUDINARY_NAME:}
-  api-key: ${CLOUDINARY_API_KEY:}
-  api-secret: ${CLOUDINARY_API_SECRET:}
+  cloud-name: ENC(xJuRYdtO8SDrSa5jq5gYHv/sUPHn/Osb)
+  api-key: ENC(PZqW8dWU5yo8NArAun26Bd9WsNcvYaN3)
+  api-secret: ENC(tASMipKZ29AOXP0SntuzlscZvsg7b0s3sgp0yjn6HVsQD5SenaylBw==)
 
 github:
   pat: ENC(OWEPmX164n8M/dbRBuzQEc8PW4wSLS/DtdyM9mTEewFmSuNKc+qOnwJb8xLrQpQvjYKSgTWvElIEsIaeFY+R+nTEPPG4L49u24K+vIeQJw3oLRadETi2LxgNkjoUCO4F6Ulq8gps6uc=)
-  webhook:
-    url: ${GITHUB_WEBHOOK_URL:}
-    secret: ${GITHUB_WEBHOOK_SECRET:local-webhook-secret}
 
 frontend:
-  url: ${FRONTEND_URL:http://localhost:5173}
+  url: "http://localhost:5173"
 
 resilience4j:
   retry:
