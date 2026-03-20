@@ -304,7 +304,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | 다크모드 텍스트 안 보임                     | 하드코딩 색상 (`#111827` 등)                                    | CSS 변수(`var(--text)`) 교체                                                |
 | Gemini 이미지 생성 실패                  | 무료 티어 할당량 초과 (429)                                       | Gemini 이미지 계획 취소, GPT 전환 예정                                             |
 | QEMU arm64 빌드 illegal instruction | `node:20-alpine` musl libc + QEMU 비호환                    | `node:20-slim` (debian)으로 교체                                            |
-| rollup arm64 모듈 누락 (구조적 문제)       | QEMU 크로스빌드 시 npm이 잘못된 아키텍처로 optional dep 설치 — 재시도로 해결 불가 | Actions에서 `npm ci && npm run build` 후 `dist`만 Docker에 COPY하는 방식으로 변경 필요 |
+| rollup 바이너리 모듈 누락                  | npm optional dependency 공식 버그 — `npm ci`가 lock 기반으로 깨진 상태 그대로 재현 | `npm install`로 교체해 dependency 재resolve. `package-lock.json` 삭제 후 재생성 |
 
 ---
 
@@ -336,7 +336,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **Docker 배포** — Dockerfile (백엔드/프론트) + Docker Compose 구성, `JASYPT_ENCRYPTOR_PASSWORD`만 런타임 주입 (`.env` 제거)
 - [x] **GitHub Actions 캐시** — Gradle 의존성, npm 패키지 캐시 추가로 빌드 시간 단축
 - [x] **백엔드/프론트 이미지 병렬 빌드** — deploy.yml에서 backend/frontend Docker 빌드를 별도 job으로 분리해 동시 실행
-- [x] **프론트엔드 빌드 방식 변경** — QEMU 크로스빌드 시 rollup arm64 구조적 문제 해결: Actions에서 `npm ci && npm run build` 실행 후 `dist`만 nginx Docker 이미지에 COPY (Docker 안에서 npm 제거)
+- [x] **프론트엔드 빌드 방식 변경** — rollup npm optional dep 버그 해결: `npm ci` → `npm install` 교체, Actions에서 빌드 후 `dist`만 nginx Docker 이미지에 COPY
 
 ### 기능
 
