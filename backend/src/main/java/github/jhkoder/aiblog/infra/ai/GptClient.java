@@ -7,7 +7,6 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -37,9 +36,6 @@ public class GptClient implements AiClient {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RateLimitCache rateLimitCache;
 
-    @Value("${ai.gpt.api-key:}")
-    private String serverApiKey;
-
     @Override
     public String complete(String prompt, String model, String apiKey) {
         return completeWithUsage(prompt, model, apiKey, null).text();
@@ -49,8 +45,8 @@ public class GptClient implements AiClient {
     @Retry(name = "ai-client")
     @CircuitBreaker(name = "ai-client")
     public AiResponse completeWithUsage(String prompt, String model, String apiKey, Long memberId) {
-        String key = (apiKey != null && !apiKey.isBlank()) ? apiKey : serverApiKey;
-        if (key == null || key.isBlank()) throw new ExternalApiException("GPT API 키가 설정되지 않았습니다.");
+        if (apiKey == null || apiKey.isBlank()) throw new ExternalApiException("GPT API 키가 설정되지 않았습니다. 마이페이지에서 API 키를 등록해주세요.");
+        String key = apiKey;
 
         String resolvedModel = (model != null && !model.isBlank()) ? model : GPT_4O_MINI;
 

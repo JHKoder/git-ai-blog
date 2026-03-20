@@ -27,9 +27,6 @@ public class GrokClient implements AiClient {
     @Value("${ai.grok.base-url}")
     private String baseUrl;
 
-    @Value("${ai.grok.api-key:}")
-    private String serverApiKey;
-
     public static final String GROK_3 = "grok-3";
 
     @Override
@@ -41,8 +38,8 @@ public class GrokClient implements AiClient {
     @Retry(name = "ai-client")
     @CircuitBreaker(name = "ai-client")
     public AiResponse completeWithUsage(String prompt, String model, String apiKey, Long memberId) {
-        String key = (apiKey != null && !apiKey.isBlank()) ? apiKey : serverApiKey;
-        if (key == null || key.isBlank()) throw new ExternalApiException("Grok API 키가 설정되지 않았습니다.");
+        if (apiKey == null || apiKey.isBlank()) throw new ExternalApiException("Grok API 키가 설정되지 않았습니다. 마이페이지에서 API 키를 등록해주세요.");
+        String key = apiKey;
 
         try {
             Map<String, Object> body = Map.of(

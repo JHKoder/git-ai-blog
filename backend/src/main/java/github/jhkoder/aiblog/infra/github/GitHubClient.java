@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -24,16 +23,14 @@ public class GitHubClient {
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${github.pat:}")
-    private String pat;
-
-    /** 요청별 PAT override — 회원 PAT를 임시로 설정 (ThreadLocal 기반) */
+    /** 요청별 PAT — 회원 PAT를 임시로 설정 (ThreadLocal 기반) */
     private static final ThreadLocal<String> PAT_OVERRIDE = new ThreadLocal<>();
 
     public void withMemberPat(String memberPat) {
-        if (memberPat != null && !memberPat.isBlank()) {
-            PAT_OVERRIDE.set(memberPat);
+        if (memberPat == null || memberPat.isBlank()) {
+            throw new github.jhkoder.aiblog.common.exception.BusinessRuleException("GitHub 토큰이 설정되지 않았습니다. 마이페이지에서 GitHub PAT를 등록해주세요.");
         }
+        PAT_OVERRIDE.set(memberPat);
     }
 
     public void clearMemberPat() {
@@ -41,8 +38,11 @@ public class GitHubClient {
     }
 
     private String currentPat() {
-        String override = PAT_OVERRIDE.get();
-        return (override != null && !override.isBlank()) ? override : pat;
+        String pat = PAT_OVERRIDE.get();
+        if (pat == null || pat.isBlank()) {
+            throw new github.jhkoder.aiblog.common.exception.BusinessRuleException("GitHub 토큰이 설정되지 않았습니다. 마이페이지에서 GitHub PAT를 등록해주세요.");
+        }
+        return pat;
     }
 
     /** 커밋 중 메시지에 [blog] 태그가 포함된 것만 수집 */

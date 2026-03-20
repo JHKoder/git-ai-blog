@@ -6,6 +6,7 @@
 
 ---
 
+
 ## 1. 프로젝트 개요
 
 GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
@@ -39,15 +40,38 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGP
 
 ### 프로파일별 환경변수 정책
 
-| 프로파일    | .env 사용 | Jasypt 암호화 | 비고                                                                               |
+| 프로파일 | Jasypt 암호화 | 비고 |
 |---------|---------|------------|----------------------------------------------------------------------------------|
-| `local` | 없음      | 없음         | 중요 암호값 없이 실행 가능, 테스트 포함. GitHub Actions CI도 local로 실행                            |
-| `dev`   | 없음      | **필수**     | `application-dev.yml` 에 Jasypt 암호화 값 직접 포함. `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요  |
-| `prod`  | 없음      | **필수**     | `application-prod.yml` 에 Jasypt 암호화 값 직접 포함. `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요 |
+| `local`   | 없음 | 중요 암호값 없이 실행 가능, 테스트 포함. GitHub Actions CI도 local로 실행 |
+| `dev`      | **필수**     | `application-dev.yml` 에 Jasypt 암호화 값 직접 포함. `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요 |
+| `prod`      | **필수**     | `application-prod.yml` 에 Jasypt 암호화 값 직접 포함. `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요 |
+
+**Jasypt ENC() 암호화 대상 (yml 포함 항목):**
+
+| 항목 | 비고 |
+|------|------|
+| `db.encryption.key` | AES-256-GCM DB 컬럼 암호화 키 (`application.yml`) |
+| `jwt.secret` | JWT 서명 키 (`application.yml`) |
+| `cloudinary.cloud-name` | Cloudinary 서버 인프라 (`application.yml`) |
+| `cloudinary.api-key` | Cloudinary 서버 인프라 (`application.yml`) |
+| `cloudinary.api-secret` | Cloudinary 서버 인프라 (`application.yml`) |
+| `spring.datasource.url` | Supabase DB URL (`dev/prod yml`) |
+| `spring.datasource.username` | DB 계정 (`dev/prod yml`) |
+| `spring.datasource.password` | DB 비밀번호 (`dev/prod yml`) |
+| `spring.security.oauth2.client.registration.github.client-id` | GitHub OAuth App (`dev/prod yml`) |
+| `spring.security.oauth2.client.registration.github.client-secret` | GitHub OAuth App (`dev/prod yml`) |
+
+**yml 제외 항목 (ENC() 불필요):**
+
+| 항목 | 이유 |
+|------|------|
+| AI API 키 (Claude, Grok, GPT, Gemini) | 사용자가 마이페이지에서 직접 입력 — yml 관리 불필요 |
+| `github.pat` | 사용자가 마이페이지에서 직접 입력 — yml 관리 불필요 |
+| Hashnode 토큰 / publicationId | 마이페이지에서 사용자가 직접 등록 |
+| `SPRING_DATA_REDIS` (host/port) | 내부 자동화 Redis — 민감정보 아님, 암호화 불필요 |
 
 > `.env` 파일은 완전히 제거. 모든 민감값은 Jasypt로 암호화 후 yml에 직접 포함.
-> `.env.backup`은 관리자(로컬)에서만 보관, 절대 커밋 금지.
-> Hashnode 설정은 yml 불필요 — 마이페이지에서 사용자가 직접 등록.
+> AI API 키, GitHub PAT, Hashnode 설정은 yml 불필요 — 마이페이지(Member API 키 설정)에서 사용자가 직접 등록.
 
 ---
 
@@ -309,56 +333,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 
 ---
 
-## 7. 개선 필요 항목
-
-### 보안 (치명적 — 우선 처리)
-
-- [x] **GitHub Webhook 서명 검증** — `X-Hub-Signature-256` 미검증 시 payload 위조로 DB 오염 가능. `WebhookSignatureVerifier` 추가 +
-  GitHub IP whitelist
-- [x] **DB 컬럼 암호화** — `Member` 테이블 민감 필드 현재 평문 저장 위험. `@Convert` + `AttributeConverter` AES-256-GCM 적용
-- [x] **JWT Refresh Token** — 현재 미구현. Refresh Token 30일 (HttpOnly 쿠키) + Redis blacklist + Rotation
-- [x] **Jasypt 알고리즘 업그레이드** — 현재 `PBEWithMD5AndDES` → `PBEWithHMACSHA512AndAES_256` (prod 전용)
-- [x] **CORS** — `FRONTEND_URL` 환경변수 기반 (wildcard 금지)
-
-### 인프라
-
-- [x] **Redis 도입** — `AiUsageLimiter`, `RateLimitCache`, `ImageUsageLimiter`, `TokenUsageTracker`, JWT blacklist
-  In-memory → Redis 전환
-- [x] **OCI 서버 배포** — 단일 서버 (2CPU/16GB), 백엔드+프론트 동일 서버 (`168.107.26.27`)
-- [x] **HTTPS 설정** — Nginx + Let's Encrypt 자동 갱신, 도메인: `git-ai-blog.kr`. nginx.conf에 http→https 강제 리다이렉트 + SSL 블록 구성
-- [x] **환경변수 관리** — dev/prod 모두 `.env` 제거, `application-dev.yml` / `application-prod.yml` + Jasypt 암호화 값 직접 포함
-
-### CI/CD
-
-- [x] **GitHub Actions 롤링 배포** — sub branch → main PR merge 시 자동 배포
-- [x] **PR 테스트 검증** — local 프로파일로 실행, commit마다 테스트 자동 실행, 성공해야 merge 허용
-- [x] **Squash and Merge** — PR merge 방식 squash and merge 적용
-- [x] **PR 자동 라벨링** — `[bug]`, `[hotfix]`, `[release]`, `[feature]`, `[security]` 태그 자동 부착
-- [x] **Docker 배포** — Dockerfile (백엔드/프론트) + Docker Compose 구성, `JASYPT_ENCRYPTOR_PASSWORD`만 런타임 주입 (`.env` 제거)
-- [x] **GitHub Actions 캐시** — Gradle 의존성, npm 패키지 캐시 추가로 빌드 시간 단축
-- [x] **백엔드/프론트 이미지 병렬 빌드** — deploy.yml에서 backend/frontend Docker 빌드를 별도 job으로 분리해 동시 실행
-- [x] **프론트엔드 빌드 방식 변경** — rollup npm optional dep 버그 해결: `npm ci` → `npm install` 교체, Actions에서 빌드 후 `dist`만 nginx
-  Docker 이미지에 COPY
-- [x] **경로 기반 조건부 빌드** — `backend/**` 변경 시에만 backend job 실행, `frontend/**` 변경 시에만 frontend job 실행. 변경 없는 쪽은 빌드 스킵해서 불필요한
-  QEMU 빌드 제거
-
-### 기능
-
-- [x] **ChatGPT 모델 추가** — `GptClient` 구현, `gpt-4o-mini` (가성비) + `gpt-4o` (고성능)
-- [x] **Gemini 모델 추가** — `GeminiClient` 구현, `gemini-2.0-flash`
-- [x] **이미지 생성 (GPT 전용)** — GPT 모델 선택 시에만 이미지 생성 활성화, Cloudinary 업로드 연동
-- [x] **Resilience4j 적용** — Retry, CircuitBreaker (Claude/Grok/GPT/Hashnode API 보호)
-
-### 코드 품질
-
-- [x] **패키지명 변경** — `com.example.aiblog` → `github.jhkoder.aiblog`
-- [x] **API 유효성 검사** — 모든 Request DTO에 `@Valid` + Bean Validation, 에러 메시지 명확화
-- [x] **테스트 코드** — `@DataJpaTest` + `@WebMvcTest` 80% 커버리지 목표. AI 클라이언트는 WireMock으로 contract test. GitHub webhook은
-  signature 검증 테스트 필수
-
----
-
-## 8. 배포 계획 (OCI 단일 서버)
+## 7. 배포 계획 (OCI 단일 서버)
 
 ### 서버 정보
 
@@ -463,7 +438,7 @@ main push
 
 ---
 
-## 9. 개발 환경 실행 방법
+## 8. 개발 환경 실행 방법
 
 ```bash
 # 백엔드 — local 프로파일 (환경변수 불필요, H2 사용)

@@ -30,9 +30,6 @@ public class ClaudeClient implements AiClient {
     @Value("${ai.claude.base-url}")
     private String baseUrl;
 
-    @Value("${ai.claude.api-key:}")
-    private String serverApiKey;
-
     public static final String SONNET = "claude-sonnet-4-6";
     public static final String OPUS   = "claude-opus-4-5";
 
@@ -54,8 +51,8 @@ public class ClaudeClient implements AiClient {
     @Retry(name = "ai-client")
     @CircuitBreaker(name = "ai-client")
     private AiResponse callApi(String prompt, String model, String apiKey, int maxTokens, Long memberId) {
-        String key = (apiKey != null && !apiKey.isBlank()) ? apiKey : serverApiKey;
-        if (key == null || key.isBlank()) throw new ExternalApiException("Claude API 키가 설정되지 않았습니다.");
+        if (apiKey == null || apiKey.isBlank()) throw new ExternalApiException("Claude API 키가 설정되지 않았습니다. 마이페이지에서 API 키를 등록해주세요.");
+        String key = apiKey;
 
         try {
             Map<String, Object> body = Map.of(

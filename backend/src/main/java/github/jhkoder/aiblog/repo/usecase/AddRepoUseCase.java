@@ -1,6 +1,9 @@
 package github.jhkoder.aiblog.repo.usecase;
 
+import github.jhkoder.aiblog.common.exception.NotFoundException;
 import github.jhkoder.aiblog.infra.github.GitHubClient;
+import github.jhkoder.aiblog.member.domain.Member;
+import github.jhkoder.aiblog.member.domain.MemberRepository;
 import github.jhkoder.aiblog.repo.domain.Repo;
 import github.jhkoder.aiblog.repo.domain.RepoRepository;
 import github.jhkoder.aiblog.repo.dto.RepoAddRequest;
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AddRepoUseCase {
 
     private final RepoRepository repoRepository;
+    private final MemberRepository memberRepository;
     private final GitHubClient gitHubClient;
 
     @Value("${github.webhook.url:}")
@@ -27,17 +31,25 @@ public class AddRepoUseCase {
 
     @Transactional
     public RepoResponse execute(Long memberId, RepoAddRequest request) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다."));
+
         Repo repo = Repo.create(memberId, request.getOwner(), request.getRepoName(), request.getCollectType());
         repoRepository.save(repo);
 
         // Webhook 자동 등록 (URL 설정된 경우에만)
         if (webhookUrl != null && !webhookUrl.isBlank()) {
-            Long webhookId = gitHubClient.registerWebhook(
-                    request.getOwner(), request.getRepoName(), webhookUrl, webhookSecret
-            );
-            if (webhookId != null) {
-                repo.registerWebhook(webhookId);
-                log.info("Webhook 등록 완료: {}/{} hookId={}", request.getOwner(), request.getRepoName(), webhookId);
+            gitHubClient.withMemberPat(member.getGithubToken());
+            try {
+                Long webhookId = gitHubClient.registerWebhook(
+                        request.getOwner(), request.getRepoName(), webhookUrl, webhookSecret
+                );
+                if (webhookId != null) {
+                    repo.registerWebhook(webhookId);
+                    log.info("Webhook 등록 완료: {}/{} hookId={}", request.getOwner(), request.getRepoName(), webhookId);
+                }
+            } finally {
+                gitHubClient.clearMemberPat();
             }
         }
 
