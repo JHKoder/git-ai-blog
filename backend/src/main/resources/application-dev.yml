@@ -1,9 +1,9 @@
 spring:
   datasource:
-    url: ENC(lni+njS8UwF2hx23Q5ND0tgNppn5A4F4/f2hhHntH4byZD9UmSyd+IZPDN9nooMe7Mq9wItalxH9EbNgXmr8nFdV2gjPU/64kAaCtHWiWmMPPspmQAVr3w==)
+    url: ENC(여기에_암호화된_JDBC_URL)
     driver-class-name: org.postgresql.Driver
-    username: ENC(7++l2EV5iQejJSkuCLWzPhOBjlRjTs7IgiEPwM1PkYxvUQr/9MMZ4g==)
-    password: ENC(D5+BdZdmZSNz2PnnfVsHTXC4uJcL0f+pvHdpXQu+kZw=)
+    username: ENC(여기에_암호화된_PG_USERNAME)
+    password: ENC(여기에_암호화된_PG_PASSWORD)
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
@@ -15,8 +15,8 @@ spring:
       client:
         registration:
           github:
-            client-id: ENC(f3VTAM4li0GP8nUUWxkmjbfQOdSjQru6+ixUC1hBu5E=)
-            client-secret: ENC(SOIHonk8q8Uj4AjuX9/DMwGz3dAYXBU1QcsjGel/NPZPj+FRNd1Euc2lqv9LqhStNge+uNnTbwM=)
+            client-id: ENC(여기에_암호화된_GITHUB_CLIENT_ID)
+            client-secret: ENC(여기에_암호화된_GITHUB_CLIENT_SECRET)
             scope: read:user,user:email
 
 ai:
