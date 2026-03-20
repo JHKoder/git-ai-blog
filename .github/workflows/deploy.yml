@@ -55,6 +55,7 @@ jobs:
         run: |
           cd frontend
           npm install
+          npm install @rollup/rollup-linux-x64-gnu --save-dev
           npm run build
 
       - name: Set up QEMU (aarch64 cross-build)
