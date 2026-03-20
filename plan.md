@@ -304,6 +304,8 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | Cloudinary 서명 오류              | HMAC-SHA256 사용                       | SHA-1로 수정                                   |
 | 다크모드 텍스트 안 보임                 | 하드코딩 색상 (`#111827` 등)                | CSS 변수(`var(--text)`) 교체                    |
 | Gemini 이미지 생성 실패              | 무료 티어 할당량 초과 (429)                   | Gemini 이미지 계획 취소, GPT 전환 예정                 |
+| QEMU arm64 빌드 illegal instruction | `node:20-alpine` musl libc + QEMU 비호환  | `node:20-slim` (debian)으로 교체                 |
+| rollup arm64 모듈 누락              | `npm ci`가 lock 기준으로 linux-arm64-musl 제외 | `npm install`로 교체해 플랫폼 맞게 재resolve           |
 
 ---
 
@@ -333,6 +335,8 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **Squash and Merge** — PR merge 방식 squash and merge 적용
 - [x] **PR 자동 라벨링** — `[bug]`, `[hotfix]`, `[release]`, `[feature]`, `[security]` 태그 자동 부착
 - [x] **Docker 배포** — Dockerfile (백엔드/프론트) + Docker Compose 구성, `JASYPT_ENCRYPTOR_PASSWORD`만 런타임 주입 (`.env` 제거)
+- [ ] **GitHub Actions 캐시** — Gradle 의존성, npm 패키지 캐시 추가로 빌드 시간 단축
+- [ ] **백엔드/프론트 이미지 병렬 빌드** — deploy.yml에서 backend/frontend Docker 빌드를 별도 job으로 분리해 동시 실행
 
 ### 기능
 
