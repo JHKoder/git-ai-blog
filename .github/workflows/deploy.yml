@@ -2,11 +2,11 @@ name: Deploy to OCI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   changes:
-    runs-on: ubuntu-22.04-arm64
+    runs-on: ubuntu-22.04
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -95,7 +95,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-22.04-arm64
-    needs: [changes, build-backend, build-frontend]
+    needs: [ changes, build-backend, build-frontend ]
     if: always() && (needs.build-backend.result == 'success' || needs.build-backend.result == 'skipped') && (needs.build-frontend.result == 'success' || needs.build-frontend.result == 'skipped')
     steps:
       - name: Deploy via SSH (Rolling)
