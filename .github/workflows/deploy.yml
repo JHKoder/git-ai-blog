@@ -106,8 +106,8 @@ jobs:
           key: ${{ secrets.OCI_SSH_KEY }}
           script: |
             cd /home/opc/app
-            DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} docker compose pull backend frontend
-            DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} JASYPT_ENCRYPTOR_PASSWORD=${{ secrets.JASYPT_ENCRYPTOR_PASSWORD }} docker compose up -d --no-deps backend frontend
+            docker compose -f /home/opc/app/docker-compose.yml pull backend frontend
+            JASYPT_ENCRYPTOR_PASSWORD=${{ secrets.JASYPT_ENCRYPTOR_PASSWORD }} docker compose -f /home/opc/app/docker-compose.yml up -d --no-deps backend frontend
             sleep 15
-            docker compose ps
+            docker compose -f /home/opc/app/docker-compose.yml ps
             docker image prune -f
