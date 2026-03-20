@@ -4,8 +4,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATA_REDIS_HOST: redis
-    env_file:
-      - /private/.env
+      JASYPT_ENCRYPTOR_PASSWORD: ${JASYPT_ENCRYPTOR_PASSWORD}
     depends_on:
       redis:
         condition: service_healthy

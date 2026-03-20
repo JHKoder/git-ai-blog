@@ -332,7 +332,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **PR 테스트 검증** — local 프로파일로 실행, commit마다 테스트 자동 실행, 성공해야 merge 허용
 - [x] **Squash and Merge** — PR merge 방식 squash and merge 적용
 - [x] **PR 자동 라벨링** — `[bug]`, `[hotfix]`, `[release]`, `[feature]`, `[security]` 태그 자동 부착
-- [x] **Docker 배포** — Dockerfile (백엔드/프론트) + Docker Compose 구성, `.env`는 런타임 주입
+- [x] **Docker 배포** — Dockerfile (백엔드/프론트) + Docker Compose 구성, `JASYPT_ENCRYPTOR_PASSWORD`만 런타임 주입 (`.env` 제거)
 
 ### 기능
 

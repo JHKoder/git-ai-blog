@@ -5,6 +5,7 @@ private/
 .env
 .env.local
 .env.*.local
+.env.backup
 
 # IDE
 .idea/

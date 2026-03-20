@@ -48,7 +48,7 @@ jobs:
           script: |
             cd /home/opc/app
             DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} docker compose pull backend frontend
-            DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} docker compose up -d --no-deps backend frontend
+            DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} JASYPT_ENCRYPTOR_PASSWORD=${{ secrets.JASYPT_ENCRYPTOR_PASSWORD }} docker compose up -d --no-deps backend frontend
             sleep 15
             docker compose ps
             docker image prune -f

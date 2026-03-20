@@ -1,9 +1,13 @@
+jasypt:
+  encryptor:
+    password: ${JASYPT_ENCRYPTOR_PASSWORD}
+
 spring:
   datasource:
-    url: jdbc:postgresql://${PG_HOST:localhost}:${PG_PORT:5432}/${PG_NAME:postgres}?prepareThreshold=0
+    url: ENC(여기에_암호화된_JDBC_URL)
     driver-class-name: org.postgresql.Driver
-    username: ${PG_USERNAME:postgres}
-    password: ${PG_PASSWORD:}
+    username: ENC(여기에_암호화된_PG_USERNAME)
+    password: ENC(여기에_암호화된_PG_PASSWORD)
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
@@ -14,8 +18,8 @@ spring:
       client:
         registration:
           github:
-            client-id: ${GITHUB_CLIENT_ID}
-            client-secret: ${GITHUB_CLIENT_SECRET}
+            client-id: ENC(여기에_암호화된_GITHUB_CLIENT_ID)
+            client-secret: ENC(여기에_암호화된_GITHUB_CLIENT_SECRET)
             scope: read:user,user:email
 
 ai:
