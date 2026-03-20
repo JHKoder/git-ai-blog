@@ -43,7 +43,7 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET:}
 
 github:
-  pat: ${GITHUB_PAT:}
+  pat: ENC(OWEPmX164n8M/dbRBuzQEc8PW4wSLS/DtdyM9mTEewFmSuNKc+qOnwJb8xLrQpQvjYKSgTWvElIEsIaeFY+R+nTEPPG4L49u24K+vIeQJw3oLRadETi2LxgNkjoUCO4F6Ulq8gps6uc=)
   webhook:
     url: ${GITHUB_WEBHOOK_URL:}
     secret: ${GITHUB_WEBHOOK_SECRET:local-webhook-secret}

@@ -305,7 +305,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | Gemini 이미지 생성 실패                  | 무료 티어 할당량 초과 (429)                                               | Gemini 이미지 계획 취소, GPT 전환 예정                                          |
 | QEMU arm64 빌드 illegal instruction | `node:20-alpine` musl libc + QEMU 비호환                            | `node:20-slim` (debian)으로 교체                                         |
 | rollup 바이너리 모듈 누락                 | npm optional dependency 공식 버그 — `npm ci`가 lock 기반으로 깨진 상태 그대로 재현 | `npm install`로 교체해 dependency 재resolve. `package-lock.json` 삭제 후 재생성 |
-| bootJar QEMU 빌드 4분 이상 멈춤          | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                               | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                               |
+| bootJar QEMU 빌드 4분 이상 멈춤          | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                               | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                                 |
 
 ---
 
@@ -337,8 +337,10 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **Docker 배포** — Dockerfile (백엔드/프론트) + Docker Compose 구성, `JASYPT_ENCRYPTOR_PASSWORD`만 런타임 주입 (`.env` 제거)
 - [x] **GitHub Actions 캐시** — Gradle 의존성, npm 패키지 캐시 추가로 빌드 시간 단축
 - [x] **백엔드/프론트 이미지 병렬 빌드** — deploy.yml에서 backend/frontend Docker 빌드를 별도 job으로 분리해 동시 실행
-- [x] **프론트엔드 빌드 방식 변경** — rollup npm optional dep 버그 해결: `npm ci` → `npm install` 교체, Actions에서 빌드 후 `dist`만 nginx Docker 이미지에 COPY
-- [x] **경로 기반 조건부 빌드** — `backend/**` 변경 시에만 backend job 실행, `frontend/**` 변경 시에만 frontend job 실행. 변경 없는 쪽은 빌드 스킵해서 불필요한 QEMU 빌드 제거
+- [x] **프론트엔드 빌드 방식 변경** — rollup npm optional dep 버그 해결: `npm ci` → `npm install` 교체, Actions에서 빌드 후 `dist`만 nginx
+  Docker 이미지에 COPY
+- [x] **경로 기반 조건부 빌드** — `backend/**` 변경 시에만 backend job 실행, `frontend/**` 변경 시에만 frontend job 실행. 변경 없는 쪽은 빌드 스킵해서 불필요한
+  QEMU 빌드 제거
 
 ### 기능
 
@@ -474,4 +476,7 @@ lsof -ti :5173 | xargs kill -9
 > **local 프로파일**: 중요 암호값(API 키, DB 비밀번호) 없이 H2 in-memory DB로 실행 가능. 테스트도 local 기준으로 동작.
 > **dev 프로파일**: `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요. `application-dev.yml`에 암호화 값 포함. `.env` 파일 불필요.
 > **prod**: 서버에서 `JASYPT_ENCRYPTOR_PASSWORD` 환경변수만 관리. `application-prod.yml`에 암호화 값 포함. `.env` 파일 불필요.
-> **cli** : 구현 중 새로 발견한 내용(버그, 설계 결정, 특이사항 등)은 반드시 research.md에 기록해야 함
+
+### 개발 기록 규칙
+
+구현 중 새로 발견한 내용(버그, 설계 결정, 특이사항 등)은 반드시 `research.md`에 기록.
