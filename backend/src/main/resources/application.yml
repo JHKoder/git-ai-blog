@@ -1,0 +1,80 @@
+spring:
+  application:
+    name: ai-blog
+  profiles:
+    active: local
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+
+jasypt:
+  encryptor:
+    password: ${JASYPT_ENCRYPTOR_PASSWORD:local-jasypt-password}
+    algorithm: PBEWithHMACSHA512AndAES_256
+    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+
+db:
+  encryption:
+    key: ${DB_ENCRYPTION_KEY:bG9jYWwtZW5jcnlwdGlvbi1rZXktMzItYnl0ZXMhIQ==}
+
+jwt:
+  secret: ${JWT_SECRET:local-jwt-secret-key-must-be-at-least-512-bits-long-for-security}
+  expiration: 86400000
+  refresh-expiration: 2592000000
+
+ai:
+  claude:
+    api-key: ${CLAUDE_API_KEY:}
+    base-url: https://api.anthropic.com
+  grok:
+    api-key: ${GROK_API_KEY:}
+    base-url: https://api.x.ai
+  gpt:
+    api-key: ${GPT_API_KEY:}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+
+github:
+  pat: ${GITHUB_PAT:}
+  webhook:
+    url: ${GITHUB_WEBHOOK_URL:}
+    secret: ${GITHUB_WEBHOOK_SECRET:local-webhook-secret}
+
+frontend:
+  url: ${FRONTEND_URL:http://localhost:5173}
+
+resilience4j:
+  retry:
+    instances:
+      ai-client:
+        max-attempts: 3
+        wait-duration: 1s
+        retry-exceptions:
+          - github.jhkoder.aiblog.common.exception.ExternalApiException
+      hashnode:
+        max-attempts: 2
+        wait-duration: 1s
+        retry-exceptions:
+          - github.jhkoder.aiblog.common.exception.ExternalApiException
+  circuitbreaker:
+    instances:
+      ai-client:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        minimum-number-of-calls: 5
+      hashnode:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        minimum-number-of-calls: 5
+
+logging:
+  level:
+    github.jhkoder.aiblog: DEBUG

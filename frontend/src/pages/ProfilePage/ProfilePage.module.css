@@ -1,0 +1,355 @@
+.container {
+  max-width: 720px;
+}
+
+.pageTitle {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 24px;
+  color: var(--text);
+}
+
+.loading {
+  color: var(--text-muted);
+  padding: 40px 0;
+  text-align: center;
+}
+
+.section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+
+.section h3 {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.username {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.connectedRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.connectedActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.syncBtn {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.syncBtn:hover { background: #2563eb; }
+.syncBtn:disabled { opacity: 0.6; cursor: default; }
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.input {
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--text);
+  background: var(--input-bg);
+}
+
+.input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+
+.keyGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.groupLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 2px;
+}
+
+.optional {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.saveBtn {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  padding: 9px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  align-self: flex-start;
+}
+
+.saveBtn:hover { background: #2563eb; }
+.saveBtn:disabled { opacity: 0.6; cursor: default; }
+
+.disconnectBtn {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  padding: 7px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  align-self: flex-start;
+}
+
+.disconnectBtn:hover { background: #fecaca; }
+
+[data-theme='dark'] .disconnectBtn {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.connected {
+  color: #16a34a;
+  font-weight: 700;
+  font-size: 14px;
+  margin: 0;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.set {
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* AI 대시보드 */
+.dashNote {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: -8px 0 14px;
+}
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .dashboardGrid { grid-template-columns: 1fr; }
+}
+
+.dashCard {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.modelBadgeSonnet {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+[data-theme='dark'] .modelBadgeSonnet {
+  background: rgba(59,130,246,0.2);
+  color: #93c5fd;
+}
+
+.modelBadgeOpus {
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+[data-theme='dark'] .modelBadgeOpus {
+  background: rgba(124,58,237,0.2);
+  color: #c4b5fd;
+}
+
+.modelBadgeGrok {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+[data-theme='dark'] .modelBadgeGrok {
+  background: rgba(234,179,8,0.15);
+  color: #fcd34d;
+}
+
+.modelRole {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* 토큰 수치 행 */
+.tokenRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+}
+
+.tokenBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 2px;
+}
+
+.tokenNum {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.tokenNumTotal {
+  font-size: 16px;
+  font-weight: 700;
+  color: #3b82f6;
+  font-variant-numeric: tabular-nums;
+}
+
+.tokenLabel {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.tokenDivider {
+  width: 1px;
+  height: 32px;
+  background: var(--border);
+}
+
+.dashStat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dashValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.progressBar {
+  height: 5px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.dashRemain {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.limitHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 4px;
+}

@@ -1,0 +1,48 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 48px 40px;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  max-width: 400px;
+  width: 90%;
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.desc {
+  color: var(--text-secondary);
+  margin: 0 0 32px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.githubBtn {
+  background: #24292e;
+  color: #fff;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: 600;
+  width: 100%;
+}
+
+.githubBtn:hover {
+  background: #1a1e22;
+}

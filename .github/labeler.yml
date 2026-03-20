@@ -1,0 +1,22 @@
+feature:
+  - head-branch: ['^feature/.*']
+
+bug:
+  - head-branch: ['^(bugfix|fix)/.*']
+
+hotfix:
+  - head-branch: ['^hotfix/.*']
+
+release:
+  - head-branch: ['^release/.*']
+
+security:
+  - head-branch: ['^security/.*']
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: ['frontend/**']
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file: ['backend/**']

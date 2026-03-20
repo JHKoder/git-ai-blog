@@ -1,0 +1,36 @@
+jasypt:
+  encryptor:
+    password: ${JASYPT_PASSWORD}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${PG_HOST}:${PG_PORT:5432}/${PG_NAME}
+    driver-class-name: org.postgresql.Driver
+    username: ${PG_USERNAME}
+    password: ${PG_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            scope: read:user,user:email
+
+ai:
+  daily-limit: 20
+
+logging:
+  level:
+    github.jhkoder.aiblog: INFO

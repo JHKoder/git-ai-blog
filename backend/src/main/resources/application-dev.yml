@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${PG_HOST:localhost}:${PG_PORT:5432}/${PG_NAME:postgres}?prepareThreshold=0
+    driver-class-name: org.postgresql.Driver
+    username: ${PG_USERNAME:postgres}
+    password: ${PG_PASSWORD:}
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            scope: read:user,user:email
+
+ai:
+  daily-limit: 20
