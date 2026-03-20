@@ -4,7 +4,7 @@ COPY gradle ./gradle
 COPY gradlew settings.gradle build.gradle ./
 RUN chmod +x gradlew
 COPY src ./src
-RUN ./gradlew bootJar -x test
+RUN ./gradlew --no-daemon --stacktrace bootJar -x test -Dorg.gradle.jvmargs="--add-opens java.base/java.lang=ALL-UNNAMED --enable-native-access=ALL-UNNAMED"
 
 FROM eclipse-temurin:25-jre-jammy
 WORKDIR /app
