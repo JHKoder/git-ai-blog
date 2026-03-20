@@ -335,8 +335,8 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **Squash and Merge** — PR merge 방식 squash and merge 적용
 - [x] **PR 자동 라벨링** — `[bug]`, `[hotfix]`, `[release]`, `[feature]`, `[security]` 태그 자동 부착
 - [x] **Docker 배포** — Dockerfile (백엔드/프론트) + Docker Compose 구성, `JASYPT_ENCRYPTOR_PASSWORD`만 런타임 주입 (`.env` 제거)
-- [ ] **GitHub Actions 캐시** — Gradle 의존성, npm 패키지 캐시 추가로 빌드 시간 단축
-- [ ] **백엔드/프론트 이미지 병렬 빌드** — deploy.yml에서 backend/frontend Docker 빌드를 별도 job으로 분리해 동시 실행
+- [x] **GitHub Actions 캐시** — Gradle 의존성, npm 패키지 캐시 추가로 빌드 시간 단축
+- [x] **백엔드/프론트 이미지 병렬 빌드** — deploy.yml에서 backend/frontend Docker 빌드를 별도 job으로 분리해 동시 실행
 
 ### 기능
 
