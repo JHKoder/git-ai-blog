@@ -338,7 +338,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **GitHub Actions 캐시** — Gradle 의존성, npm 패키지 캐시 추가로 빌드 시간 단축
 - [x] **백엔드/프론트 이미지 병렬 빌드** — deploy.yml에서 backend/frontend Docker 빌드를 별도 job으로 분리해 동시 실행
 - [x] **프론트엔드 빌드 방식 변경** — rollup npm optional dep 버그 해결: `npm ci` → `npm install` 교체, Actions에서 빌드 후 `dist`만 nginx Docker 이미지에 COPY
-- [ ] **경로 기반 조건부 빌드** — `backend/**` 변경 시에만 backend job 실행, `frontend/**` 변경 시에만 frontend job 실행. 변경 없는 쪽은 빌드 스킵해서 불필요한 QEMU 빌드 제거
+- [x] **경로 기반 조건부 빌드** — `backend/**` 변경 시에만 backend job 실행, `frontend/**` 변경 시에만 frontend job 실행. 변경 없는 쪽은 빌드 스킵해서 불필요한 QEMU 빌드 제거
 
 ### 기능
 
