@@ -293,18 +293,19 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 
 ## 6. 알려진 이슈 & 해결 기록
 
-| 문제                                | 원인                                                       | 해결                                                                      |
-|-----------------------------------|----------------------------------------------------------|-------------------------------------------------------------------------|
-| Hashnode API INVALID_QUERY        | Stellate CDN이 variables 캐시 거부                            | 쿼리 본문에 값 직접 인라인                                                         |
-| 재발행 시 Hashnode 글 중복               | 항상 publishPost 호출                                        | hashnodeId 유무로 publish/update 분기                                        |
-| AI 제안 거절 후 AI_SUGGESTED 상태 유지     | reject 시 Post 상태 미복원                                     | `revertFromAiSuggested()` 호출                                            |
-| 타인의 AI 제안 수락/거절 가능                | suggestion.postId 소유권 검증 누락                              | `filter(s -> s.getPostId().equals(postId))`                             |
-| README 수집 시 런타임 오류                | raw Accept 헤더로 String 응답을 Map으로 역직렬화                     | `bodyToMono(String.class)`                                              |
-| Cloudinary 서명 오류                  | HMAC-SHA256 사용                                           | SHA-1로 수정                                                               |
-| 다크모드 텍스트 안 보임                     | 하드코딩 색상 (`#111827` 등)                                    | CSS 변수(`var(--text)`) 교체                                                |
-| Gemini 이미지 생성 실패                  | 무료 티어 할당량 초과 (429)                                       | Gemini 이미지 계획 취소, GPT 전환 예정                                             |
-| QEMU arm64 빌드 illegal instruction | `node:20-alpine` musl libc + QEMU 비호환                    | `node:20-slim` (debian)으로 교체                                            |
-| rollup 바이너리 모듈 누락                  | npm optional dependency 공식 버그 — `npm ci`가 lock 기반으로 깨진 상태 그대로 재현 | `npm install`로 교체해 dependency 재resolve. `package-lock.json` 삭제 후 재생성 |
+| 문제                                | 원인                                                               | 해결                                                                   |
+|-----------------------------------|------------------------------------------------------------------|----------------------------------------------------------------------|
+| Hashnode API INVALID_QUERY        | Stellate CDN이 variables 캐시 거부                                    | 쿼리 본문에 값 직접 인라인                                                      |
+| 재발행 시 Hashnode 글 중복               | 항상 publishPost 호출                                                | hashnodeId 유무로 publish/update 분기                                     |
+| AI 제안 거절 후 AI_SUGGESTED 상태 유지     | reject 시 Post 상태 미복원                                             | `revertFromAiSuggested()` 호출                                         |
+| 타인의 AI 제안 수락/거절 가능                | suggestion.postId 소유권 검증 누락                                      | `filter(s -> s.getPostId().equals(postId))`                          |
+| README 수집 시 런타임 오류                | raw Accept 헤더로 String 응답을 Map으로 역직렬화                             | `bodyToMono(String.class)`                                           |
+| Cloudinary 서명 오류                  | HMAC-SHA256 사용                                                   | SHA-1로 수정                                                            |
+| 다크모드 텍스트 안 보임                     | 하드코딩 색상 (`#111827` 등)                                            | CSS 변수(`var(--text)`) 교체                                             |
+| Gemini 이미지 생성 실패                  | 무료 티어 할당량 초과 (429)                                               | Gemini 이미지 계획 취소, GPT 전환 예정                                          |
+| QEMU arm64 빌드 illegal instruction | `node:20-alpine` musl libc + QEMU 비호환                            | `node:20-slim` (debian)으로 교체                                         |
+| rollup 바이너리 모듈 누락                 | npm optional dependency 공식 버그 — `npm ci`가 lock 기반으로 깨진 상태 그대로 재현 | `npm install`로 교체해 dependency 재resolve. `package-lock.json` 삭제 후 재생성 |
+| bootJar QEMU 빌드 4분 이상 멈춤          | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                               | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                               |
 
 ---
 
@@ -337,6 +338,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **GitHub Actions 캐시** — Gradle 의존성, npm 패키지 캐시 추가로 빌드 시간 단축
 - [x] **백엔드/프론트 이미지 병렬 빌드** — deploy.yml에서 backend/frontend Docker 빌드를 별도 job으로 분리해 동시 실행
 - [x] **프론트엔드 빌드 방식 변경** — rollup npm optional dep 버그 해결: `npm ci` → `npm install` 교체, Actions에서 빌드 후 `dist`만 nginx Docker 이미지에 COPY
+- [ ] **경로 기반 조건부 빌드** — `backend/**` 변경 시에만 backend job 실행, `frontend/**` 변경 시에만 frontend job 실행. 변경 없는 쪽은 빌드 스킵해서 불필요한 QEMU 빌드 제거
 
 ### 기능
 
@@ -396,6 +398,40 @@ sub branch push
     → [라벨링 workflow] PR 내용 감지 → [bug]/[hotfix]/[release]/[feature]/[security] 태그 부착
   → Squash and Merge to main
     → [배포 workflow] Docker build → OCI 서버 롤링 배포 (SSH: /private 키 사용)
+```
+
+### 롤링 배포 흐름 (UML)
+
+```
+main push
+  │
+  ├─[build-backend job]──────────────────────────────────────┐
+  │   actions/checkout                                        │
+  │   Cache Gradle (~/.gradle)                               │
+  │   QEMU + Buildx 설정                                      │
+  │   Docker Hub 로그인                                        │
+  │   docker buildx build --platform linux/arm64             │
+  │     ./backend → jhkoders/aiblog-backend:latest  ──push──►│
+  │                                                           │
+  ├─[build-frontend job]─────────────────────────────────────┤
+  │   actions/checkout                                        │
+  │   Node 20 setup                                           │
+  │   npm install && npm run build  (x64 러너에서 실행)         │
+  │   QEMU + Buildx 설정                                      │
+  │   Docker Hub 로그인                                        │
+  │   docker buildx build --platform linux/arm64             │
+  │     ./frontend (dist 포함) → jhkoders/aiblog-frontend ──►│
+  │                                                           │
+  └─[deploy job]  needs: [build-backend, build-frontend]◄────┘
+      appleboy/ssh-action → opc@168.107.26.27
+        cd /home/opc/app
+        docker compose pull backend frontend   ← Docker Hub에서 latest pull
+        docker compose up -d --no-deps backend frontend
+          ├─ backend  컨테이너 교체 (Spring Boot prod 프로파일)
+          └─ frontend 컨테이너 교체 (nginx + React dist)
+        sleep 15  (헬스체크 대기)
+        docker compose ps
+        docker image prune -f
 ```
 
 ### 환경변수 관리
