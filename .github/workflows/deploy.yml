@@ -176,7 +176,7 @@ jobs:
           script: |
             cd /home/opc/app
             docker compose -f /home/opc/app/docker-compose.yml pull backend frontend
-            JASYPT_ENCRYPTOR_PASSWORD=${{ secrets.JASYPT_ENCRYPTOR_PASSWORD }} docker compose -f /home/opc/app/docker-compose.yml up -d --no-deps backend frontend
+            JASYPT_ENCRYPTOR_PASSWORD='${{ secrets.JASYPT_ENCRYPTOR_PASSWORD }}' docker compose -f /home/opc/app/docker-compose.yml up -d --no-deps backend frontend
             sleep 15
             docker compose -f /home/opc/app/docker-compose.yml ps
             docker image prune -f

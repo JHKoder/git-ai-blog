@@ -110,7 +110,7 @@ docker compose -f /home/opc/app/docker-compose.yml restart
 
 # 이미지 새로 pull 후 재시작 (배포)
 docker compose -f /home/opc/app/docker-compose.yml pull backend frontend
-JASYPT_ENCRYPTOR_PASSWORD=... docker compose -f /home/opc/app/docker-compose.yml up -d --no-deps backend frontend
+JASYPT_ENCRYPTOR_PASSWORD='...' docker compose -f /home/opc/app/docker-compose.yml up -d --no-deps backend frontend
 ```
 
 ---
