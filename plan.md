@@ -353,7 +353,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | 다크모드 텍스트 안 보임                     | 하드코딩 색상 (`#111827` 등)                                                        | CSS 변수(`var(--text)`) 교체                                             |
 | Gemini 이미지 생성 실패                  | 무료 티어 할당량 초과 (429)                                                           | Gemini 이미지 계획 취소, GPT 전환 예정                                          |
 | QEMU arm64 빌드 illegal instruction | `node:20-alpine` musl libc + QEMU 비호환                                        | `node:20-slim` (debian)으로 교체                                         |
-| rollup 바이너리 모듈 누락                 | npm optional dependency 공식 버그 — `npm ci`가 lock 기반으로 깨진 상태 그대로 재현             | `npm install`로 교체해 dependency 재resolve. `package-lock.json` 삭제 후 재생성 |
+| rollup 바이너리 모듈 누락 (반복)            | npm optional dependency 공식 버그 — `npm ci` 또는 `package-lock.json` 잔존 시 lock 기반 재현 | CI에서 `npm install` 전에 `rm -f package-lock.json` 추가 (deploy.yml, test.yml) |
 | bootJar QEMU 빌드 4분 이상 멈춤          | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                                           | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                                 |
 | backend 컨테이너 Restarting           | `no configuration file provided: not found` — deploy.yml에서 compose 파일 경로 미지정 | `docker compose -f /home/opc/app/docker-compose.yml` 명시              |
 | 배포 서버 GitHub 로그인 502              | nginx.conf에 `/login/` proxy 경로 누락 — OAuth 콜백 처리 불가                           | nginx.conf에 `location /login/` proxy 블록 추가                           |
