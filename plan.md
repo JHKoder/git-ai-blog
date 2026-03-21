@@ -323,6 +323,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **배포 서버 GitHub 로그인 502 수정** — `nginx.conf`에 `/login/` 경로 proxy 추가 (`/login/oauth2/code/github` 콜백 처리)
 - [x] **프론트/백엔드 HTTPS 동작 보장** — nginx.conf 80→443 redirect + `/api/`, `/oauth2/`, `/login/` proxy 구성 완료. frontend
   Dockerfile에 443 EXPOSE 추가
+- [ ] **CI 스마트 재빌드 정책 구현** — 이전 빌드 실패 시 파일 변경 없어도 재빌드, skipped 후 이전 실패 기록 있으면 재빌드. `check-prev-result` job + `gh run list` 활용. 상세 설계: Section 8 "스마트 재빌드 정책" 참조
 
 ### 운영 / 모니터링
 
@@ -333,30 +334,32 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 ### 테스트
 
 - [x] **Controller 테스트 작성 및 통과** — `PostControllerTest`, `MemberControllerTest` (@WebMvcTest, Security 필터 포함)
-- [x] **Repository 통합 테스트 작성 및 통과** — `PostRepositoryTest`, `MemberRepositoryTest`, `AiSuggestionRepositoryTest`, `RepoRepositoryTest` (@SpringBootTest + H2)
+- [x] **Repository 통합 테스트 작성 및 통과** — `PostRepositoryTest`, `MemberRepositoryTest`, `AiSuggestionRepositoryTest`,
+  `RepoRepositoryTest` (@SpringBootTest + H2)
 - [x] **도메인 단위 테스트 통과** — `PostDomainTest`, `WebhookSignatureVerifierTest`
-- [x] **Spring Boot 4 테스트 환경 구성** — `@WebMvcTest` 패키지 이동, `TestRedisConfig` (Redis mock), `test/resources/application.yml` 설정
+- [x] **Spring Boot 4 테스트 환경 구성** — `@WebMvcTest` 패키지 이동, `TestRedisConfig` (Redis mock),
+  `test/resources/application.yml` 설정
 - [x] **미인증 요청 403 반환** — `SecurityConfig`에 `HttpStatusEntryPoint(FORBIDDEN)` 추가 (302 redirect → 403)
 
 ---
 
 ## 7. 알려진 이슈 & 해결 기록
 
-| 문제                                | 원인                                                                           | 해결                                                                   |
-|-----------------------------------|------------------------------------------------------------------------------|----------------------------------------------------------------------|
-| Hashnode API INVALID_QUERY        | Stellate CDN이 variables 캐시 거부                                                | 쿼리 본문에 값 직접 인라인                                                      |
-| 재발행 시 Hashnode 글 중복               | 항상 publishPost 호출                                                            | hashnodeId 유무로 publish/update 분기                                     |
-| AI 제안 거절 후 AI_SUGGESTED 상태 유지     | reject 시 Post 상태 미복원                                                         | `revertFromAiSuggested()` 호출                                         |
-| 타인의 AI 제안 수락/거절 가능                | suggestion.postId 소유권 검증 누락                                                  | `filter(s -> s.getPostId().equals(postId))`                          |
-| README 수집 시 런타임 오류                | raw Accept 헤더로 String 응답을 Map으로 역직렬화                                         | `bodyToMono(String.class)`                                           |
-| Cloudinary 서명 오류                  | HMAC-SHA256 사용                                                               | SHA-1로 수정                                                            |
-| 다크모드 텍스트 안 보임                     | 하드코딩 색상 (`#111827` 등)                                                        | CSS 변수(`var(--text)`) 교체                                             |
-| Gemini 이미지 생성 실패                  | 무료 티어 할당량 초과 (429)                                                           | Gemini 이미지 계획 취소, GPT 전환 예정                                          |
-| QEMU arm64 빌드 illegal instruction | `node:20-alpine` musl libc + QEMU 비호환                                        | `node:20-slim` (debian)으로 교체                                         |
+| 문제                                | 원인                                                                              | 해결                                                                        |
+|-----------------------------------|---------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| Hashnode API INVALID_QUERY        | Stellate CDN이 variables 캐시 거부                                                   | 쿼리 본문에 값 직접 인라인                                                           |
+| 재발행 시 Hashnode 글 중복               | 항상 publishPost 호출                                                               | hashnodeId 유무로 publish/update 분기                                          |
+| AI 제안 거절 후 AI_SUGGESTED 상태 유지     | reject 시 Post 상태 미복원                                                            | `revertFromAiSuggested()` 호출                                              |
+| 타인의 AI 제안 수락/거절 가능                | suggestion.postId 소유권 검증 누락                                                     | `filter(s -> s.getPostId().equals(postId))`                               |
+| README 수집 시 런타임 오류                | raw Accept 헤더로 String 응답을 Map으로 역직렬화                                            | `bodyToMono(String.class)`                                                |
+| Cloudinary 서명 오류                  | HMAC-SHA256 사용                                                                  | SHA-1로 수정                                                                 |
+| 다크모드 텍스트 안 보임                     | 하드코딩 색상 (`#111827` 등)                                                           | CSS 변수(`var(--text)`) 교체                                                  |
+| Gemini 이미지 생성 실패                  | 무료 티어 할당량 초과 (429)                                                              | Gemini 이미지 계획 취소, GPT 전환 예정                                               |
+| QEMU arm64 빌드 illegal instruction | `node:20-alpine` musl libc + QEMU 비호환                                           | `node:20-slim` (debian)으로 교체                                              |
 | rollup 바이너리 모듈 누락 (반복)            | npm optional dependency 공식 버그 — `npm ci` 또는 `package-lock.json` 잔존 시 lock 기반 재현 | CI에서 `npm install` 전에 `rm -f package-lock.json` 추가 (deploy.yml, test.yml) |
-| bootJar QEMU 빌드 4분 이상 멈춤          | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                                           | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                                 |
-| backend 컨테이너 Restarting           | `no configuration file provided: not found` — deploy.yml에서 compose 파일 경로 미지정 | `docker compose -f /home/opc/app/docker-compose.yml` 명시              |
-| 배포 서버 GitHub 로그인 502              | nginx.conf에 `/login/` proxy 경로 누락 — OAuth 콜백 처리 불가                           | nginx.conf에 `location /login/` proxy 블록 추가                           |
+| bootJar QEMU 빌드 4분 이상 멈춤          | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                                              | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                                      |
+| backend 컨테이너 Restarting           | `no configuration file provided: not found` — deploy.yml에서 compose 파일 경로 미지정    | `docker compose -f /home/opc/app/docker-compose.yml` 명시                   |
+| 배포 서버 GitHub 로그인 502              | nginx.conf에 `/login/` proxy 경로 누락 — OAuth 콜백 처리 불가                              | nginx.conf에 `location /login/` proxy 블록 추가                                |
 
 ---
 
@@ -447,6 +450,37 @@ main push
         docker image prune -f
 ```
 
+### 스마트 재빌드 정책
+
+현재 `dorny/paths-filter` 기반 빌드는 파일 변경이 없으면 무조건 skip한다. 이 경우 이전 빌드가 실패했어도 환경설정(yml, workflow 등)만 수정한 커밋에서 재빌드가 되지 않는 문제가 있다.
+
+**원하는 동작:**
+
+| 이전 실행 결과 | 이번 실행 |
+|-------------|---------|
+| 빌드 **실패** | 파일 변경 없어도 **강제 재빌드** |
+| 빌드 **skipped** | 가장 최근 성공/실패 기록 조회 → 성공이면 다시 skip, 실패면 **재빌드** |
+| 빌드 **성공** | 파일 변경 없으면 skip (현재와 동일) |
+
+**구현 방향 (미구현):**
+
+`gh run list`로 이전 실행 결과를 조회하는 `check-prev-result` job을 추가하고, `build-backend` / `build-frontend`의 `if` 조건에 이전 실패 여부를 반영한다.
+
+```
+check-prev-result job
+  gh run list --workflow=deploy.yml --branch=main --limit=2
+  → 이전 실행에서 backend/frontend job이 failure였는지 출력
+  → outputs: backend_prev_failed, frontend_prev_failed
+
+build-backend if 조건:
+  needs.changes.outputs.backend == 'true'
+  || needs.check-prev-result.outputs.backend_prev_failed == 'true'
+
+build-frontend if 조건:
+  needs.changes.outputs.frontend == 'true'
+  || needs.check-prev-result.outputs.frontend_prev_failed == 'true'
+```
+
 ### 환경변수 관리
 
 | 프로파일    | 방식                                                                                       |
@@ -495,16 +529,16 @@ GitHub OAuth App을 환경별로 두 개 등록해야 한다. (Settings → Deve
 
 **Local 개발용 OAuth App:**
 
-| 항목 | 값 |
-|------|-----|
-| Homepage URL | `http://localhost:8080/` |
+| 항목                         | 값                                                |
+|----------------------------|--------------------------------------------------|
+| Homepage URL               | `http://localhost:8080/`                         |
 | Authorization callback URL | `http://localhost:8080/login/oauth2/code/github` |
 
 **Production OAuth App:**
 
-| 항목 | 값 |
-|------|-----|
-| Homepage URL | `https://git-ai-blog.kr/` |
+| 항목                         | 값                                                 |
+|----------------------------|---------------------------------------------------|
+| Homepage URL               | `https://git-ai-blog.kr/`                         |
 | Authorization callback URL | `https://git-ai-blog.kr/login/oauth2/code/github` |
 
 > 각 OAuth App의 Client ID / Client Secret은 Jasypt로 암호화 후 `application-dev.yml` / `application-prod.yml`에 포함.
