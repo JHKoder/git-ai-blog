@@ -39,7 +39,7 @@ public class SyncHashnodePostsUseCase {
         // DB에 저장된 PUBLISHED 게시글 (hashnodeId 보유) 목록
         List<Post> dbPosts = postRepository.findPublishedByMemberId(memberId);
         Map<String, Post> dbByHashnodeId = dbPosts.stream()
-                .collect(Collectors.toMap(Post::getHashnodeId, p -> p));
+                .collect(Collectors.toMap(Post::getHashnodeId, p -> p, (a, b) -> a));
 
         Set<String> hashnodeIds = hashnodePosts.stream()
                 .map(HashnodeClient.HashnodePostInfo::getId)

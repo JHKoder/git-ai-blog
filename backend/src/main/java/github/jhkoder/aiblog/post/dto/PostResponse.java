@@ -33,7 +33,7 @@ public class PostResponse {
                 .status(post.getStatus())
                 .hashnodeId(post.getHashnodeId())
                 .hashnodeUrl(post.getHashnodeUrl())
-                .tags(post.getTags())
+                .tags(List.copyOf(post.getTags()))
                 .viewCount(post.getViewCount())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())

@@ -26,7 +26,7 @@ public class PostListResponse {
                 .title(post.getTitle())
                 .contentType(post.getContentType())
                 .status(post.getStatus())
-                .tags(post.getTags())
+                .tags(List.copyOf(post.getTags()))
                 .viewCount(post.getViewCount())
                 .createdAt(post.getCreatedAt())
                 .build();
