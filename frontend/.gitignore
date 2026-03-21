@@ -5,8 +5,10 @@ node_modules/
 dist/
 dist-ssr/
 
+
 # Vite 캐시
 .vite/
+
 
 # 환경변수
 .env

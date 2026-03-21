@@ -6,9 +6,12 @@ out/
 # Gradle wrapper (jar만 제외, scripts는 포함)
 !gradle/wrapper/gradle-wrapper.jar
 
+
 # 환경변수
 .env
 .env.local
+
+
 
 
 # IDE
