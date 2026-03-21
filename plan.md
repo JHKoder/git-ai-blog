@@ -19,23 +19,23 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGP
 
 ## 2. 기술 스택
 
-| 영역        | 기술                                                                                |
-|-----------|-----------------------------------------------------------------------------------|
-| 백엔드       | Spring Boot 4.0.3, Java 25, Gradle 9.3.1                                          |
-| 인증        | Spring Security 7.x + GitHub OAuth2 + JWT (Access 24h / Refresh 30일 HttpOnly 쿠키)  |
-| DB        | H2 (local) / PostgreSQL Supabase (dev/prod) + JPA + Hibernate 7.1                 |
-| 외부 API    | WebClient (WebFlux) — Claude, Grok, ChatGPT, Gemini, GitHub, Hashnode, Cloudinary |
-| 캐시        | Redis — AI 사용량 카운터, Rate Limit 캐시, JWT Refresh Token blacklist                    |
-| 암호화       | Jasypt (`PBEWithHMACSHA512AndAES_256`) — dev/prod 전용, `application-dev/prod.yml` 내 암호화 값  |
-| DB 컬럼 암호화 | `@Convert` + `AttributeConverter` AES-256-GCM — Member 테이블 민감 필드                  |
-| 프론트       | React 18 + TypeScript + Vite 5                                                    |
-| 상태관리      | Zustand + immer                                                                   |
-| HTTP      | Axios (JWT interceptor 자동 주입)                                                     |
-| 스타일       | CSS Modules + CSS 변수 (다크/라이트 모드)                                                  |
-| 컨테이너      | Docker + Docker Compose                                                           |
-| CI/CD     | GitHub Actions — 롤링 배포 (sub → main PR merge 시 자동 배포)                              |
-| 인프라       | OCI 단일 서버 (2CPU / 16GB RAM), IP: `168.107.26.27`, 도메인: `git-ai-blog.kr`           |
-| 웹서버       | Nginx — React 정적 파일 서빙 + `/api` reverse proxy + HTTPS (Let's Encrypt 자동 갱신)       |
+| 영역        | 기술                                                                                       |
+|-----------|------------------------------------------------------------------------------------------|
+| 백엔드       | Spring Boot 4.0.3, Java 25, Gradle 9.3.1                                                 |
+| 인증        | Spring Security 7.x + GitHub OAuth2 + JWT (Access 24h / Refresh 30일 HttpOnly 쿠키)         |
+| DB        | H2 (local) / PostgreSQL Supabase (dev/prod) + JPA + Hibernate 7.1                        |
+| 외부 API    | WebClient (WebFlux) — Claude, Grok, ChatGPT, Gemini, GitHub, Hashnode, Cloudinary        |
+| 캐시        | Redis — AI 사용량 카운터, Rate Limit 캐시, JWT Refresh Token blacklist                           |
+| 암호화       | Jasypt (`PBEWithHMACSHA512AndAES_256`) — dev/prod 전용, `application-dev/prod.yml` 내 암호화 값 |
+| DB 컬럼 암호화 | `@Convert` + `AttributeConverter` AES-256-GCM — Member 테이블 민감 필드                         |
+| 프론트       | React 18 + TypeScript + Vite 5                                                           |
+| 상태관리      | Zustand + immer                                                                          |
+| HTTP      | Axios (JWT interceptor 자동 주입)                                                            |
+| 스타일       | CSS Modules + CSS 변수 (다크/라이트 모드)                                                         |
+| 컨테이너      | Docker + Docker Compose                                                                  |
+| CI/CD     | GitHub Actions — 롤링 배포 (sub → main PR merge 시 자동 배포)                                     |
+| 인프라       | OCI 단일 서버 (2CPU / 16GB RAM), IP: `168.107.26.27`, 도메인: `git-ai-blog.kr`                  |
+| 웹서버       | Nginx — React 정적 파일 서빙 + `/api` reverse proxy + HTTPS (Let's Encrypt 자동 갱신)              |
 
 ### 프로파일별 환경변수 정책
 
@@ -45,7 +45,8 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGP
 | `dev`      | **필수**     | `application-dev.yml` 에 Jasypt 암호화 값 직접 포함. `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요 |
 | `prod`      | **필수**     | `application-prod.yml` 에 Jasypt 암호화 값 직접 포함. `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요 |
 
-> **Jasypt 암호화 방식 주의**: AI가 자동으로 jasypt 암호화를 수행하지 않는다. 웹 사이트(jasypt online tool 등)에서 직접 암호화한 값을 yml에 수동으로 붙여넣는 방식으로 운영한다. AI에게 jasypt 암호화 작업을 시키지 말 것 — 암호화 방식이 다를 수 있다.
+> **Jasypt 암호화 방식 주의**: AI가 자동으로 jasypt 암호화를 수행하지 않는다. 웹 사이트(jasypt online tool 등)에서 직접 암호화한 값을 yml에 수동으로 붙여넣는 방식으로
+> 운영한다. AI에게 jasypt 암호화 작업을 시키지 말 것 — 암호화 방식이 다를 수 있다.
 
 **Jasypt ENC() 암호화 대상 (yml 포함 항목):**
 
@@ -425,7 +426,10 @@ main push
   ├─[build-backend job]  (backend/** 변경 시에만)────────────┐
   │   runs-on: ubuntu-22.04                                  │
   │   actions/checkout                                        │
-  │   Cache Gradle (~/.gradle)                               │
+  │   Cache Gradle (~/.gradle/caches, ~/.gradle/wrapper)     │
+  │     캐시 키: build.gradle + gradle-wrapper.properties 해시  │
+  │     ※ yml 파일은 캐시 대상 아님 (Docker 이미지 빌드 시 COPY로 포함)  │
+  │   Dockerfile 내부: bootJar 실행 → .jar → Docker 이미지 패키징  │
   │   Docker Buildx 설정                                      │
   │   Docker Hub 로그인                                        │
   │   docker buildx build --platform linux/arm64             │
