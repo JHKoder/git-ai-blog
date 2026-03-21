@@ -62,6 +62,15 @@ resilience4j:
         wait-duration-in-open-state: 30s
         minimum-number-of-calls: 5
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
 logging:
   level:
     github.jhkoder.aiblog: DEBUG

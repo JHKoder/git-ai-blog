@@ -24,6 +24,7 @@ spring:
             client-id: ENC(BG9Th9fT/0QDupaA3zCeSPqKfZWJgY6xnniEb9/l9RU=)
             client-secret: ENC(rPPSRGUEfBOA6Lq15wK3Dxt+bMU0rpRjxZEjzjnGiWXV04Vl8SHVBc3qtNUpn4L4g6ajDW3/iJc=)
             scope: read:user,user:email
+            redirect-uri: https://git-ai-blog.kr/login/oauth2/code/github
 
 frontend:
   url: "https://git-ai-blog.kr"

@@ -5,7 +5,6 @@
 > 개발자: 1인 개인 프로젝트
 > 목표 사용자: 최대 100명
 ---
-
 ## 1. 프로젝트 개요
 
 GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
@@ -328,6 +327,8 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
   Dockerfile에 443 EXPOSE 추가
 - [x] **CI 스마트 재빌드 정책 구현** — `check-prev-result` job 추가. 이전 실패 시 강제 재빌드, 이전 기록 없으면(최초) 무조건 빌드, 이전 성공 시 파일 변경 없으면 skip
 - [x] **HTTPS 연결 완료** — Let's Encrypt 인증서 발급, certbot 자동 갱신 자동화, nginx SSL 설정. `https://git-ai-blog.kr` 정상 접속 확인
+- [x] **GitHub OAuth `redirect_uri` 오류 해결** — `application-prod.yml`에 `redirect-uri: https://git-ai-blog.kr/login/oauth2/code/github` 명시. GitHub OAuth App callback URL도 동일하게 등록 필요 (웹에서 수동)
+- [x] **backend `unhealthy` 해결** — `spring-boot-starter-actuator` 추가, `/actuator/health` SecurityConfig permitAll, management 엔드포인트 노출 설정. 테스트 yml OAuth2 mock 설정 추가로 전체 테스트 통과
 
 ### 운영 / 모니터링
 
@@ -349,26 +350,28 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 
 ## 7. 알려진 이슈 & 해결 기록
 
-| 문제                                            | 원인                                                                              | 해결                                                                        |
-|-----------------------------------------------|---------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| Hashnode API INVALID_QUERY                    | Stellate CDN이 variables 캐시 거부                                                   | 쿼리 본문에 값 직접 인라인                                                           |
-| 재발행 시 Hashnode 글 중복                           | 항상 publishPost 호출                                                               | hashnodeId 유무로 publish/update 분기                                          |
-| AI 제안 거절 후 AI_SUGGESTED 상태 유지                 | reject 시 Post 상태 미복원                                                            | `revertFromAiSuggested()` 호출                                              |
-| 타인의 AI 제안 수락/거절 가능                            | suggestion.postId 소유권 검증 누락                                                     | `filter(s -> s.getPostId().equals(postId))`                               |
-| README 수집 시 런타임 오류                            | raw Accept 헤더로 String 응답을 Map으로 역직렬화                                            | `bodyToMono(String.class)`                                                |
-| Cloudinary 서명 오류                              | HMAC-SHA256 사용                                                                  | SHA-1로 수정                                                                 |
-| 다크모드 텍스트 안 보임                                 | 하드코딩 색상 (`#111827` 등)                                                           | CSS 변수(`var(--text)`) 교체                                                  |
-| Gemini 이미지 생성 실패                              | 무료 티어 할당량 초과 (429)                                                              | Gemini 이미지 계획 취소, GPT 전환 예정                                               |
-| QEMU arm64 빌드 illegal instruction             | `node:20-alpine` musl libc + QEMU 비호환                                           | `node:20-slim` (debian)으로 교체                                              |
-| prod 기동 시 `spring.datasource.password` 바인딩 실패 | `JASYPT_ENCRYPTOR_PASSWORD`에 특수문자(`$` 등) 포함 시 shell이 변수로 해석해 값 변형               | deploy.yml 인라인 값을 작은따옴표로 감쌈: `JASYPT_ENCRYPTOR_PASSWORD='...'`            |
-| zustand immer 미들웨어 빌드 실패                      | `immer`가 zustand peer dependency인데 `package.json`에 누락                           | `immer: ^10.0.0` dependencies에 추가                                         |
-| rollup 바이너리 모듈 누락 (반복)                        | npm optional dependency 공식 버그 — `npm ci` 또는 `package-lock.json` 잔존 시 lock 기반 재현 | CI에서 `npm install` 전에 `rm -f package-lock.json` 추가 (deploy.yml, test.yml) |
-| bootJar QEMU 빌드 4분 이상 멈춤                      | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                                              | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                                      |
-| backend 컨테이너 Restarting                       | `no configuration file provided: not found` — deploy.yml에서 compose 파일 경로 미지정    | `docker compose -f /home/opc/app/docker-compose.yml` 명시                   |
-| 배포 서버 GitHub 로그인 502                          | nginx.conf에 `/login/` proxy 경로 누락 — OAuth 콜백 처리 불가                              | nginx.conf에 `location /login/` proxy 블록 추가                                |
-| frontend `cannot load certificate` 반복 재시작      | 서버의 `docker-compose.yml`이 구버전 — `certbot_data` volume 마운트 없고 새 이미지 미pull          | 서버에 최신 `docker-compose.yml` 수동 복사 후 `docker compose pull && up -d` 실행     |
-| 최초 인증서 없이 frontend 기동 시 nginx 즉시 종료          | nginx가 기동 시 SSL 인증서 파일 존재를 검증 — 파일 없으면 exit                                      | frontend 중단 → certbot standalone으로 인증서 발급 → frontend 재기동 순서 필수            |
-| frontend conf.d 비어있어 443 Connection refused    | 서버 `docker-compose.yml`에 `./nginx/conf:/etc/nginx/conf.d` 볼륨 마운트가 이미지 내 conf.d를 덮어씌움 | 서버에 최신 `docker-compose.yml` scp 복사 후 재기동. GHA 캐시도 `--no-cache`로 제거      |
+| 문제                                            | 원인                                                                                   | 해결                                                                        |
+|-----------------------------------------------|--------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| Hashnode API INVALID_QUERY                    | Stellate CDN이 variables 캐시 거부                                                        | 쿼리 본문에 값 직접 인라인                                                           |
+| 재발행 시 Hashnode 글 중복                           | 항상 publishPost 호출                                                                    | hashnodeId 유무로 publish/update 분기                                          |
+| AI 제안 거절 후 AI_SUGGESTED 상태 유지                 | reject 시 Post 상태 미복원                                                                 | `revertFromAiSuggested()` 호출                                              |
+| 타인의 AI 제안 수락/거절 가능                            | suggestion.postId 소유권 검증 누락                                                          | `filter(s -> s.getPostId().equals(postId))`                               |
+| README 수집 시 런타임 오류                            | raw Accept 헤더로 String 응답을 Map으로 역직렬화                                                 | `bodyToMono(String.class)`                                                |
+| Cloudinary 서명 오류                              | HMAC-SHA256 사용                                                                       | SHA-1로 수정                                                                 |
+| 다크모드 텍스트 안 보임                                 | 하드코딩 색상 (`#111827` 등)                                                                | CSS 변수(`var(--text)`) 교체                                                  |
+| Gemini 이미지 생성 실패                              | 무료 티어 할당량 초과 (429)                                                                   | Gemini 이미지 계획 취소, GPT 전환 예정                                               |
+| QEMU arm64 빌드 illegal instruction             | `node:20-alpine` musl libc + QEMU 비호환                                                | `node:20-slim` (debian)으로 교체                                              |
+| prod 기동 시 `spring.datasource.password` 바인딩 실패 | `JASYPT_ENCRYPTOR_PASSWORD`에 특수문자(`$` 등) 포함 시 shell이 변수로 해석해 값 변형                    | deploy.yml 인라인 값을 작은따옴표로 감쌈: `JASYPT_ENCRYPTOR_PASSWORD='...'`            |
+| zustand immer 미들웨어 빌드 실패                      | `immer`가 zustand peer dependency인데 `package.json`에 누락                                | `immer: ^10.0.0` dependencies에 추가                                         |
+| rollup 바이너리 모듈 누락 (반복)                        | npm optional dependency 공식 버그 — `npm ci` 또는 `package-lock.json` 잔존 시 lock 기반 재현      | CI에서 `npm install` 전에 `rm -f package-lock.json` 추가 (deploy.yml, test.yml) |
+| bootJar QEMU 빌드 4분 이상 멈춤                      | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                                                   | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                                      |
+| backend 컨테이너 Restarting                       | `no configuration file provided: not found` — deploy.yml에서 compose 파일 경로 미지정         | `docker compose -f /home/opc/app/docker-compose.yml` 명시                   |
+| 배포 서버 GitHub 로그인 502                          | nginx.conf에 `/login/` proxy 경로 누락 — OAuth 콜백 처리 불가                                   | nginx.conf에 `location /login/` proxy 블록 추가                                |
+| frontend `cannot load certificate` 반복 재시작     | 서버의 `docker-compose.yml`이 구버전 — `certbot_data` volume 마운트 없고 새 이미지 미pull             | 서버에 최신 `docker-compose.yml` 수동 복사 후 `docker compose pull && up -d` 실행     |
+| 최초 인증서 없이 frontend 기동 시 nginx 즉시 종료           | nginx가 기동 시 SSL 인증서 파일 존재를 검증 — 파일 없으면 exit                                          | frontend 중단 → certbot standalone으로 인증서 발급 → frontend 재기동 순서 필수            |
+| frontend conf.d 비어있어 443 Connection refused   | 서버 `docker-compose.yml`에 `./nginx/conf:/etc/nginx/conf.d` 볼륨 마운트가 이미지 내 conf.d를 덮어씌움 | 서버에 최신 `docker-compose.yml` scp 복사 후 재기동. GHA 캐시도 `--no-cache`로 제거        |
+| GitHub OAuth `redirect_uri not associated` 오류  | prod GitHub OAuth App에 `https://git-ai-blog.kr/login/oauth2/code/github` callback URL 미등록 | GitHub OAuth App Settings에서 Authorization callback URL 추가 필요 (미해결)        |
+| backend 컨테이너 계속 `unhealthy`                    | Dockerfile HEALTHCHECK가 `/actuator/health` 호출하는데 `spring-boot-starter-actuator` 미포함  | Actuator 의존성 추가 또는 HEALTHCHECK 엔드포인트 변경 필요 (미해결)                          |
 
 ---
 

@@ -7,12 +7,19 @@ spring:
       - org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
       - org.springframework.boot.data.redis.autoconfigure.DataRedisRepositoriesAutoConfiguration
       - org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: test-client-id
+            client-secret: test-client-secret
+            scope: read:user,user:email
 
 jasypt:
   encryptor:
     password: test-password
-    algorithm: PBEWithHMACSHA512AndAES_256
-    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+    bean: jasyptStringEncryptor
 
 db:
   encryption:

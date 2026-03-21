@@ -37,7 +37,8 @@ public class SecurityConfig {
                                 "/h2-console/**",
                                 "/api/webhook/github",
                                 "/api/auth/refresh",
-                                "/api/auth/logout"
+                                "/api/auth/logout",
+                                "/actuator/health"
                         ).permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
