@@ -51,8 +51,6 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATA_REDIS_HOST: redis
-    env_file:
-      - /home/opc/private/.env
     depends_on:
       redis:
         condition: service_healthy
@@ -128,6 +126,6 @@ echo "   docker compose up -d frontend"
 echo "   docker compose run --rm certbot certonly --webroot \\"
 echo "     --webroot-path=/var/www/certbot \\"
 echo "     -d git-ai-blog.kr \\"
-echo "     --email your@email.com --agree-tos --no-eff-email"
+echo "     --email jeonghun.kang.dev@email.com --agree-tos --no-eff-email"
 echo "   docker compose restart frontend"
 echo "=========================================="
