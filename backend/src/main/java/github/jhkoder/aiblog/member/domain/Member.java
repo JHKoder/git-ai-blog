@@ -54,13 +54,6 @@ public class Member {
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String githubToken;
 
-    @Column(length = 1000)
-    private String githubClientId;
-
-    @Column(length = 1000)
-    @Convert(converter = AesGcmEncryptionConverter.class)
-    private String githubClientSecret;
-
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -108,18 +101,12 @@ public class Member {
         this.geminiApiKey = key;
     }
 
-    public void updateGithubCredentials(String githubToken, String githubClientId, String githubClientSecret) {
+    public void updateGithubCredentials(String githubToken) {
         if (githubToken != null) this.githubToken = githubToken;
-        if (githubClientId != null) this.githubClientId = githubClientId;
-        if (githubClientSecret != null) this.githubClientSecret = githubClientSecret;
     }
 
     public boolean hasGithubToken() {
         return githubToken != null && !githubToken.isBlank();
-    }
-
-    public boolean hasGithubClientId() {
-        return githubClientId != null && !githubClientId.isBlank();
     }
 
     public boolean hasHashnodeConnection() {

@@ -85,22 +85,21 @@ class MemberDomainTest {
     }
 
     @Test
-    @DisplayName("GitHub 크리덴셜 설정 후 hasGithubToken은 true이다")
+    @DisplayName("GitHub 토큰 설정 후 hasGithubToken은 true이다")
     void updateGithubCredentials_setsToken() {
         Member member = Member.create("id", "user", "url");
-        member.updateGithubCredentials("ghp_token", null, null);
+        member.updateGithubCredentials("ghp_token");
 
         assertThat(member.hasGithubToken()).isTrue();
     }
 
     @Test
-    @DisplayName("null 값으로 GitHub 크리덴셜 업데이트해도 기존 값이 유지된다")
+    @DisplayName("null 값으로 GitHub 토큰 업데이트해도 기존 값이 유지된다")
     void updateGithubCredentials_nullDoesNotOverwrite() {
         Member member = Member.create("id", "user", "url");
-        member.updateGithubCredentials("ghp_token", "client-id", "client-secret");
-        member.updateGithubCredentials(null, null, null);
+        member.updateGithubCredentials("ghp_token");
+        member.updateGithubCredentials(null);
 
         assertThat(member.hasGithubToken()).isTrue();
-        assertThat(member.hasGithubClientId()).isTrue();
     }
 }

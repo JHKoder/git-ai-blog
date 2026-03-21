@@ -5,6 +5,7 @@
 > 개발자: 1인 개인 프로젝트
 > 목표 사용자: 최대 100명
 ---
+
 ## 1. 프로젝트 개요
 
 GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
@@ -70,9 +71,11 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGP
 | `github.pat`                         | 사용자가 마이페이지에서 직접 입력 — yml 관리 불필요 |
 | Hashnode 토큰 / publicationId          | 마이페이지에서 사용자가 직접 등록              |
 | `SPRING_DATA_REDIS` (host/port)      | 내부 자동화 Redis — 민감정보 아님, 암호화 불필요 |
+| `github.client-id` / `github.client-secret` (마이페이지) | **불필요** — OAuth App 인증은 서버 yml로만 관리. 사용자별 OAuth App은 지원하지 않음. `Member.githubClientId/Secret` 필드 및 관련 로직 제거 대상 |
 
 > `.env` 파일은 완전히 제거. 모든 민감값은 Jasypt로 암호화 후 yml에 직접 포함.
 > AI API 키, GitHub PAT, Hashnode 설정은 yml 불필요 — 마이페이지(Member API 키 설정)에서 사용자가 직접 등록.
+> GitHub OAuth App Client ID/Secret은 마이페이지에서 받지 않음 — 서버 `application-prod.yml`에서만 관리.
 
 ---
 
@@ -331,7 +334,9 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
   `redirect-uri: https://git-ai-blog.kr/login/oauth2/code/github` 명시. GitHub OAuth App callback URL도 동일하게 등록 필요 (웹에서 수동)
 - [x] **backend `unhealthy` 해결** — `spring-boot-starter-actuator` 추가, `/actuator/health` SecurityConfig permitAll,
   management 엔드포인트 노출 설정. 테스트 yml OAuth2 mock 설정 추가로 전체 테스트 통과
-- [x] **backend Dockerfile 레이어 캐시 최적화** — `COPY src` 전에 `RUN ./gradlew dependencies --no-daemon || true` 추가로 의존성 레이어 분리. `.dockerignore` 추가 (`build/`, `.gradle/` 제외)
+- [x] **backend Dockerfile 레이어 캐시 최적화** — `COPY src` 전에 `RUN ./gradlew dependencies --no-daemon || true` 추가로 의존성 레이어 분리.
+  `.dockerignore` 추가 (`build/`, `.gradle/` 제외)
+- [x] **`Member.githubClientId/Secret` 필드 제거** — 마이페이지에서 GitHub OAuth App Client ID/Secret을 받을 필요 없음. `Member` 엔티티, `ApiKeyUpdateRequest`, `MemberResponse`, `UpdateApiKeysUseCase`, `MemberDomainTest`에서 제거 완료
 
 ### 운영 / 모니터링
 

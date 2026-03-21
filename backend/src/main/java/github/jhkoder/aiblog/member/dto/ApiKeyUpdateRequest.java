@@ -20,9 +20,5 @@ public class ApiKeyUpdateRequest {
     @Size(max = 500, message = "GitHub Token은 500자 이하여야 합니다.")
     private String githubToken;
 
-    @Size(max = 200, message = "GitHub Client ID는 200자 이하여야 합니다.")
-    private String githubClientId;
 
-    @Size(max = 500, message = "GitHub Client Secret은 500자 이하여야 합니다.")
-    private String githubClientSecret;
 }

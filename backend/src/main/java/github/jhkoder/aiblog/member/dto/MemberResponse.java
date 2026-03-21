@@ -16,7 +16,6 @@ public class MemberResponse {
     private boolean hasGptApiKey;
     private boolean hasGeminiApiKey;
     private boolean hasGithubToken;
-    private boolean hasGithubClientId;
 
     public static MemberResponse from(Member member) {
         return MemberResponse.builder()
@@ -29,7 +28,6 @@ public class MemberResponse {
                 .hasGptApiKey(member.hasGptApiKey())
                 .hasGeminiApiKey(member.hasGeminiApiKey())
                 .hasGithubToken(member.hasGithubToken())
-                .hasGithubClientId(member.hasGithubClientId())
                 .build();
     }
 }

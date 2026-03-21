@@ -31,8 +31,8 @@ public class UpdateApiKeysUseCase {
         if (request.getGeminiApiKey() != null) {
             member.updateGeminiApiKey(request.getGeminiApiKey());
         }
-        if (request.getGithubToken() != null || request.getGithubClientId() != null || request.getGithubClientSecret() != null) {
-            member.updateGithubCredentials(request.getGithubToken(), request.getGithubClientId(), request.getGithubClientSecret());
+        if (request.getGithubToken() != null) {
+            member.updateGithubCredentials(request.getGithubToken());
         }
         return MemberResponse.from(member);
     }
