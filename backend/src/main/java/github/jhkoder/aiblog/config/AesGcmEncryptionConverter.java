@@ -29,7 +29,7 @@ public class AesGcmEncryptionConverter implements AttributeConverter<String, Str
 
     private final SecretKey secretKey;
 
-    public AesGcmEncryptionConverter(@Value("${db.encryption.key:bG9jYWwtZW5jcnlwdGlvbi1rZXktMzItYnl0ZXMhIQ==}") String base64Key) {
+    public AesGcmEncryptionConverter(@Value("${db.encryption.key:bG9jYWwtZW5jcnlwdGlvbi10ZXN0LWtleS0zMmJ5dHM=}") String base64Key) {
         byte[] keyBytes = Base64.getDecoder().decode(base64Key);
         if (keyBytes.length != 32) {
             throw new IllegalArgumentException("DB 암호화 키는 반드시 32바이트(256비트)여야 합니다. 현재: " + keyBytes.length + "바이트");

@@ -1,0 +1,39 @@
+# 테스트 환경 설정
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
+      - org.springframework.boot.data.redis.autoconfigure.DataRedisRepositoriesAutoConfiguration
+      - org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
+
+jasypt:
+  encryptor:
+    password: test-password
+    algorithm: PBEWithHMACSHA512AndAES_256
+    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+
+db:
+  encryption:
+    key: bG9jYWwtZW5jcnlwdGlvbi10ZXN0LWtleS0zMmJ5dHM=
+
+jwt:
+  secret: test-jwt-secret-key-must-be-at-least-32-characters-long
+  expiration: 86400000
+  refresh-expiration: 2592000000
+
+cloudinary:
+  cloud-name: test-cloud
+  api-key: test-api-key
+  api-secret: test-api-secret
+
+frontend:
+  url: "http://localhost:5173"
+
+ai:
+  claude:
+    base-url: https://api.anthropic.com
+  grok:
+    base-url: https://api.x.ai
+  daily-limit: 5

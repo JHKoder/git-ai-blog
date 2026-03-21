@@ -318,9 +318,11 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 
 ### 인프라 / 배포
 
-- [x] **backend Docker Compose 설정 파일 오류 수정** — `deploy.yml`에서 `docker compose -f /home/opc/app/docker-compose.yml` 경로 명시로 수정
+- [x] **backend Docker Compose 설정 파일 오류 수정** — `deploy.yml`에서 `docker compose -f /home/opc/app/docker-compose.yml` 경로
+  명시로 수정
 - [x] **배포 서버 GitHub 로그인 502 수정** — `nginx.conf`에 `/login/` 경로 proxy 추가 (`/login/oauth2/code/github` 콜백 처리)
-- [x] **프론트/백엔드 HTTPS 동작 보장** — nginx.conf 80→443 redirect + `/api/`, `/oauth2/`, `/login/` proxy 구성 완료. frontend Dockerfile에 443 EXPOSE 추가
+- [x] **프론트/백엔드 HTTPS 동작 보장** — nginx.conf 80→443 redirect + `/api/`, `/oauth2/`, `/login/` proxy 구성 완료. frontend
+  Dockerfile에 443 EXPOSE 추가
 
 ### 운영 / 모니터링
 
@@ -328,25 +330,33 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
     - `docker compose ps` / `docker compose logs -f backend`
     - Nginx 접근/오류 로그, 컨테이너 재시작 대응, SSL 인증서 확인 절차 포함
 
+### 테스트
+
+- [x] **Controller 테스트 작성 및 통과** — `PostControllerTest`, `MemberControllerTest` (@WebMvcTest, Security 필터 포함)
+- [x] **Repository 통합 테스트 작성 및 통과** — `PostRepositoryTest`, `MemberRepositoryTest`, `AiSuggestionRepositoryTest`, `RepoRepositoryTest` (@SpringBootTest + H2)
+- [x] **도메인 단위 테스트 통과** — `PostDomainTest`, `WebhookSignatureVerifierTest`
+- [x] **Spring Boot 4 테스트 환경 구성** — `@WebMvcTest` 패키지 이동, `TestRedisConfig` (Redis mock), `test/resources/application.yml` 설정
+- [x] **미인증 요청 403 반환** — `SecurityConfig`에 `HttpStatusEntryPoint(FORBIDDEN)` 추가 (302 redirect → 403)
+
 ---
 
 ## 7. 알려진 이슈 & 해결 기록
 
-| 문제                                | 원인                                                                          | 해결                                                                   |
-|-----------------------------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------|
-| Hashnode API INVALID_QUERY        | Stellate CDN이 variables 캐시 거부                                               | 쿼리 본문에 값 직접 인라인                                                      |
-| 재발행 시 Hashnode 글 중복               | 항상 publishPost 호출                                                           | hashnodeId 유무로 publish/update 분기                                     |
-| AI 제안 거절 후 AI_SUGGESTED 상태 유지     | reject 시 Post 상태 미복원                                                        | `revertFromAiSuggested()` 호출                                         |
-| 타인의 AI 제안 수락/거절 가능                | suggestion.postId 소유권 검증 누락                                                 | `filter(s -> s.getPostId().equals(postId))`                          |
-| README 수집 시 런타임 오류                | raw Accept 헤더로 String 응답을 Map으로 역직렬화                                        | `bodyToMono(String.class)`                                           |
-| Cloudinary 서명 오류                  | HMAC-SHA256 사용                                                              | SHA-1로 수정                                                            |
-| 다크모드 텍스트 안 보임                     | 하드코딩 색상 (`#111827` 등)                                                       | CSS 변수(`var(--text)`) 교체                                             |
-| Gemini 이미지 생성 실패                  | 무료 티어 할당량 초과 (429)                                                          | Gemini 이미지 계획 취소, GPT 전환 예정                                          |
-| QEMU arm64 빌드 illegal instruction | `node:20-alpine` musl libc + QEMU 비호환                                       | `node:20-slim` (debian)으로 교체                                         |
-| rollup 바이너리 모듈 누락                 | npm optional dependency 공식 버그 — `npm ci`가 lock 기반으로 깨진 상태 그대로 재현            | `npm install`로 교체해 dependency 재resolve. `package-lock.json` 삭제 후 재생성 |
-| bootJar QEMU 빌드 4분 이상 멈춤          | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                                          | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                                 |
-| backend 컨테이너 Restarting             | `no configuration file provided: not found` — deploy.yml에서 compose 파일 경로 미지정 | `docker compose -f /home/opc/app/docker-compose.yml` 명시              |
-| 배포 서버 GitHub 로그인 502               | nginx.conf에 `/login/` proxy 경로 누락 — OAuth 콜백 처리 불가                           | nginx.conf에 `location /login/` proxy 블록 추가                          |
+| 문제                                | 원인                                                                           | 해결                                                                   |
+|-----------------------------------|------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| Hashnode API INVALID_QUERY        | Stellate CDN이 variables 캐시 거부                                                | 쿼리 본문에 값 직접 인라인                                                      |
+| 재발행 시 Hashnode 글 중복               | 항상 publishPost 호출                                                            | hashnodeId 유무로 publish/update 분기                                     |
+| AI 제안 거절 후 AI_SUGGESTED 상태 유지     | reject 시 Post 상태 미복원                                                         | `revertFromAiSuggested()` 호출                                         |
+| 타인의 AI 제안 수락/거절 가능                | suggestion.postId 소유권 검증 누락                                                  | `filter(s -> s.getPostId().equals(postId))`                          |
+| README 수집 시 런타임 오류                | raw Accept 헤더로 String 응답을 Map으로 역직렬화                                         | `bodyToMono(String.class)`                                           |
+| Cloudinary 서명 오류                  | HMAC-SHA256 사용                                                               | SHA-1로 수정                                                            |
+| 다크모드 텍스트 안 보임                     | 하드코딩 색상 (`#111827` 등)                                                        | CSS 변수(`var(--text)`) 교체                                             |
+| Gemini 이미지 생성 실패                  | 무료 티어 할당량 초과 (429)                                                           | Gemini 이미지 계획 취소, GPT 전환 예정                                          |
+| QEMU arm64 빌드 illegal instruction | `node:20-alpine` musl libc + QEMU 비호환                                        | `node:20-slim` (debian)으로 교체                                         |
+| rollup 바이너리 모듈 누락                 | npm optional dependency 공식 버그 — `npm ci`가 lock 기반으로 깨진 상태 그대로 재현             | `npm install`로 교체해 dependency 재resolve. `package-lock.json` 삭제 후 재생성 |
+| bootJar QEMU 빌드 4분 이상 멈춤          | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                                           | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                                 |
+| backend 컨테이너 Restarting           | `no configuration file provided: not found` — deploy.yml에서 compose 파일 경로 미지정 | `docker compose -f /home/opc/app/docker-compose.yml` 명시              |
+| 배포 서버 GitHub 로그인 502              | nginx.conf에 `/login/` proxy 경로 누락 — OAuth 콜백 처리 불가                           | nginx.conf에 `location /login/` proxy 블록 추가                           |
 
 ---
 
@@ -478,6 +488,26 @@ lsof -ti :5173 | xargs kill -9
 > **local 프로파일**: 중요 암호값(API 키, DB 비밀번호) 없이 H2 in-memory DB로 실행 가능. 테스트도 local 기준으로 동작.
 > **dev 프로파일**: `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요. `application-dev.yml`에 암호화 값 포함. `.env` 파일 불필요.
 > **prod**: 서버에서 `JASYPT_ENCRYPTOR_PASSWORD` 환경변수만 관리. `application-prod.yml`에 암호화 값 포함. `.env` 파일 불필요.
+
+### GitHub OAuth App 설정
+
+GitHub OAuth App을 환경별로 두 개 등록해야 한다. (Settings → Developer settings → OAuth Apps)
+
+**Local 개발용 OAuth App:**
+
+| 항목 | 값 |
+|------|-----|
+| Homepage URL | `http://localhost:8080/` |
+| Authorization callback URL | `http://localhost:8080/login/oauth2/code/github` |
+
+**Production OAuth App:**
+
+| 항목 | 값 |
+|------|-----|
+| Homepage URL | `https://git-ai-blog.kr/` |
+| Authorization callback URL | `https://git-ai-blog.kr/login/oauth2/code/github` |
+
+> 각 OAuth App의 Client ID / Client Secret은 Jasypt로 암호화 후 `application-dev.yml` / `application-prod.yml`에 포함.
 
 ### 개발 기록 규칙
 
