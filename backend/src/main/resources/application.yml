@@ -1,8 +1,7 @@
 jasypt:
   encryptor:
-    password: ${JASYPT_ENCRYPTOR_PASSWORD:local-jasypt-password}
-    algorithm: PBEWithHMACSHA512AndAES_256
-    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+    password: ${JASYPT_ENCRYPTOR_PASSWORD}
+    bean: jasyptStringEncryptor
 
 spring:
   application:
@@ -18,7 +17,7 @@ spring:
 
 db:
   encryption:
-    key: ENC(ETl3xrQc7DC/P3Fj6eeoyxF1PF61ofcDcVgWR0ZgyDbdrSvRQjGPcuEYRG9TGKZK)
+    key: ENC(uJsLeYZJACCPrkLCIH1gaxjOV+Gya69lvnEc46R4J93OQciW4lvi1xz+dqYPo1gO5qkDNquPtag=)
 
 jwt:
   secret: ENC(vIYDUePfglwxyetw0/0LUx5P5E5hNCuhxmAYDVixz6Bl0QV3E+ikHey0YESW/HL+)

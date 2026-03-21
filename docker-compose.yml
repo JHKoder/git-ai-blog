@@ -1,6 +1,6 @@
 services:
   backend:
-    build: ./backend
+    image: ${DOCKER_USERNAME}/aiblog-backend:latest
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATA_REDIS_HOST: redis
@@ -9,9 +9,11 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - app-net
 
   frontend:
-    build: ./frontend
+    image: ${DOCKER_USERNAME}/aiblog-frontend:latest
     ports:
       - "80:80"
       - "443:443"
@@ -21,6 +23,8 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - app-net
 
   redis:
     image: redis:7-alpine
@@ -33,14 +37,22 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
+    networks:
+      - app-net
 
   certbot:
     image: certbot/certbot:latest
     volumes:
       - certbot_data:/etc/letsencrypt
       - certbot_www:/var/www/certbot
+    networks:
+      - app-net
 
 volumes:
   redis_data:
   certbot_data:
   certbot_www:
+
+networks:
+  app-net:
+    driver: bridge

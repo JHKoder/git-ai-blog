@@ -15,14 +15,6 @@ spring:
     console:
       enabled: true
       path: /h2-console
-  security:
-    oauth2:
-      client:
-        registration:
-          github:
-            client-id: ${GITHUB_CLIENT_ID:local-client-id}
-            client-secret: ${GITHUB_CLIENT_SECRET:local-client-secret}
-            scope: read:user,user:email
 
 ai:
   daily-limit: 5
