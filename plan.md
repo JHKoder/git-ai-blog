@@ -503,10 +503,38 @@ build-frontend if 조건:
 ### HTTPS
 
 - Let's Encrypt certbot 설치 (`git-ai-blog.kr`)
-- systemd 타이머로 자동 갱신 (Ubuntu 기본 포함)
-- Nginx post-renew hook으로 자동 reload
 - Nginx 80 → 443 redirect 설정
 - **모든 진입점은 `https://git-ai-blog.kr` 경로로만 접속** (http → https 강제 리다이렉트)
+
+**인증서 구조:**
+
+- `certbot_data` Docker volume → `/etc/letsencrypt` (인증서 저장)
+- `certbot_www` Docker volume → `/var/www/certbot` (ACME challenge)
+- frontend 컨테이너가 두 volume을 마운트해서 nginx가 인증서를 직접 읽음
+- `nginx.conf`에 `ssl_certificate /etc/letsencrypt/live/git-ai-blog.kr/fullchain.pem` 명시
+
+**최초 인증서 발급 (서버 초기 셋업 시):**
+
+```bash
+# frontend 중지 후 standalone 모드로 80포트 점유해 발급
+docker compose -f /home/opc/app/docker-compose.yml stop frontend
+docker run --rm \
+  -v certbot_data:/etc/letsencrypt \
+  -v certbot_www:/var/www/certbot \
+  -p 80:80 \
+  certbot/certbot certonly --standalone \
+  -d git-ai-blog.kr \
+  --email jeonghun.kang.dev@gmail.com \
+  --agree-tos --non-interactive
+docker compose -f /home/opc/app/docker-compose.yml up -d frontend
+```
+
+**인증서 자동 갱신 자동화:**
+
+- [x] docker-compose에 certbot renew 자동화 연동
+- certbot 컨테이너: 12시간마다 `certbot renew --webroot` 실행 (frontend 중단 없이 갱신)
+- frontend 컨테이너: `docker-entrypoint.sh`에서 nginx 백그라운드 실행 + 6시간마다 인증서 변경 감지 → `nginx -s reload`
+- certbot_www volume을 frontend에서 rw로 마운트 (webroot challenge 파일 쓰기 허용)
 
 ---
 
