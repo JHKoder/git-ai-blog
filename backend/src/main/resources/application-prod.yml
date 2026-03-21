@@ -4,6 +4,9 @@ spring:
     driver-class-name: org.postgresql.Driver
     username: ENC(eBK5B/FKNaXVibBN6sJ/GGbRN1/PLVjs5e2XsUEEkOQujEMJV+xEqA==)
     password: ENC(3f73tV1qCwLcXhB8hvOx0GnwyTY5AaJdSAmqy+tbo3Q=)
+    hikari:
+      data-source-properties:
+        prepareThreshold: 0
   jpa:
     hibernate:
       ddl-auto: update

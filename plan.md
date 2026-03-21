@@ -6,6 +6,7 @@
 > 목표 사용자: 최대 100명
 ---
 
+
 ## 1. 프로젝트 개요
 
 GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
@@ -65,12 +66,12 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGP
 
 **yml 제외 항목 (ENC() 불필요):**
 
-| 항목                                   | 이유                              |
-|--------------------------------------|---------------------------------|
-| AI API 키 (Claude, Grok, GPT, Gemini) | 사용자가 마이페이지에서 직접 입력 — yml 관리 불필요 |
-| `github.pat`                         | 사용자가 마이페이지에서 직접 입력 — yml 관리 불필요 |
-| Hashnode 토큰 / publicationId          | 마이페이지에서 사용자가 직접 등록              |
-| `SPRING_DATA_REDIS` (host/port)      | 내부 자동화 Redis — 민감정보 아님, 암호화 불필요 |
+| 항목                                                  | 이유                                                                                                            |
+|-----------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| AI API 키 (Claude, Grok, GPT, Gemini)                | 사용자가 마이페이지에서 직접 입력 — yml 관리 불필요                                                                               |
+| `github.pat`                                        | 사용자가 마이페이지에서 직접 입력 — yml 관리 불필요                                                                               |
+| Hashnode 토큰 / publicationId                         | 마이페이지에서 사용자가 직접 등록                                                                                            |
+| `SPRING_DATA_REDIS` (host/port)                     | 내부 자동화 Redis — 민감정보 아님, 암호화 불필요                                                                               |
 | `github.client-id` / `github.client-secret` (마이페이지) | **불필요** — OAuth App 인증은 서버 yml로만 관리. 사용자별 OAuth App은 지원하지 않음. `Member.githubClientId/Secret` 필드 및 관련 로직 제거 대상 |
 
 > `.env` 파일은 완전히 제거. 모든 민감값은 Jasypt로 암호화 후 yml에 직접 포함.
@@ -336,7 +337,10 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
   management 엔드포인트 노출 설정. 테스트 yml OAuth2 mock 설정 추가로 전체 테스트 통과
 - [x] **backend Dockerfile 레이어 캐시 최적화** — `COPY src` 전에 `RUN ./gradlew dependencies --no-daemon || true` 추가로 의존성 레이어 분리.
   `.dockerignore` 추가 (`build/`, `.gradle/` 제외)
-- [x] **`Member.githubClientId/Secret` 필드 제거** — 마이페이지에서 GitHub OAuth App Client ID/Secret을 받을 필요 없음. `Member` 엔티티, `ApiKeyUpdateRequest`, `MemberResponse`, `UpdateApiKeysUseCase`, `MemberDomainTest`에서 제거 완료
+- [x] **`Member.githubClientId/Secret` 필드 제거** — 마이페이지에서 GitHub OAuth App Client ID/Secret을 받을 필요 없음. `Member` 엔티티,
+  `ApiKeyUpdateRequest`, `MemberResponse`, `UpdateApiKeysUseCase`, `MemberDomainTest`에서 제거 완료
+- [x] **PostgreSQL prepared statement 충돌 해결** — Supabase PgBouncer 트랜잭션 모드에서 `prepared statement "S_1" already exists` 오류 발생.
+  `application-prod.yml`의 `spring.datasource.hikari.data-source-properties.prepareThreshold: 0` 추가로 서버측 prepared statement 비활성화
 
 ### 운영 / 모니터링
 
@@ -353,6 +357,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **Spring Boot 4 테스트 환경 구성** — `@WebMvcTest` 패키지 이동, `TestRedisConfig` (Redis mock),
   `test/resources/application.yml` 설정
 - [x] **미인증 요청 403 반환** — `SecurityConfig`에 `HttpStatusEntryPoint(FORBIDDEN)` 추가 (302 redirect → 403)
+- [x] **Hashnode 게시글 불러오기 단위 테스트** — `ImportHashnodePostUseCaseTest`: 정상 불러오기, 빈 목록, 회원 미존재, 직접 token 전달, PUBLISHED 상태 검증 4건
 
 ---
 
@@ -380,6 +385,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | frontend conf.d 비어있어 443 Connection refused   | 서버 `docker-compose.yml`에 `./nginx/conf:/etc/nginx/conf.d` 볼륨 마운트가 이미지 내 conf.d를 덮어씌움      | 서버에 최신 `docker-compose.yml` scp 복사 후 재기동. GHA 캐시도 `--no-cache`로 제거        |
 | GitHub OAuth `redirect_uri not associated` 오류 | prod GitHub OAuth App에 `https://git-ai-blog.kr/login/oauth2/code/github` callback URL 미등록 | GitHub OAuth App Settings에서 Authorization callback URL 추가 필요 (미해결)        |
 | backend 컨테이너 계속 `unhealthy`                   | Dockerfile HEALTHCHECK가 `/actuator/health` 호출하는데 `spring-boot-starter-actuator` 미포함       | Actuator 의존성 추가 또는 HEALTHCHECK 엔드포인트 변경 필요 (미해결)                          |
+| `prepared statement "S_1" already exists` + `current transaction is aborted` | Supabase가 내부적으로 PgBouncer 트랜잭션 모드 pooling을 사용 — 커넥션을 풀에 반납할 때 prepared statement 이름이 PostgreSQL 서버에 남아있어 다음 요청에서 충돌. DB 내용 전체 삭제 후 첫 로그인 시 발생 | `application-prod.yml`에 `spring.datasource.hikari.data-source-properties.prepareThreshold: 0` 추가 → 서버측 prepared statement 완전 비활성화 |
 
 ---
 
