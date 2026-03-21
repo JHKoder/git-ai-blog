@@ -156,8 +156,7 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
-            --cache-from type=gha,scope=frontend \
-            --cache-to type=gha,mode=max,scope=frontend \
+            --no-cache \
             -t ${{ secrets.DOCKER_USERNAME }}/aiblog-frontend:${{ github.sha }} \
             -t ${{ secrets.DOCKER_USERNAME }}/aiblog-frontend:latest \
             ./frontend
