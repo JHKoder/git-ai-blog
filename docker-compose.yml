@@ -32,7 +32,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -57,7 +57,9 @@ services:
 volumes:
   redis_data:
   certbot_data:
+    external: true
   certbot_www:
+    external: true
 
 networks:
   app-net:

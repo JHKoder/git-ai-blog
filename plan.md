@@ -365,6 +365,8 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | bootJar QEMU 빌드 4분 이상 멈춤                      | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                                              | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                                      |
 | backend 컨테이너 Restarting                       | `no configuration file provided: not found` — deploy.yml에서 compose 파일 경로 미지정    | `docker compose -f /home/opc/app/docker-compose.yml` 명시                   |
 | 배포 서버 GitHub 로그인 502                          | nginx.conf에 `/login/` proxy 경로 누락 — OAuth 콜백 처리 불가                              | nginx.conf에 `location /login/` proxy 블록 추가                                |
+| frontend `cannot load certificate` 반복 재시작      | 서버의 `docker-compose.yml`이 구버전 — `certbot_data` volume 마운트 없고 새 이미지 미pull          | 서버에 최신 `docker-compose.yml` 수동 복사 후 `docker compose pull && up -d` 실행     |
+| 최초 인증서 없이 frontend 기동 시 nginx 즉시 종료          | nginx가 기동 시 SSL 인증서 파일 존재를 검증 — 파일 없으면 exit                                      | frontend 중단 → certbot standalone으로 인증서 발급 → frontend 재기동 순서 필수            |
 
 ---
 
@@ -406,6 +408,11 @@ services:
   SPRING_PROFILES_ACTIVE=prod
   ```
 - `DOCKER_USERNAME`, `DOCKER_HUB_TOKEN`은 GitHub Secrets에서만 관리 (서버 `.env` 불포함)
+
+> **주의**: 서버의 `/home/opc/app/docker-compose.yml`은 CI/CD로 자동 배포되지 않는다. `docker-compose.yml` 변경 시 수동으로 서버에 복사해야 한다.
+> ```bash
+> scp -i /path/to/key docker-compose.yml opc@168.107.26.27:/home/opc/app/docker-compose.yml
+> ```
 
 ### GitHub Actions CI/CD 흐름
 

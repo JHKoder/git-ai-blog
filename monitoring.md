@@ -101,8 +101,15 @@ docker exec app-frontend-1 wget -q -O- http://backend:8080/actuator/health
 
 ## 5. 컨테이너 재시작
 
+> **주의**: `restart`는 현재 컨테이너를 그대로 재시작하므로 환경변수 변경이 반영되지 않는다.
+> 환경변수를 변경했거나 새로 적용해야 할 때는 반드시 `up -d`로 컨테이너를 재생성해야 한다.
+
 ```bash
-# backend만 재시작
+# backend 환경변수 적용 포함 재생성 (환경변수 변경 시 필수)
+JASYPT_ENCRYPTOR_PASSWORD='...' DOCKER_USERNAME=jhkoders \
+  docker compose -f /home/opc/app/docker-compose.yml up -d --no-deps backend
+
+# 단순 재시작 (환경변수 변경 없을 때만)
 docker compose -f /home/opc/app/docker-compose.yml restart backend
 
 # 전체 재시작
@@ -110,7 +117,8 @@ docker compose -f /home/opc/app/docker-compose.yml restart
 
 # 이미지 새로 pull 후 재시작 (배포)
 docker compose -f /home/opc/app/docker-compose.yml pull backend frontend
-JASYPT_ENCRYPTOR_PASSWORD='...' docker compose -f /home/opc/app/docker-compose.yml up -d --no-deps backend frontend
+JASYPT_ENCRYPTOR_PASSWORD='...' DOCKER_USERNAME=jhkoders \
+  docker compose -f /home/opc/app/docker-compose.yml up -d --no-deps backend frontend
 ```
 
 ---
