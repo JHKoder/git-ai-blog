@@ -25,8 +25,6 @@ export function ProfilePage() {
   const [gptKey, setGptKey] = useState('')
   const [geminiKey, setGeminiKey] = useState('')
   const [githubToken, setGithubToken] = useState('')
-  const [githubClientId, setGithubClientId] = useState('')
-  const [githubClientSecret, setGithubClientSecret] = useState('')
   const [connectingHashnode, setConnectingHashnode] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
@@ -56,8 +54,9 @@ export function ProfilePage() {
       const res = await postApi.syncHashnode()
       const { added, updated, deleted } = res.data.data
       toast.success(`동기화 완료 — 추가 ${added}, 수정 ${updated}, 삭제 ${deleted}`)
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || '동기화 실패')
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message || '동기화 실패')
     } finally {
       setSyncing(false)
     }
@@ -82,12 +81,10 @@ export function ProfilePage() {
       if (gptKey) data.gptApiKey = gptKey
       if (geminiKey) data.geminiApiKey = geminiKey
       if (githubToken) data.githubToken = githubToken
-      if (githubClientId) data.githubClientId = githubClientId
-      if (githubClientSecret) data.githubClientSecret = githubClientSecret
       const res = await memberApi.updateApiKeys(data)
       setMember(res.data.data)
       setClaudeKey(''); setGrokKey(''); setGptKey(''); setGeminiKey('')
-      setGithubToken(''); setGithubClientId(''); setGithubClientSecret('')
+      setGithubToken('')
       toast.success('설정이 저장됐습니다.')
     } catch {
       toast.error('저장 실패')
@@ -282,16 +279,6 @@ export function ProfilePage() {
               <label>Personal Access Token (데이터 수집용) {member.hasGithubToken && <span className={styles.set}>✓ 설정됨</span>}</label>
               <input type="password" value={githubToken} onChange={e => setGithubToken(e.target.value)}
                 placeholder="ghp_xxxxxxxxxxxx" className={styles.input} />
-            </div>
-            <div className={styles.field}>
-              <label>GitHub Client ID (OAuth 앱) {member.hasGithubClientId && <span className={styles.set}>✓ 설정됨</span>}</label>
-              <input value={githubClientId} onChange={e => setGithubClientId(e.target.value)}
-                placeholder="Ov23li..." className={styles.input} />
-            </div>
-            <div className={styles.field}>
-              <label>GitHub Client Secret (OAuth 앱)</label>
-              <input type="password" value={githubClientSecret} onChange={e => setGithubClientSecret(e.target.value)}
-                placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" className={styles.input} />
             </div>
           </div>
 

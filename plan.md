@@ -338,7 +338,8 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **backend Dockerfile 레이어 캐시 최적화** — `COPY src` 전에 `RUN ./gradlew dependencies --no-daemon || true` 추가로 의존성 레이어 분리.
   `.dockerignore` 추가 (`build/`, `.gradle/` 제외)
 - [x] **`Member.githubClientId/Secret` 필드 제거** — 마이페이지에서 GitHub OAuth App Client ID/Secret을 받을 필요 없음. `Member` 엔티티,
-  `ApiKeyUpdateRequest`, `MemberResponse`, `UpdateApiKeysUseCase`, `MemberDomainTest`에서 제거 완료
+  `ApiKeyUpdateRequest`, `MemberResponse`, `UpdateApiKeysUseCase`, `MemberDomainTest`에서 제거 완료.
+  프론트엔드 `member.ts` 타입, `ApiKeyUpdateRequest`, `ProfilePage` UI(입력 필드·state·핸들러)에서도 제거 완료
 - [x] **PostgreSQL prepared statement 충돌 해결** — Supabase PgBouncer 트랜잭션 모드에서 `prepared statement "S_1" already exists` 오류 발생.
   `application-prod.yml`의 `spring.datasource.hikari.data-source-properties.prepareThreshold: 0` 추가로 서버측 prepared statement 비활성화
 
