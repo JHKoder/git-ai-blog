@@ -323,7 +323,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **배포 서버 GitHub 로그인 502 수정** — `nginx.conf`에 `/login/` 경로 proxy 추가 (`/login/oauth2/code/github` 콜백 처리)
 - [x] **프론트/백엔드 HTTPS 동작 보장** — nginx.conf 80→443 redirect + `/api/`, `/oauth2/`, `/login/` proxy 구성 완료. frontend
   Dockerfile에 443 EXPOSE 추가
-- [ ] **CI 스마트 재빌드 정책 구현** — 이전 빌드 실패 시 파일 변경 없어도 재빌드, skipped 후 이전 실패 기록 있으면 재빌드. `check-prev-result` job + `gh run list` 활용. 상세 설계: Section 8 "스마트 재빌드 정책" 참조
+- [x] **CI 스마트 재빌드 정책 구현** — `check-prev-result` job 추가. 이전 실패 시 강제 재빌드, 이전 기록 없으면(최초) 무조건 빌드, 이전 성공 시 파일 변경 없으면 skip
 
 ### 운영 / 모니터링
 
@@ -452,33 +452,35 @@ main push
 
 ### 스마트 재빌드 정책
 
-현재 `dorny/paths-filter` 기반 빌드는 파일 변경이 없으면 무조건 skip한다. 이 경우 이전 빌드가 실패했어도 환경설정(yml, workflow 등)만 수정한 커밋에서 재빌드가 되지 않는 문제가 있다.
+현재 `dorny/paths-filter` 기반 빌드는 파일 변경이 없으면 무조건 skip한다. 이 경우 이전 빌드가 실패했어도 환경설정(yml, workflow 등)만 수정한 커밋에서 재빌드가 되지 않는 문제가
+있다.
 
 **원하는 동작:**
 
-| 이전 실행 결과 | 이번 실행 |
-|-------------|---------|
-| 빌드 **실패** | 파일 변경 없어도 **강제 재빌드** |
-| 빌드 **skipped** | 가장 최근 성공/실패 기록 조회 → 성공이면 다시 skip, 실패면 **재빌드** |
-| 빌드 **성공** | 파일 변경 없으면 skip (현재와 동일) |
+| 이전 실행 결과              | 이번 실행                                         |
+|------------------------|-----------------------------------------------|
+| 빌드 **실패**              | 파일 변경 없어도 **강제 재빌드**                          |
+| 빌드 **skipped**         | 가장 최근 성공/실패 기록 조회 → 성공이면 다시 skip, 실패면 **재빌드** |
+| 빌드 **성공**              | 파일 변경 없으면 skip (현재와 동일)                       |
+| **이전 실행 기록 자체 없음** | **무조건 빌드** (최초 실행, 브랜치 신규 등)                  |
 
-**구현 방향 (미구현):**
+**구현:**
 
-`gh run list`로 이전 실행 결과를 조회하는 `check-prev-result` job을 추가하고, `build-backend` / `build-frontend`의 `if` 조건에 이전 실패 여부를 반영한다.
+`gh run list`로 이전 실행 결과를 조회하는 `check-prev-result` job을 추가하고, `build-backend` / `build-frontend`의 `if` 조건에 이전 실패 여부를 반영한다. 이전 실행 기록이 없으면 `true`로 처리해 무조건 빌드한다.
 
 ```
 check-prev-result job
-  gh run list --workflow=deploy.yml --branch=main --limit=2
-  → 이전 실행에서 backend/frontend job이 failure였는지 출력
-  → outputs: backend_prev_failed, frontend_prev_failed
+  gh run list --workflow=deploy.yml --branch=main --limit=2 (현재 실행 제외한 직전 1개)
+  → 이전 실행이 없거나 backend/frontend job이 failure/skipped+이전실패 → true
+  → outputs: backend_needs_build, frontend_needs_build
 
 build-backend if 조건:
   needs.changes.outputs.backend == 'true'
-  || needs.check-prev-result.outputs.backend_prev_failed == 'true'
+  || needs.check-prev-result.outputs.backend_needs_build == 'true'
 
 build-frontend if 조건:
   needs.changes.outputs.frontend == 'true'
-  || needs.check-prev-result.outputs.frontend_prev_failed == 'true'
+  || needs.check-prev-result.outputs.frontend_needs_build == 'true'
 ```
 
 ### 환경변수 관리

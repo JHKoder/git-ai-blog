@@ -21,9 +21,77 @@ jobs:
             frontend:
               - 'frontend/**'
 
+  check-prev-result:
+    runs-on: ubuntu-22.04
+    outputs:
+      backend_needs_build: ${{ steps.check.outputs.backend_needs_build }}
+      frontend_needs_build: ${{ steps.check.outputs.frontend_needs_build }}
+    steps:
+      - name: Check previous run results
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 현재 실행(run_id)을 제외한 가장 최근 완료된 실행 1개 조회
+          PREV_RUN=$(gh run list \
+            --repo "${{ github.repository }}" \
+            --workflow=deploy.yml \
+            --branch=main \
+            --status=completed \
+            --limit=5 \
+            --json databaseId,conclusion \
+            | jq -r "[.[] | select(.databaseId != ${{ github.run_id }})] | first")
+
+          echo "Previous run: $PREV_RUN"
+
+          if [ "$PREV_RUN" = "null" ] || [ -z "$PREV_RUN" ]; then
+            # 이전 실행 기록 자체 없음 → 최초 실행이므로 무조건 빌드
+            echo "backend_needs_build=true" >> "$GITHUB_OUTPUT"
+            echo "frontend_needs_build=true" >> "$GITHUB_OUTPUT"
+            echo "No previous run found — forcing build"
+            exit 0
+          fi
+
+          PREV_RUN_ID=$(echo "$PREV_RUN" | jq -r '.databaseId')
+          PREV_CONCLUSION=$(echo "$PREV_RUN" | jq -r '.conclusion')
+          echo "Previous run id=$PREV_RUN_ID conclusion=$PREV_CONCLUSION"
+
+          # 이전 실행이 실패면 무조건 재빌드
+          if [ "$PREV_CONCLUSION" = "failure" ]; then
+            echo "backend_needs_build=true" >> "$GITHUB_OUTPUT"
+            echo "frontend_needs_build=true" >> "$GITHUB_OUTPUT"
+            echo "Previous run failed — forcing rebuild"
+            exit 0
+          fi
+
+          # 이전 실행의 각 job 결과 조회
+          JOBS=$(gh run view "$PREV_RUN_ID" \
+            --repo "${{ github.repository }}" \
+            --json jobs \
+            | jq -r '.jobs')
+
+          BACKEND_RESULT=$(echo "$JOBS" | jq -r '[.[] | select(.name == "build-backend")] | first | .conclusion // "none"')
+          FRONTEND_RESULT=$(echo "$JOBS" | jq -r '[.[] | select(.name == "build-frontend")] | first | .conclusion // "none"')
+
+          echo "Previous backend job: $BACKEND_RESULT"
+          echo "Previous frontend job: $FRONTEND_RESULT"
+
+          # 이전 job이 failure 또는 기록 없음 → 재빌드 필요
+          if [ "$BACKEND_RESULT" = "failure" ] || [ "$BACKEND_RESULT" = "none" ]; then
+            echo "backend_needs_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend_needs_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "$FRONTEND_RESULT" = "failure" ] || [ "$FRONTEND_RESULT" = "none" ]; then
+            echo "frontend_needs_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "frontend_needs_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build-backend:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    needs: [ changes, check-prev-result ]
+    if: needs.changes.outputs.backend == 'true' || needs.check-prev-result.outputs.backend_needs_build == 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -58,8 +126,8 @@ jobs:
             ./backend
 
   build-frontend:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    needs: [ changes, check-prev-result ]
+    if: needs.changes.outputs.frontend == 'true' || needs.check-prev-result.outputs.frontend_needs_build == 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
