@@ -1,7 +1,7 @@
 # AI Blog Automation — 개발 계획서(라이브 코딩)
 
 > 작성일: 2026-03-20
-> 최종 수정: 2026-03-21
+> 최종 수정: 2026-03-22
 > 개발자: 1인 개인 프로젝트
 > 목표 사용자: 최대 100명
 ---
@@ -27,7 +27,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGP
 | DB        | H2 (local) / PostgreSQL Supabase (dev/prod) + JPA + Hibernate 7.1                        |
 | 외부 API    | WebClient (WebFlux) — Claude, Grok, ChatGPT, Gemini, GitHub, Hashnode, Cloudinary        |
 | 캐시        | Redis — AI 사용량 카운터, Rate Limit 캐시, JWT Refresh Token blacklist                           |
-| 암호화       | Jasypt (`PBEWithHMACSHA512AndAES_256`) — dev/prod 전용, `application-dev/prod.yml` 내 암호화 값 |
+| 암호화       | Jasypt (`PBEWithMD5AndDES`) — dev/prod 전용, `application-dev/prod.yml` 내 암호화 값           |
 | DB 컬럼 암호화 | `@Convert` + `AttributeConverter` AES-256-GCM — Member 테이블 민감 필드                         |
 | 프론트       | React 18 + TypeScript + Vite 5                                                           |
 | 상태관리      | Zustand + immer                                                                          |
@@ -101,22 +101,23 @@ github.jhkoder.aiblog/
 ├── common/exception/     NotFoundException, InvalidStateException, BusinessRuleException
 │                         ExternalApiException, RateLimitException
 ├── config/               SecurityConfig, WebClientConfig, WebMvcConfig, JasyptConfig
+│                         RedisConfig, AesGcmEncryptionConverter
 ├── security/             JwtProvider, JwtAuthenticationFilter, RefreshTokenService
-│                         CustomOAuth2UserService, OAuth2SuccessHandler
+│                         CustomOAuth2UserService, OAuth2SuccessHandler, AuthController
 ├── infra/ai/             AiClient(interface), AiClientRouter, AiUsageLimiter (Redis)
-│                         ClaudeClient, GrokClient, GptClient (추가 예정), GeminiClient (추가 예정)
+│                         ClaudeClient, GrokClient, GptClient, GeminiClient
 │                         RateLimitCache (Redis), TokenUsageTracker, ImageUsageLimiter (Redis)
 │                         prompt/PromptBuilder
 ├── infra/github/         GitHubClient, WebhookSignatureVerifier
 ├── infra/hashnode/       HashnodeClient, HashnodeGraphqlBuilder
-├── infra/image/          CloudinaryClient, ImageGenerationService (GPT 전용)
+├── infra/image/          CloudinaryClient, GptImageClient, GeminiImageClient, ImageGenerationService
 ├── post/                 Post(Entity), PostStatus, ContentType, PostRepository
-│                         PostController, 8개 UseCase
+│                         PostController, 9개 UseCase (GenerateImageUseCase 포함)
 ├── suggestion/           AiSuggestion(Entity), AiSuggestionRepository
 │                         AiSuggestionController, 5개 UseCase
 ├── member/               Member(Entity), MemberRepository
 │                         MemberController, 4개 UseCase
-└── repo/                 Repo(Entity), RepoRepository, CollectType
+└── repo/                 Repo(Entity), RepoRepository, RepoCollectHistory, CollectType
                           RepoController, GitHubWebhookController, 5개 UseCase
 ```
 
@@ -188,7 +189,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | `grok-3`            | Grok    | 텍스트     | ALGORITHM 기본 |
 | `gpt-4o-mini`       | ChatGPT | 텍스트     | 가성비 추천       |
 | `gpt-4o`            | ChatGPT | 텍스트·이미지 | 고성능          |
-| `gemini-2.0-flash`  | Gemini  | 텍스트     | 추가 예정        |
+| `gemini-2.0-flash`  | Gemini  | 텍스트     | 구현됨           |
 
 - `requestedModel` 명시 시 강제 라우팅
 - **Sonnet이 기본 모델**. Opus는 선택 가능하나 권장하지 않음
@@ -248,9 +249,10 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 ### 보안 — 민감 필드 응답 금지
 
 절대 Response DTO에 포함 금지:
-`githubToken`, `hashnodeToken`, `claudeApiKey`, `grokApiKey`, `githubClientId`, `githubClientSecret`,
+`githubToken`, `hashnodeToken`, `claudeApiKey`, `grokApiKey`, `gptApiKey`, `geminiApiKey`,
 `hashnodePublicationId`
-→ boolean 여부만 응답 (`hasHashnodeConnection`, `hasClaudeApiKey` 등)
+→ boolean 여부만 응답 (`hasHashnodeConnection`, `hasClaudeApiKey`, `hasGithubToken` 등)
+> `githubClientId/Secret` 필드는 `Member` 엔티티 및 모든 DTO에서 완전 제거됨 (사용자별 OAuth App 미지원)
 
 ### API 요청 유효성 검사 정책
 
@@ -272,9 +274,11 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | 수정           | `PUT /api/posts/{id}`           | 제목/내용/ContentType          |
 | 삭제           | `DELETE /api/posts/{id}`        | Hashnode 연동 삭제 포함          |
 | 발행           | `POST /api/posts/{id}/publish`  | hashnodeId 유무로 신규/수정 분기    |
-| Hashnode 동기화 | `POST /api/posts/sync-hashnode` | added/updated/deleted 반환   |
-| AI 사용량       | `GET /api/posts/ai-usage`       | 호출 횟수 + Rate Limit + 토큰 누적 |
-| PDF 내보내기     | 프론트 `window.print()`            | 99MB 초과 시 차단               |
+| Hashnode 동기화   | `POST /api/posts/sync-hashnode`           | added/updated/deleted 반환              |
+| Hashnode 가져오기 | `POST /api/posts/import-hashnode`         | 연동된 Hashnode 글 전체 DB 저장              |
+| 이미지 생성        | `POST /api/posts/{id}/generate-image`     | GPT 모델 전용, Cloudinary 업로드 후 URL 반환   |
+| AI 사용량         | `GET /api/posts/ai-usage`                 | 호출 횟수 + Rate Limit + 토큰 누적           |
+| PDF 내보내기       | 프론트 `window.print()`                     | 99MB 초과 시 차단                          |
 
 ### AI Suggestion
 
@@ -354,9 +358,10 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - [x] **Controller 테스트 작성 및 통과** — `PostControllerTest`, `MemberControllerTest` (@WebMvcTest, Security 필터 포함)
 - [x] **Repository 통합 테스트 작성 및 통과** — `PostRepositoryTest`, `MemberRepositoryTest`, `AiSuggestionRepositoryTest`,
   `RepoRepositoryTest` (@SpringBootTest + H2)
-- [x] **도메인 단위 테스트 통과** — `PostDomainTest`, `WebhookSignatureVerifierTest`
+- [x] **도메인 단위 테스트 통과** — `PostDomainTest`, `MemberDomainTest`, `WebhookSignatureVerifierTest`
+- [x] **UseCase 단위 테스트** — `CreatePostUseCaseTest`, `ImportHashnodePostUseCaseTest`, `AiClientRouterTest`
 - [x] **Spring Boot 4 테스트 환경 구성** — `@WebMvcTest` 패키지 이동, `TestRedisConfig` (Redis mock),
-  `test/resources/application.yml` 설정
+  `test/resources/application.yml` 설정 (OAuth2 mock, Jasypt bean 방식)
 - [x] **미인증 요청 403 반환** — `SecurityConfig`에 `HttpStatusEntryPoint(FORBIDDEN)` 추가 (302 redirect → 403)
 - [x] **Hashnode 게시글 불러오기 단위 테스트** — `ImportHashnodePostUseCaseTest`: 정상 불러오기, 빈 목록, 회원 미존재, 직접 token 전달, PUBLISHED 상태 검증 4건
 
@@ -416,9 +421,21 @@ Redis (6379, 내부 전용)
 ```
 services:
   backend   — Spring Boot JAR, application-prod.yml (Jasypt 암호화 값 포함), JASYPT_ENCRYPTOR_PASSWORD 환경변수 주입
-  frontend  — Nginx + React 빌드 결과물
+              hikari.data-source-properties.prepareThreshold=0 (PgBouncer 호환)
+  frontend  — Nginx + React 빌드 결과물, 80/443 포트
+              certbot_data(ro) + certbot_www 볼륨 마운트 (SSL 인증서 읽기, ACME 쓰기)
+              docker-entrypoint.sh: nginx 백그라운드 실행 + 6시간마다 인증서 변경 감지 → nginx reload
   redis     — 사용량 카운터, Rate Limit 캐시, JWT blacklist
+              AOF 영속성 활성화 (appendonly yes), 헬스체크 포함
+  certbot   — 12시간마다 certbot renew --webroot 실행 (frontend 무중단 갱신)
 ```
+
+**외부 볼륨 (external: true):**
+- `certbot_data` — `/etc/letsencrypt` (인증서 저장)
+- `certbot_www` — `/var/www/certbot` (ACME challenge)
+
+**내부 볼륨:**
+- `redis_data` — Redis AOF 데이터
 
 - `.env` 파일 사용 안 함 (dev/prod 모두)
 - 모든 민감값은 Jasypt로 암호화 후 `application-dev.yml` / `application-prod.yml`에 직접 포함
@@ -526,6 +543,9 @@ build-frontend if 조건:
 | `local` | 환경변수 없음, 기본값으로 실행 (H2, mock 키). GitHub Actions CI도 local로 실행                             |
 | `dev`   | `application-dev.yml` (Jasypt 암호화 값 포함) + `JASYPT_ENCRYPTOR_PASSWORD` 환경변수               |
 | `prod`  | `application-prod.yml` (Jasypt 암호화 값 포함) + `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 (서버에서 직접 관리) |
+
+> **prod 전용 추가 설정**: `spring.datasource.hikari.data-source-properties.prepareThreshold: 0`
+> Supabase PgBouncer 트랜잭션 모드에서 prepared statement 이름 충돌을 방지하기 위해 서버측 캐싱 비활성화.
 
 ### HTTPS
 
