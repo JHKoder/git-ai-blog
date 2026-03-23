@@ -1,6 +1,5 @@
-FROM eclipse-temurin:25-jdk-jammy AS builder
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jdk-jammy AS builder
 WORKDIR /build
-
 ENV GRADLE_USER_HOME=/cache
 
 COPY gradle gradle
