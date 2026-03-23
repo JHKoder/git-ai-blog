@@ -66,13 +66,14 @@ certbot  — 12시간마다 certbot renew --webroot (frontend 무중단)
 
 ### 환경변수 정책
 
-| 프로파일    | 방식                                                                         |
-|---------|----------------------------------------------------------------------------|
-| `local` | 환경변수 없음, H2, CI도 local                                                     |
-| `dev`   | 해당 PC에 `JASYPT_ENCRYPTOR_PASSWORD` 직접 설정, Docker PostgreSQL + Redis 사용     |
-| `prod`  | 원격 서버에 `JASYPT_ENCRYPTOR_PASSWORD` + `SPRING_PROFILES_ACTIVE=prod` 직접 설정  |
+| 프로파일    | 방식                                                                       |
+|---------|--------------------------------------------------------------------------|
+| `local` | 환경변수 없음, H2, CI도 local                                                   |
+| `dev`   | 해당 PC에 `JASYPT_ENCRYPTOR_PASSWORD` 직접 설정, Docker PostgreSQL + Redis 사용   |
+| `prod`  | 원격 서버에 `JASYPT_ENCRYPTOR_PASSWORD` + `SPRING_PROFILES_ACTIVE=prod` 직접 설정 |
 
 **환경변수 관리 정책:**
+
 - `.env` 파일 사용 금지 — 각 PC/서버에서 직접 환경변수 설정
 - 원격 서버에 `JASYPT_ENCRYPTOR_PASSWORD` 미설정 시 backend 기동 실패로 배포 자체가 차단됨 (fail-fast)
 - dev DB 접속 정보(PostgreSQL Docker)는 기본값 공개 가능 (`localhost:5432/aiblog`, `sa/sa` 등)
@@ -138,9 +139,13 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 ### 개발 편의
 
-- [x] **Gradle 개발 실행 태스크 (`serverRun`)** — Redis + PostgreSQL Docker 자동 기동 후 dev 프로파일로 백엔드 실행. `JASYPT_ENCRYPTOR_PASSWORD`는 각 PC에 이미 설정되어 있으므로 별도 전달 불필요. `./gradlew serverRun` 하나로 완료
-- [x] **dev PostgreSQL Docker 분리** — 현재 dev 프로파일이 Supabase(prod DB)를 직접 사용해 prod 데이터와 혼재 위험. `serverRun` 태스크에서 Redis와 함께 로컬 PostgreSQL Docker 컨테이너도 자동 기동 (`ai-blog-postgres`). `application-dev.yml`은 `localhost:5432` 기본값으로 변경 (접속정보 공개 가능). prod는 계속 Supabase 사용
-- [x] **build.gradle Java toolchain 자동 관리 확인** — `export JAVA_HOME=...` 하드코딩 제거. `java.toolchain.languageVersion = 25` 설정으로 Gradle이 JDK 자동 다운로드/관리. 누구든 어느 환경에서든 `./gradlew bootRun` 하나로 local 실행 가능하도록 확인 및 문서 정비
+- [x] **Gradle 개발 실행 태스크 (`serverRun`)** — Redis + PostgreSQL Docker 자동 기동 후 dev 프로파일로 백엔드 실행.
+  `JASYPT_ENCRYPTOR_PASSWORD`는 각 PC에 이미 설정되어 있으므로 별도 전달 불필요. `./gradlew serverRun` 하나로 완료
+- [x] **dev PostgreSQL Docker 분리** — 현재 dev 프로파일이 Supabase(prod DB)를 직접 사용해 prod 데이터와 혼재 위험. `serverRun` 태스크에서 Redis와 함께
+  로컬 PostgreSQL Docker 컨테이너도 자동 기동 (`ai-blog-postgres`). `application-dev.yml`은 `localhost:5432` 기본값으로 변경 (접속정보 공개 가능).
+  prod는 계속 Supabase 사용
+- [x] **build.gradle Java toolchain 자동 관리 확인** — `export JAVA_HOME=...` 하드코딩 제거. `java.toolchain.languageVersion = 25`
+  설정으로 Gradle이 JDK 자동 다운로드/관리. 누구든 어느 환경에서든 `./gradlew bootRun` 하나로 local 실행 가능하도록 확인 및 문서 정비
 
 ### 인프라 / 배포
 
@@ -164,6 +169,12 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
   모델별 limit 필드 추가, `AiUsageLimiter`에서 모델별 체크
 - [x] **API 키 연동 검증** — 현재 API 키 저장 시 형식만 저장. 저장 시 실제 API를 최소 호출(ping/model 목록 조회 등)해서 유효한 키인지 검증 후 "연동됨" 상태 표시. 유효하지
   않으면 저장 거부 또는 경고. 백엔드 `PATCH /api/members/api-keys`에서 검증 로직 추가
+
+- [ ] **Swagger UI 라우팅 충돌 수정** — 메인 페이지의 API 문서 버튼 클릭 시 백엔드(8080 또는 prod에서 `/swagger-ui/index.html`)로 연결되는데
+  내부 로직(OAuth2SuccessHandler 등)이 요청을 프론트엔드 `/` 로 리다이렉트해 Swagger UI에 도달하지 못하는 문제.
+  SecurityConfig는 `anyRequest().permitAll()` 이므로 인증 차단 문제는 아님.
+  원인은 prod Nginx에서 `/swagger-ui/**`, `/v3/api-docs/**` 경로가 backend로 프록시되지 않고 frontend(React)로 라우팅되는 것으로 추정.
+  **해결 방향**: nginx.conf에 `/swagger-ui/` 및 `/v3/` 경로를 backend(`http://backend:8080`)로 프록시 추가
 
 ### API 문서화
 
