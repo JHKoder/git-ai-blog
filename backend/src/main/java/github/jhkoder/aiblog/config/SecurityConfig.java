@@ -38,6 +38,7 @@ public class SecurityConfig {
                                 "/api/webhook/github",
                                 "/api/auth/refresh",
                                 "/api/auth/logout",
+                                "/api/auth/mock-login",
                                 "/actuator/health"
                         ).permitAll()
                         .requestMatchers("/api/**").authenticated()

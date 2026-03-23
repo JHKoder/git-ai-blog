@@ -46,3 +46,19 @@
 .githubBtn:hover {
   background: #1a1e22;
 }
+
+.mockBtn {
+  margin-top: 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px dashed var(--border);
+  padding: 10px 32px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.mockBtn:hover {
+  background: var(--bg);
+}

@@ -132,8 +132,8 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
   의존성이므로 무시 불가
 - [x] **GitHub Actions** — CI는 `test/resources/application.yml`에서 Redis autoconfiguration 완전 제외 (
   `DataRedisAutoConfiguration` exclude), local 프로파일 사용. Redis 영향 없음 확인
-- [ ] **local GitHub 로그인 불가** — local 프로파일은 `local-dummy-client-id`를 사용해 실제 GitHub OAuth 인증 불가. GitHub 로그인 테스트는 dev
-  프로파일로만 가능. local에서 로그인 없이 개발할 수 있도록 mock 로그인 또는 테스트 계정 우회 방법 검토
+- [x] **local GitHub 로그인 불가** — local 프로파일은 `local-dummy-client-id`를 사용해 실제 GitHub OAuth 인증 불가. GitHub 로그인 테스트는 dev
+  프로파일로만 가능. `GET /api/auth/mock-login` 엔드포인트 추가 (`@Profile("local")` 전용), 프론트 LoginPage에 `import.meta.env.DEV` 조건으로 Mock 로그인 버튼 표시
 - [x] **프로파일별 Hashnode 발행 권한 분리** — local/dev는 Hashnode 실제 발행 불가 (발행 버튼 비활성화 또는 명시적 오류). dev는 발행 흐름까지 테스트 가능하나 실제 전송 차단
   후 롤백. prod만 실제 발행 허용. 백엔드에서 프로파일 조건으로 제어
 
@@ -170,7 +170,7 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 - [x] **API 키 연동 검증** — 현재 API 키 저장 시 형식만 저장. 저장 시 실제 API를 최소 호출(ping/model 목록 조회 등)해서 유효한 키인지 검증 후 "연동됨" 상태 표시. 유효하지
   않으면 저장 거부 또는 경고. 백엔드 `PATCH /api/members/api-keys`에서 검증 로직 추가
 
-- [ ] **Swagger UI 라우팅 충돌 수정** — 메인 페이지의 API 문서 버튼 클릭 시 백엔드(8080 또는 prod에서 `/swagger-ui/index.html`)로 연결되는데
+- [x] **Swagger UI 라우팅 충돌 수정** — 메인 페이지의 API 문서 버튼 클릭 시 백엔드(8080 또는 prod에서 `/swagger-ui/index.html`)로 연결되는데
   내부 로직(OAuth2SuccessHandler 등)이 요청을 프론트엔드 `/` 로 리다이렉트해 Swagger UI에 도달하지 못하는 문제.
   SecurityConfig는 `anyRequest().permitAll()` 이므로 인증 차단 문제는 아님.
   원인은 prod Nginx에서 `/swagger-ui/**`, `/v3/api-docs/**` 경로가 backend로 프록시되지 않고 frontend(React)로 라우팅되는 것으로 추정.

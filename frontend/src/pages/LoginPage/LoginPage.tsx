@@ -5,6 +5,10 @@ export function LoginPage() {
     window.location.href = '/oauth2/authorization/github'
   }
 
+  const handleMockLogin = () => {
+    window.location.href = '/api/auth/mock-login'
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.card}>
@@ -13,6 +17,11 @@ export function LoginPage() {
         <button className={styles.githubBtn} onClick={handleLogin}>
           GitHub으로 로그인
         </button>
+        {import.meta.env.DEV && (
+          <button className={styles.mockBtn} onClick={handleMockLogin}>
+            [개발] Mock 로그인
+          </button>
+        )}
       </div>
     </div>
   )
