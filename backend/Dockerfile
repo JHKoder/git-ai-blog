@@ -8,7 +8,7 @@ RUN chmod +x gradlew
 
 # wrapper 캐싱
 RUN --mount=type=cache,target=/cache \
-    ./gradlew --version --no-daemon
+    ./gradlew --version
 
 # dependency 캐싱 (src 없는 상태에서 빌드 실패는 정상 — || true로 무시하고 캐시 유지)
 RUN --mount=type=cache,target=/cache \
