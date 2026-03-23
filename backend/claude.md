@@ -67,12 +67,15 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 ### Hashnode 발행 분기
 
 - `hashnodeId` 없음 → `publishPost` (신규) / 있음 → `updatePost` (수정)
+- **prod 프로파일에서만 실제 발행 허용** — local/dev는 `BusinessRuleException` (422) 반환
+  (`PublishPostUseCase`에서 `@Value("${spring.profiles.active:local}")` 체크)
 
 ### AI 사용량 제한
 
-- Redis 기반. local 5회/일, dev/prod 20회/일 — **서버 고정값** (사용자 설정 불가)
-- Redis TTL로 자정 자동 초기화. 한도 초과 시 즉시 429 반환
-- **TODO**: 사용자가 직접 일일 한도를 설정하고, 도달 시 AI 사용 불가 처리하는 기능 미구현
+- Redis 기반. 한도 초과 시 즉시 429 반환. Redis TTL로 자정 자동 초기화
+- 우선순위: 모델별 한도 > 전체 한도(`aiDailyLimit`) > 서버 기본값(`ai.daily-limit`, 기본 5회)
+- 사용자별 한도는 `Member` 필드로 관리: `aiDailyLimit`(전체), `claudeDailyLimit`, `grokDailyLimit`, `gptDailyLimit`, `geminiDailyLimit`
+- Redis 키: 전체 `ai_usage:{memberId}:{date}` / 모델별 `ai_usage:{memberId}:{model}:{date}`
 
 ### AI 클라이언트 라우팅
 
@@ -153,7 +156,7 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | 프로파일    | DB       | Jasypt     | Redis  | 비고                                                   |
 |---------|----------|------------|--------|------------------------------------------------------|
 | `local` | H2       | 기본값(dummy) | 불필요    | CI도 local 사용. `JASYPT_ENCRYPTOR_PASSWORD` 없어도 기동 가능  |
-| `dev`   | Supabase | 필수         | 로컬 필수  | `docker run -d -p 6379:6379 redis` 후 실행              |
+| `dev`   | Docker PostgreSQL (localhost:5432) | 필수 | 로컬 필수 | `./gradlew serverRun` 으로 Redis + PostgreSQL 자동 기동 |
 | `prod`  | Supabase | 필수         | Docker | `application-prod.yml` + `JASYPT_ENCRYPTOR_PASSWORD` |
 
 **prod 전용:** `spring.datasource.hikari.data-source-properties.prepareThreshold: 0`
@@ -213,3 +216,4 @@ cd backend && ./gradlew serverRun
 | `Post.tags` LazyInitializationException   | 트랜잭션 종료 후 직렬화              | `List.copyOf(post.getTags())`       |
 | SyncHashnode Duplicate key                | DB에 동일 hashnodeId 중복       | `Collectors.toMap` mergeFunction 추가 |
 | 테스트 34개 실패 (ClientRegistrationRepository) | test yml에 OAuth2 설정 누락     | mock OAuth2 설정 추가                   |
+| `--no-daemon` 등 플래그가 태스크명으로 파싱됨           | gradlew eval `"$@"` 버그     | `"$@"` → `$@` 으로 수정 (gradlew 157번 줄) |

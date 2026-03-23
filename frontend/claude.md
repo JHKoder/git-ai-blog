@@ -74,7 +74,11 @@ interface Member {
     hasGptApiKey: boolean
     hasGeminiApiKey: boolean
     hasGithubToken: boolean
-    aiDailyLimit: number | null   // 사용자별 AI 일일 한도 (null이면 서버 기본값 사용)
+    aiDailyLimit: number | null       // 전체 일일 한도 (null이면 서버 기본값 사용)
+    claudeDailyLimit: number | null   // Claude 모델별 한도
+    grokDailyLimit: number | null     // Grok 모델별 한도
+    gptDailyLimit: number | null      // GPT 모델별 한도
+    geminiDailyLimit: number | null   // Gemini 모델별 한도
 }
 
 interface HashnodeConnectRequest {
@@ -88,7 +92,11 @@ interface ApiKeyUpdateRequest {
     gptApiKey?: string
     geminiApiKey?: string
     githubToken?: string
-    aiDailyLimit?: number         // AI 일일 한도 설정
+    aiDailyLimit?: number         // 전체 AI 일일 한도
+    claudeDailyLimit?: number     // Claude 모델별 한도
+    grokDailyLimit?: number       // Grok 모델별 한도
+    gptDailyLimit?: number        // GPT 모델별 한도
+    geminiDailyLimit?: number     // Gemini 모델별 한도
 }
 ```
 
