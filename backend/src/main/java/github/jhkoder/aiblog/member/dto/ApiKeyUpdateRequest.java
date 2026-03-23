@@ -12,6 +12,22 @@ public class ApiKeyUpdateRequest {
     @Max(value = 1000, message = "AI 일일 한도는 1000 이하여야 합니다.")
     private Integer aiDailyLimit;
 
+    @Min(value = 1, message = "Claude 일일 한도는 1 이상이어야 합니다.")
+    @Max(value = 1000, message = "Claude 일일 한도는 1000 이하여야 합니다.")
+    private Integer claudeDailyLimit;
+
+    @Min(value = 1, message = "Grok 일일 한도는 1 이상이어야 합니다.")
+    @Max(value = 1000, message = "Grok 일일 한도는 1000 이하여야 합니다.")
+    private Integer grokDailyLimit;
+
+    @Min(value = 1, message = "GPT 일일 한도는 1 이상이어야 합니다.")
+    @Max(value = 1000, message = "GPT 일일 한도는 1000 이하여야 합니다.")
+    private Integer gptDailyLimit;
+
+    @Min(value = 1, message = "Gemini 일일 한도는 1 이상이어야 합니다.")
+    @Max(value = 1000, message = "Gemini 일일 한도는 1000 이하여야 합니다.")
+    private Integer geminiDailyLimit;
+
     @Size(max = 500, message = "Claude API 키는 500자 이하여야 합니다.")
     private String claudeApiKey;
 

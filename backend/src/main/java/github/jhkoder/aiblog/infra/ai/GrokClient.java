@@ -1,5 +1,6 @@
 package github.jhkoder.aiblog.infra.ai;
 
+import github.jhkoder.aiblog.common.exception.BusinessRuleException;
 import github.jhkoder.aiblog.common.exception.ExternalApiException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,9 +9,11 @@ import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
@@ -82,6 +85,26 @@ public class GrokClient implements AiClient {
 
         } catch (Exception e) {
             throw new ExternalApiException("Grok API 호출 실패: " + e.getMessage(), e);
+        }
+    }
+
+    /** Grok API 키 유효성 검증 — /v1/models 호출 */
+    public void validate(String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) throw new BusinessRuleException("Grok API 키가 비어있습니다.");
+        try {
+            Integer statusCode = webClientBuilder.build()
+                    .get()
+                    .uri(baseUrl + "/v1/models")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .exchangeToMono(res -> Mono.just(res.statusCode().value()))
+                    .block();
+            if (statusCode == null || statusCode == HttpStatus.UNAUTHORIZED.value() || statusCode == HttpStatus.FORBIDDEN.value()) {
+                throw new BusinessRuleException("유효하지 않은 Grok API 키입니다.");
+            }
+        } catch (BusinessRuleException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessRuleException("Grok API 키 검증 실패: " + e.getMessage());
         }
     }
 

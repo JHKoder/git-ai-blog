@@ -2,14 +2,17 @@ package github.jhkoder.aiblog.infra.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import github.jhkoder.aiblog.common.exception.BusinessRuleException;
 import github.jhkoder.aiblog.common.exception.ExternalApiException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
@@ -76,6 +79,26 @@ public class GeminiClient implements AiClient {
 
         } catch (Exception e) {
             throw new ExternalApiException("Gemini API 호출 실패: " + e.getMessage(), e);
+        }
+    }
+
+    /** Gemini API 키 유효성 검증 — /v1beta/models 호출 */
+    public void validate(String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) throw new BusinessRuleException("Gemini API 키가 비어있습니다.");
+        try {
+            Integer statusCode = webClientBuilder.build()
+                    .get()
+                    .uri(BASE_URL + "/v1beta/models?key=" + apiKey)
+                    .exchangeToMono(res -> Mono.just(res.statusCode().value()))
+                    .block();
+            if (statusCode == null || statusCode == HttpStatus.UNAUTHORIZED.value()
+                    || statusCode == HttpStatus.FORBIDDEN.value() || statusCode == HttpStatus.BAD_REQUEST.value()) {
+                throw new BusinessRuleException("유효하지 않은 Gemini API 키입니다.");
+            }
+        } catch (BusinessRuleException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessRuleException("Gemini API 키 검증 실패: " + e.getMessage());
         }
     }
 }

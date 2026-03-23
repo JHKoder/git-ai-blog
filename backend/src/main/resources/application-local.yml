@@ -15,6 +15,22 @@ spring:
     console:
       enabled: true
       path: /h2-console
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: local-dummy-client-id
+            client-secret: local-dummy-client-secret
+            scope: read:user,user:email
+
+jwt:
+  secret: local-dev-only-jwt-secret-minimum-32bytes!
+
+cloudinary:
+  cloud-name: local-dummy-cloud
+  api-key: local-dummy-api-key
+  api-secret: local-dummy-api-secret
 
 ai:
   daily-limit: 5

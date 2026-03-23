@@ -56,6 +56,11 @@ public class Member {
 
     private Integer aiDailyLimit;
 
+    private Integer claudeDailyLimit;
+    private Integer grokDailyLimit;
+    private Integer gptDailyLimit;
+    private Integer geminiDailyLimit;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -133,5 +138,21 @@ public class Member {
 
     public void updateAiDailyLimit(Integer limit) {
         this.aiDailyLimit = limit;
+    }
+
+    public void updateClaudeDailyLimit(Integer limit) {
+        this.claudeDailyLimit = limit;
+    }
+
+    public void updateGrokDailyLimit(Integer limit) {
+        this.grokDailyLimit = limit;
+    }
+
+    public void updateGptDailyLimit(Integer limit) {
+        this.gptDailyLimit = limit;
+    }
+
+    public void updateGeminiDailyLimit(Integer limit) {
+        this.geminiDailyLimit = limit;
     }
 }

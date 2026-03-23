@@ -6,12 +6,13 @@ import styles from './ImageGenButton.module.css'
 interface Props {
   onInsert: (markdown: string) => void
   selectedModel?: string
+  hasGptApiKey?: boolean
 }
 
 const isGptModel = (model: string | undefined): boolean =>
   model != null && model.startsWith('gpt-')
 
-export function ImageGenButton({ onInsert, selectedModel }: Props) {
+export function ImageGenButton({ onInsert, selectedModel, hasGptApiKey }: Props) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,6 +21,10 @@ export function ImageGenButton({ onInsert, selectedModel }: Props) {
   const handleOpen = () => {
     if (!isGptModel(selectedModel)) {
       toast.error('이미지 생성은 GPT 모델(gpt-4o, gpt-4o-mini) 선택 시에만 가능합니다.')
+      return
+    }
+    if (hasGptApiKey === false) {
+      toast.error('GPT API 키가 설정되지 않았습니다. 프로필 페이지에서 GPT API 키를 먼저 등록해 주세요.')
       return
     }
     setOpen(true)
@@ -55,6 +60,14 @@ export function ImageGenButton({ onInsert, selectedModel }: Props) {
   }
 
   const gptEnabled = isGptModel(selectedModel)
+  const keyReady = hasGptApiKey !== false
+  const available = gptEnabled && keyReady
+
+  const buttonTitle = !gptEnabled
+    ? 'GPT 모델 선택 시에만 이미지 생성 가능'
+    : !keyReady
+      ? 'GPT API 키를 먼저 설정해 주세요 (프로필 페이지)'
+      : 'GPT DALL-E 3으로 이미지 생성'
 
   return (
     <>
@@ -62,8 +75,8 @@ export function ImageGenButton({ onInsert, selectedModel }: Props) {
         type="button"
         className={styles.trigger}
         onClick={handleOpen}
-        title={gptEnabled ? 'GPT DALL-E 3으로 이미지 생성' : 'GPT 모델 선택 시에만 이미지 생성 가능'}
-        style={{ opacity: gptEnabled ? 1 : 0.5 }}
+        title={buttonTitle}
+        style={{ opacity: available ? 1 : 0.5 }}
       >
         AI 이미지 생성
       </button>

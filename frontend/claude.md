@@ -6,13 +6,13 @@
 
 ## 기술 스택
 
-| 영역 | 기술 |
-|------|------|
-| 프레임워크 | React 18 + TypeScript + Vite 5 |
-| 상태관리 | Zustand + immer 미들웨어 |
-| HTTP | Axios (JWT interceptor 자동 주입) |
-| 스타일 | CSS Modules + CSS 변수 (다크/라이트 모드) |
-| 라우팅 | React Router v7 |
+| 영역    | 기술                               |
+|-------|----------------------------------|
+| 프레임워크 | React 18 + TypeScript + Vite 5   |
+| 상태관리  | Zustand + immer 미들웨어             |
+| HTTP  | Axios (JWT interceptor 자동 주입)    |
+| 스타일   | CSS Modules + CSS 변수 (다크/라이트 모드) |
+| 라우팅   | React Router v7                  |
 
 ---
 
@@ -62,65 +62,133 @@ src/
 ## 타입 정의
 
 ### member.ts
+
 ```typescript
 interface Member {
-  id: number
-  username: string
-  avatarUrl?: string
-  hasHashnodeConnection: boolean
-  hasClaudeApiKey: boolean
-  hasGrokApiKey: boolean
-  hasGptApiKey: boolean
-  hasGeminiApiKey: boolean
-  hasGithubToken: boolean
+    id: number
+    username: string
+    avatarUrl?: string
+    hasHashnodeConnection: boolean
+    hasClaudeApiKey: boolean
+    hasGrokApiKey: boolean
+    hasGptApiKey: boolean
+    hasGeminiApiKey: boolean
+    hasGithubToken: boolean
+    aiDailyLimit: number | null   // 사용자별 AI 일일 한도 (null이면 서버 기본값 사용)
 }
 
-interface HashnodeConnectRequest { token: string; publicationId: string }
+interface HashnodeConnectRequest {
+    token: string;
+    publicationId: string
+}
 
 interface ApiKeyUpdateRequest {
-  claudeApiKey?: string
-  grokApiKey?: string
-  gptApiKey?: string
-  geminiApiKey?: string
-  githubToken?: string
+    claudeApiKey?: string
+    grokApiKey?: string
+    gptApiKey?: string
+    geminiApiKey?: string
+    githubToken?: string
+    aiDailyLimit?: number         // AI 일일 한도 설정
 }
 ```
 
 > `githubClientId/Secret`은 제거됨 — 사용자별 OAuth App 미지원
 
 ### post.ts
+
 ```typescript
 type PostStatus = 'DRAFT' | 'AI_SUGGESTED' | 'ACCEPTED' | 'PUBLISHED'
 type ContentType = 'ALGORITHM' | 'CODING' | 'CS' | 'TEST' | 'AUTOMATION' | 'DOCUMENT' | 'CODE_REVIEW' | 'ETC'
 
-interface Post { id, title, content, contentType, status, hashnodeId?, hashnodeUrl?, tags, viewCount, createdAt, updatedAt }
-interface PostPage { content: Post[], totalElements, totalPages, number, size }
+interface Post {
+    id,
+    title,
+    content,
+    contentType,
+    status,
+    hashnodeId?,
+    hashnodeUrl?,
+    tags,
+    viewCount,
+    createdAt,
+    updatedAt
+}
+
+interface PostPage {
+    content: Post[],
+    totalElements,
+    totalPages,
+    number,
+    size
+}
 
 interface AiUsage {
-  used: number; limit: number; remaining: number
-  sonnetInputTokens: number; sonnetOutputTokens: number
-  claudeTokenLimit: number; claudeTokenRemaining: number
-  claudeRequestLimit: number; claudeRequestRemaining: number
-  imageDailyUsed: number; imageDailyLimit: number
-  imageDailyRemaining: number; imagePerPostLimit: number
-  grokInputTokens: number; grokOutputTokens: number
-  grokTokenLimit: number; grokTokenRemaining: number
-  grokRequestLimit: number; grokRequestRemaining: number
+    used: number;
+    limit: number;
+    remaining: number
+    sonnetInputTokens: number;
+    sonnetOutputTokens: number
+    claudeTokenLimit: number;
+    claudeTokenRemaining: number
+    claudeRequestLimit: number;
+    claudeRequestRemaining: number
+    imageDailyUsed: number;
+    imageDailyLimit: number
+    imageDailyRemaining: number;
+    imagePerPostLimit: number
+    grokInputTokens: number;
+    grokOutputTokens: number
+    grokTokenLimit: number;
+    grokTokenRemaining: number
+    grokRequestLimit: number;
+    grokRequestRemaining: number
 }
 ```
 
 ### suggestion.ts
+
 ```typescript
-interface AiSuggestion { id, postId, suggestedContent, model, extraPrompt?, createdAt }
-interface AiSuggestionRequest { model?: string; extraPrompt?: string; tempContent?: string }
+interface AiSuggestion {
+    id,
+    postId,
+    suggestedContent,
+    model,
+    extraPrompt?,
+    createdAt
+}
+
+interface AiSuggestionRequest {
+    model?: string;
+    extraPrompt?: string;
+    tempContent?: string
+}
 ```
 
 ### repo.ts
+
 ```typescript
 type CollectType = 'COMMIT' | 'PR' | 'WIKI' | 'README'
-interface Repo { id, owner, repoName, collectType, createdAt }
-interface RepoAddRequest { owner: string; repoName: string; collectType: CollectType }
-interface PrSummary { number, title, hasBlogLabel, alreadyCollected }
+
+interface Repo {
+    id,
+    owner,
+    repoName,
+    collectType,
+    createdAt
+}
+
+interface RepoAddRequest {
+    owner: string;
+    repoName: string;
+    collectType: CollectType
+}
+
+interface PrSummary {
+    number,
+    title,
+    hasBlogLabel,
+    alreadyCollected
+}
 ```
 
 ---
@@ -128,50 +196,95 @@ interface PrSummary { number, title, hasBlogLabel, alreadyCollected }
 ## API 클라이언트
 
 ### axiosInstance.ts
+
 - `baseURL: /api`
 - 요청 인터셉터: `Authorization: Bearer <token>` 주입
 - 응답 인터셉터: 401 → `authStore.logout()` + `/login` 리다이렉트
 
 ### postApi.ts
+
 ```typescript
-create(data)           POST /posts
-getList(page, size, tag?)  GET /posts
-getDetail(id)          GET /posts/{id}
-update(id, data)       PUT /posts/{id}
-delete(id)             DELETE /posts/{id}
-publish(id)            POST /posts/{id}/publish
-importFromHashnode()   POST /posts/import-hashnode
-syncHashnode()         POST /posts/sync-hashnode
-getAiUsage()           GET /posts/ai-usage
-generateImage(prompt, model)  POST /posts/{id}/generate-image
+create(data)
+POST / posts
+getList(page, size, tag ?)
+GET / posts
+getDetail(id)
+GET / posts / {id}
+update(id, data)
+PUT / posts / {id}
+delete (id)
+DELETE / posts / {id}
+publish(id)
+POST / posts / {id}
+/publish
+importFromHashnode()
+POST / posts /
+import
+
+-hashnode
+syncHashnode()
+POST / posts / sync - hashnode
+getAiUsage()
+GET / posts / ai - usage
+generateImage(prompt, model)
+POST / posts / {id}
+/generate-image
 ```
 
 ### memberApi.ts
+
 ```typescript
-getMe()                    GET /members/me
-connectHashnode(data)      POST /members/hashnode-connect
-disconnectHashnode()       DELETE /members/hashnode-connect
-updateApiKeys(data)        PATCH /members/api-keys
-getAiUsage()               GET /posts/ai-usage
+getMe()
+GET / members / me
+connectHashnode(data)
+POST / members / hashnode - connect
+disconnectHashnode()
+DELETE / members / hashnode - connect
+updateApiKeys(data)
+PATCH / members / api - keys
+getAiUsage()
+GET / posts / ai - usage
 ```
 
 ### suggestionApi.ts
+
 ```typescript
-request(postId, data)       POST /ai-suggestions/{postId}
-getLatest(postId)           GET /ai-suggestions/{postId}/latest
-getHistory(postId)          GET /ai-suggestions/{postId}/history
-accept(postId, id)          POST /ai-suggestions/{postId}/{id}/accept
-reject(postId, id)          POST /ai-suggestions/{postId}/{id}/reject
+request(postId, data)
+POST / ai - suggestions / {postId}
+getLatest(postId)
+GET / ai - suggestions / {postId}
+/latest
+getHistory(postId)
+GET / ai - suggestions / {postId}
+/history
+accept(postId, id)
+POST / ai - suggestions / {postId}
+/{id}/
+accept
+reject(postId, id)
+POST / ai - suggestions / {postId}
+/{id}/
+reject
 ```
 
 ### repoApi.ts
+
 ```typescript
-getList()                   GET /repos
-add(data)                   POST /repos
-delete(id)                  DELETE /repos/{id}
-collect(id, wikiPage?)      POST /repos/{id}/collect
-getPrList(id)               GET /repos/{id}/prs
-collectPrs(id, prNumbers)   POST /repos/{id}/collect-prs
+getList()
+GET / repos
+add(data)
+POST / repos
+delete (id)
+DELETE / repos / {id}
+collect(id, wikiPage ?)
+POST / repos / {id}
+/collect
+getPrList(id)
+GET / repos / {id}
+/prs
+collectPrs(id, prNumbers)
+POST / repos / {id}
+/collect-prs
 ```
 
 ---
@@ -179,17 +292,20 @@ collectPrs(id, prNumbers)   POST /repos/{id}/collect-prs
 ## 상태관리 (Zustand)
 
 ### authStore
+
 - `token: string | null` — localStorage `ai_blog_token`에 persist
 - `isAuthenticated: boolean`
 - `setToken(token)` / `logout()`
 
 ### postStore (immer)
+
 - `posts: Post[]`, `currentPost: Post | null`
 - `totalPages`, `currentPage`, `activeTag`, `loading`
 - `fetchPosts(page, tag?)` — 태그 필터 유지
 - `fetchPost(id)` / `clearCurrentPost()`
 
 ### suggestionStore (immer)
+
 - `latestSuggestion`, `history[]`, `loading`
 - `accept(postId, id)` — 낙관적 업데이트 후 실패 시 롤백
 - `reject(postId, id)` / `fetchLatest(postId)` / `fetchHistory(postId)` / `clear()`
@@ -216,10 +332,10 @@ npm run build                  # 프로덕션 빌드
 
 ## 주요 이슈 해결 기록
 
-| 문제 | 원인 | 해결 |
-|------|------|------|
-| zustand immer 빌드 실패 | `immer` peer dependency 누락 | `immer: ^10.0.0` 추가 |
-| rollup 바이너리 누락 (반복) | npm optional dep 버그 | CI에서 `rm -f package-lock.json` 후 install |
-| QEMU arm64 illegal instruction | `node:20-alpine` musl + QEMU 비호환 | `node:20-slim` (debian)으로 교체 |
-| GHA 캐시로 nginx.conf 누락 | 이전 빌드 캐시 재사용 | frontend 빌드에 `--no-cache` 추가 |
-| 다크모드 텍스트 안 보임 | 하드코딩 색상 | CSS 변수 `var(--text)` 교체 |
+| 문제                             | 원인                               | 해결                                       |
+|--------------------------------|----------------------------------|------------------------------------------|
+| zustand immer 빌드 실패            | `immer` peer dependency 누락       | `immer: ^10.0.0` 추가                      |
+| rollup 바이너리 누락 (반복)            | npm optional dep 버그              | CI에서 `rm -f package-lock.json` 후 install |
+| QEMU arm64 illegal instruction | `node:20-alpine` musl + QEMU 비호환 | `node:20-slim` (debian)으로 교체             |
+| GHA 캐시로 nginx.conf 누락          | 이전 빌드 캐시 재사용                     | frontend 빌드에 `--no-cache` 추가             |
+| 다크모드 텍스트 안 보임                  | 하드코딩 색상                          | CSS 변수 `var(--text)` 교체                  |

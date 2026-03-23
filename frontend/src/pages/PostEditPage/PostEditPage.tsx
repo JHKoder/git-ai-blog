@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { postApi } from '../../api/postApi'
+import { memberApi } from '../../api/memberApi'
 import { usePostStore } from '../../store/postStore'
 import { TagInput } from '../../components/TagInput/TagInput'
 import { ImageGenButton } from '../../components/ImageGenButton/ImageGenButton'
@@ -25,12 +26,14 @@ export function PostEditPage() {
   const [loading, setLoading] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [initialized, setInitialized] = useState(false)
+  const [hasGptApiKey, setHasGptApiKey] = useState<boolean>(false)
 
   const draftKey = `draft:edit-${id}`
   const { draftExists, startAutoSave, loadDraft, clearDraft } = useDraft(draftKey)
 
   useEffect(() => {
     if (id) fetchPost(Number(id))
+    memberApi.getMe().then(res => setHasGptApiKey(res.data.data.hasGptApiKey)).catch(() => {})
   }, [id])
 
   // 서버 데이터 로드 후 임시저장 복구 제안
@@ -148,7 +151,7 @@ export function PostEditPage() {
         <div className={styles.field}>
           <div className={styles.labelRow}>
             <label>내용 (Markdown)</label>
-            <ImageGenButton onInsert={insertImageMarkdown} selectedModel={selectedModel} />
+            <ImageGenButton onInsert={insertImageMarkdown} selectedModel={selectedModel} hasGptApiKey={hasGptApiKey} />
           </div>
           <textarea
             ref={textareaRef}

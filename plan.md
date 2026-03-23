@@ -66,18 +66,16 @@ certbot  — 12시간마다 certbot renew --webroot (frontend 무중단)
 
 ### 환경변수 정책
 
-| 프로파일    | 방식                                                           |
-|---------|--------------------------------------------------------------|
-| `local` | 환경변수 없음, H2, CI도 local                                       |
-| `dev`   | `application-dev.yml` + `JASYPT_ENCRYPTOR_PASSWORD`          |
-| `prod`  | `application-prod.yml` + `JASYPT_ENCRYPTOR_PASSWORD` (서버 관리) |
+| 프로파일    | 방식                                                                         |
+|---------|----------------------------------------------------------------------------|
+| `local` | 환경변수 없음, H2, CI도 local                                                     |
+| `dev`   | 해당 PC에 `JASYPT_ENCRYPTOR_PASSWORD` 직접 설정, Docker PostgreSQL + Redis 사용     |
+| `prod`  | 원격 서버에 `JASYPT_ENCRYPTOR_PASSWORD` + `SPRING_PROFILES_ACTIVE=prod` 직접 설정  |
 
-서버 `.env`는 단 두 개만 허용:
-
-```
-JASYPT_ENCRYPTOR_PASSWORD=...
-SPRING_PROFILES_ACTIVE=prod
-```
+**환경변수 관리 정책:**
+- `.env` 파일 사용 금지 — 각 PC/서버에서 직접 환경변수 설정
+- 원격 서버에 `JASYPT_ENCRYPTOR_PASSWORD` 미설정 시 backend 기동 실패로 배포 자체가 차단됨 (fail-fast)
+- dev DB 접속 정보(PostgreSQL Docker)는 기본값 공개 가능 (`localhost:5432/aiblog`, `sa/sa` 등)
 
 ### GitHub Actions CI/CD 흐름
 
@@ -123,6 +121,27 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 ## 4. 개선 필요 항목
 
+### 환경별 설정 검토
+
+- [x] **local** — `JASYPT_ENCRYPTOR_PASSWORD` 없어도 기동 가능. `application.yml`에 기본값 추가 (
+  `${JASYPT_ENCRYPTOR_PASSWORD:local-dummy-jasypt-password}`), `application-local.yml`에 `jwt.secret`, `cloudinary.*` 평문
+  오버라이드
+- [x] **dev** — 정책 결정: dev 로컬 실행 시 Redis 필수. `docker run -d -p 6379:6379 redis` 로 로컬 Redis 띄운 후 실행. `AiUsageLimiter`,
+  `TokenUsageTracker`, `RateLimitCache` 는 이미 Redis 실패 시 graceful degradation 구현됨. `RefreshTokenService` 는 Redis 필수
+  의존성이므로 무시 불가
+- [x] **GitHub Actions** — CI는 `test/resources/application.yml`에서 Redis autoconfiguration 완전 제외 (
+  `DataRedisAutoConfiguration` exclude), local 프로파일 사용. Redis 영향 없음 확인
+- [ ] **local GitHub 로그인 불가** — local 프로파일은 `local-dummy-client-id`를 사용해 실제 GitHub OAuth 인증 불가. GitHub 로그인 테스트는 dev
+  프로파일로만 가능. local에서 로그인 없이 개발할 수 있도록 mock 로그인 또는 테스트 계정 우회 방법 검토
+- [x] **프로파일별 Hashnode 발행 권한 분리** — local/dev는 Hashnode 실제 발행 불가 (발행 버튼 비활성화 또는 명시적 오류). dev는 발행 흐름까지 테스트 가능하나 실제 전송 차단
+  후 롤백. prod만 실제 발행 허용. 백엔드에서 프로파일 조건으로 제어
+
+### 개발 편의
+
+- [x] **Gradle 개발 실행 태스크 (`serverRun`)** — Redis + PostgreSQL Docker 자동 기동 후 dev 프로파일로 백엔드 실행. `JASYPT_ENCRYPTOR_PASSWORD`는 각 PC에 이미 설정되어 있으므로 별도 전달 불필요. `./gradlew serverRun` 하나로 완료
+- [x] **dev PostgreSQL Docker 분리** — 현재 dev 프로파일이 Supabase(prod DB)를 직접 사용해 prod 데이터와 혼재 위험. `serverRun` 태스크에서 Redis와 함께 로컬 PostgreSQL Docker 컨테이너도 자동 기동 (`ai-blog-postgres`). `application-dev.yml`은 `localhost:5432` 기본값으로 변경 (접속정보 공개 가능). prod는 계속 Supabase 사용
+- [x] **build.gradle Java toolchain 자동 관리 확인** — `export JAVA_HOME=...` 하드코딩 제거. `java.toolchain.languageVersion = 25` 설정으로 Gradle이 JDK 자동 다운로드/관리. 누구든 어느 환경에서든 `./gradlew bootRun` 하나로 local 실행 가능하도록 확인 및 문서 정비
+
 ### 인프라 / 배포
 
 - [x] backend Docker Compose 설정 파일 경로 오류 수정
@@ -139,12 +158,18 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 - [x] AI 사용량 제한 — 사용자가 직접 일일 한도를 설정하고 도달 시 AI 사용 불가 처리 (Member.aiDailyLimit, AiUsageLimiter 우선순위 적용)
 - [x] Hashnode 발행 시 글 하단에 AI 메타정보 자동 추가 (사용 모델, 생성일자, 개선 횟수) — PublishPostUseCase에서 appendAiMeta() 처리
 - [x] 메인 페이지 우측 상단에 API 문서 링크 버튼 추가 (Layout.tsx navRight)
+- [x] **이미지 생성 GPT 키 미설정 안내** — 이미지 생성은 GPT 전용인데 GPT API 키 미설정 시 이미지 생성 버튼 비활성화 + "GPT API 키를 먼저 설정해 주세요" 안내 표시. 프론트엔드
+  `ImageGenButton`에서 `hasGptApiKey` 체크
+- [x] **AI 모델별 일일 사용량 한도 설정** — 현재 전체 통합 한도(aiDailyLimit)만 존재. Claude/Grok/GPT/Gemini 각각 개별 한도 설정 가능하도록 변경. `Member`에
+  모델별 limit 필드 추가, `AiUsageLimiter`에서 모델별 체크
+- [x] **API 키 연동 검증** — 현재 API 키 저장 시 형식만 저장. 저장 시 실제 API를 최소 호출(ping/model 목록 조회 등)해서 유효한 키인지 검증 후 "연동됨" 상태 표시. 유효하지
+  않으면 저장 거부 또는 경고. 백엔드 `PATCH /api/members/api-keys`에서 검증 로직 추가
 
 ### API 문서화
 
 - [x] springdoc-openapi (Swagger UI) 적용 — `/swagger-ui/index.html` 에서 확인 가능
-  - Spring REST Docs 3.0.x는 Spring Boot 4 (Spring Framework 7.x)와 미호환 (HttpHeaders API 변경)
-  - springdoc-openapi-starter-webmvc-ui 2.8.8 적용, OpenApiConfig 추가, JWT Bearer 인증 스킴 포함
+    - Spring REST Docs 3.0.x는 Spring Boot 4 (Spring Framework 7.x)와 미호환 (HttpHeaders API 변경)
+    - springdoc-openapi-starter-webmvc-ui 2.8.8 적용, OpenApiConfig 추가, JWT Bearer 인증 스킴 포함
 - [x] 메인 페이지 우측 상단에 API 문서 링크 버튼 추가 (Layout.tsx navRight)
 - [x] API 오류 응답 코드 문서화 (GlobalExceptionHandler 기반: 400, 403, 404, 422, 429, 503)
 - [ ] REST Docs + Redocly / Stoplight / Slate 3종 샘플 — Spring Boot 4 호환 REST Docs 라이브러리 출시 후 구현 예정

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { postApi } from '../../api/postApi'
+import { memberApi } from '../../api/memberApi'
 import { ContentType, CONTENT_TYPE_LABEL } from '../../types/post'
 import { TagInput } from '../../components/TagInput/TagInput'
 import { ImageGenButton } from '../../components/ImageGenButton/ImageGenButton'
@@ -26,6 +27,11 @@ export function PostCreatePage() {
   const [selectedModel, setSelectedModel] = useState('')
   const [loading, setLoading] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [hasGptApiKey, setHasGptApiKey] = useState<boolean>(false)
+
+  useEffect(() => {
+    memberApi.getMe().then(res => setHasGptApiKey(res.data.data.hasGptApiKey)).catch(() => {})
+  }, [])
 
   const { draftExists, startAutoSave, loadDraft, clearDraft } = useDraft(DRAFT_KEY)
 
@@ -138,7 +144,7 @@ export function PostCreatePage() {
         <div className={styles.field}>
           <div className={styles.labelRow}>
             <label>내용 (Markdown)</label>
-            <ImageGenButton onInsert={insertImageMarkdown} selectedModel={selectedModel} />
+            <ImageGenButton onInsert={insertImageMarkdown} selectedModel={selectedModel} hasGptApiKey={hasGptApiKey} />
           </div>
           <textarea
             ref={textareaRef}

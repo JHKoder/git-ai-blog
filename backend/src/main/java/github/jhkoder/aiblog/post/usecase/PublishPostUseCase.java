@@ -1,5 +1,6 @@
 package github.jhkoder.aiblog.post.usecase;
 
+import github.jhkoder.aiblog.common.exception.BusinessRuleException;
 import github.jhkoder.aiblog.common.exception.NotFoundException;
 import github.jhkoder.aiblog.infra.hashnode.HashnodeClient;
 import github.jhkoder.aiblog.member.domain.Member;
@@ -9,6 +10,7 @@ import github.jhkoder.aiblog.post.domain.PostRepository;
 import github.jhkoder.aiblog.post.dto.PostResponse;
 import github.jhkoder.aiblog.suggestion.domain.AiSuggestionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,8 +25,15 @@ public class PublishPostUseCase {
     private final HashnodeClient hashnodeClient;
     private final AiSuggestionRepository aiSuggestionRepository;
 
+    @Value("${spring.profiles.active:local}")
+    private String activeProfile;
+
     @Transactional
     public PostResponse execute(Long postId, Long memberId) {
+        if (!"prod".equals(activeProfile)) {
+            throw new BusinessRuleException("Hashnode 발행은 prod 환경에서만 허용됩니다. (현재: " + activeProfile + ")");
+        }
+
         Post post = postRepository.findByIdAndMemberId(postId, memberId)
                 .orElseThrow(() -> new NotFoundException("게시글을 찾을 수 없습니다."));
         Member member = memberRepository.findById(memberId)

@@ -16,7 +16,7 @@
 | 암호화       | Jasypt `PBEWithMD5AndDES` — dev/prod yml 값 암호화                                   |
 | DB 컬럼 암호화 | `@Convert` + AES-256-GCM — Member 민감 필드                                          |
 | 탄력성       | Resilience4j (재시도, 서킷브레이커)                                                       |
-| API 문서    | springdoc-openapi 2.8.8 — `/swagger-ui/index.html`, JWT Bearer 인증 스킴              |
+| API 문서    | springdoc-openapi 2.8.8 — `/swagger-ui/index.html`, JWT Bearer 인증 스킴             |
 
 ---
 
@@ -150,11 +150,11 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 
 ## 프로파일 / 환경변수 정책
 
-| 프로파일    | DB       | Jasypt | 비고                                                   |
-|---------|----------|--------|------------------------------------------------------|
-| `local` | H2       | 없음     | CI도 local 사용                                         |
-| `dev`   | Supabase | 필수     | `application-dev.yml` + `JASYPT_ENCRYPTOR_PASSWORD`  |
-| `prod`  | Supabase | 필수     | `application-prod.yml` + `JASYPT_ENCRYPTOR_PASSWORD` |
+| 프로파일    | DB       | Jasypt     | Redis  | 비고                                                   |
+|---------|----------|------------|--------|------------------------------------------------------|
+| `local` | H2       | 기본값(dummy) | 불필요    | CI도 local 사용. `JASYPT_ENCRYPTOR_PASSWORD` 없어도 기동 가능  |
+| `dev`   | Supabase | 필수         | 로컬 필수  | `docker run -d -p 6379:6379 redis` 후 실행              |
+| `prod`  | Supabase | 필수         | Docker | `application-prod.yml` + `JASYPT_ENCRYPTOR_PASSWORD` |
 
 **prod 전용:** `spring.datasource.hikari.data-source-properties.prepareThreshold: 0`
 → Supabase PgBouncer 트랜잭션 모드 prepared statement 충돌 방지
@@ -171,18 +171,20 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 ## 개발 환경 실행
 
 ```bash
-# local (H2, 환경변수 불필요)
-export JAVA_HOME=/Users/kang/Library/Java/JavaVirtualMachines/openjdk-25/Contents/Home
+# local (H2, 환경변수 불필요 — Java 25는 build.gradle toolchain이 자동 처리)
 cd backend && ./gradlew bootRun
 
-# dev (Supabase, JASYPT 필요)
-export JASYPT_ENCRYPTOR_PASSWORD=your_password
-export SPRING_PROFILES_ACTIVE=dev
-cd backend && ./gradlew bootRun
+# dev (Docker PostgreSQL + Redis 자동 기동, JASYPT는 해당 PC에 이미 설정됨)
+cd backend && ./gradlew serverRun
 
 # 테스트
 ./gradlew test
 ```
+
+> `JASYPT_ENCRYPTOR_PASSWORD`는 각 PC의 환경변수로 직접 설정. `.env` 파일 사용 금지.
+> Java 25는 `build.gradle`의 `java.toolchain.languageVersion = 25` 설정으로 Gradle이 자동 관리.
+
+
 
 ---
 

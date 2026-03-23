@@ -17,6 +17,10 @@ public class MemberResponse {
     private boolean hasGeminiApiKey;
     private boolean hasGithubToken;
     private Integer aiDailyLimit;
+    private Integer claudeDailyLimit;
+    private Integer grokDailyLimit;
+    private Integer gptDailyLimit;
+    private Integer geminiDailyLimit;
 
     public static MemberResponse from(Member member) {
         return MemberResponse.builder()
@@ -30,6 +34,10 @@ public class MemberResponse {
                 .hasGeminiApiKey(member.hasGeminiApiKey())
                 .hasGithubToken(member.hasGithubToken())
                 .aiDailyLimit(member.getAiDailyLimit())
+                .claudeDailyLimit(member.getClaudeDailyLimit())
+                .grokDailyLimit(member.getGrokDailyLimit())
+                .gptDailyLimit(member.getGptDailyLimit())
+                .geminiDailyLimit(member.getGeminiDailyLimit())
                 .build();
     }
 }
