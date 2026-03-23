@@ -121,6 +121,7 @@ jobs:
             --push \
             --cache-from type=gha,scope=backend \
             --cache-to type=gha,mode=max,scope=backend \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
             -t ${{ secrets.DOCKER_USERNAME }}/aiblog-backend:${{ github.sha }} \
             -t ${{ secrets.DOCKER_USERNAME }}/aiblog-backend:latest \
             ./backend

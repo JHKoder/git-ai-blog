@@ -1,11 +1,15 @@
 FROM eclipse-temurin:25-jdk-jammy AS builder
 WORKDIR /build
+# Gradle 캐시 위치 지정
+ENV GRADLE_USER_HOME=/cache
 COPY gradle ./gradle
 COPY gradlew settings.gradle build.gradle ./
 RUN chmod +x gradlew
-RUN ./gradlew dependencies --no-daemon || true
-COPY src ./src
-RUN ./gradlew bootJar
+RUN --mount=type=cache,target=/cache \
+    ./gradlew build -x test || true \
+COPY src src
+RUN --mount=type=cache,target=/cache \
+    ./gradlew bootJar
 
 FROM eclipse-temurin:25-jre-jammy
 WORKDIR /app
@@ -19,3 +23,4 @@ ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOut
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
   CMD wget -qO- http://localhost:8080/actuator/health || exit 1
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
+
