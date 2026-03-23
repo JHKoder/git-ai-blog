@@ -5,3 +5,8 @@ out/
 .idea/
 .env
 .env.local
+
+.gradle
+build
+node_modules
+.git
