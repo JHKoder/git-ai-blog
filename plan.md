@@ -1,634 +1,164 @@
-# AI Blog Automation — 개발 계획서(라이브 코딩)
+# AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20
-> 최종 수정: 2026-03-22
-> 개발자: 1인 개인 프로젝트
-> 목표 사용자: 최대 100명
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-23
+> 개발자: 1인 개인 프로젝트 / 목표 사용자: 최대 100명
+
+**상세 문서:**
+- 백엔드 → [`backend/claude.md`](backend/claude.md)
+- 프론트엔드 → [`frontend/claude.md`](frontend/claude.md)
+- 운영/모니터링 → [`monitoring.md`](monitoring.md)
+
 ---
-
 
 ## 1. 프로젝트 개요
 
-GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / ChatGPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
+GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
 
 **두 가지 흐름:**
-
 1. GitHub 레포 → 데이터 수집 → 글 초안 → AI 개선 → Hashnode 발행
 2. 직접 글 작성 → AI 개선 → Hashnode 발행
 
 ---
 
-## 2. 기술 스택
+## 2. 기술 스택 요약
 
-| 영역        | 기술                                                                                       |
-|-----------|------------------------------------------------------------------------------------------|
-| 백엔드       | Spring Boot 4.0.3, Java 25, Gradle 9.3.1                                                 |
-| 인증        | Spring Security 7.x + GitHub OAuth2 + JWT (Access 24h / Refresh 30일 HttpOnly 쿠키)         |
-| DB        | H2 (local) / PostgreSQL Supabase (dev/prod) + JPA + Hibernate 7.1                        |
-| 외부 API    | WebClient (WebFlux) — Claude, Grok, ChatGPT, Gemini, GitHub, Hashnode, Cloudinary        |
-| 캐시        | Redis — AI 사용량 카운터, Rate Limit 캐시, JWT Refresh Token blacklist                           |
-| 암호화       | Jasypt (`PBEWithMD5AndDES`) — dev/prod 전용, `application-dev/prod.yml` 내 암호화 값           |
-| DB 컬럼 암호화 | `@Convert` + `AttributeConverter` AES-256-GCM — Member 테이블 민감 필드                         |
-| 프론트       | React 18 + TypeScript + Vite 5                                                           |
-| 상태관리      | Zustand + immer                                                                          |
-| HTTP      | Axios (JWT interceptor 자동 주입)                                                            |
-| 스타일       | CSS Modules + CSS 변수 (다크/라이트 모드)                                                         |
-| 컨테이너      | Docker + Docker Compose                                                                  |
-| CI/CD     | GitHub Actions — 롤링 배포 (sub → main PR merge 시 자동 배포)                                     |
-| 인프라       | OCI 단일 서버 (2CPU / 16GB RAM), IP: `168.107.26.27`, 도메인: `git-ai-blog.kr`                  |
-| 웹서버       | Nginx — React 정적 파일 서빙 + `/api` reverse proxy + HTTPS (Let's Encrypt 자동 갱신)              |
-
-### 프로파일별 환경변수 정책
-
-| 프로파일 | Jasypt 암호화 | 비고 |
-|---------|---------|------------|----------------------------------------------------------------------------------|
-| `local`   | 없음 | 중요 암호값 없이 실행 가능, 테스트 포함. GitHub Actions CI도 local로 실행 |
-| `dev`      | **필수**     | `application-dev.yml` 에 Jasypt 암호화 값 직접 포함. `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요 |
-| `prod`      | **필수**     | `application-prod.yml` 에 Jasypt 암호화 값 직접 포함. `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요 |
-
-> **Jasypt 암호화 방식 주의**: AI가 자동으로 jasypt 암호화를 수행하지 않는다. 웹 사이트(jasypt online tool 등)에서 직접 암호화한 값을 yml에 수동으로 붙여넣는 방식으로
-> 운영한다. AI에게 jasypt 암호화 작업을 시키지 말 것 — 암호화 방식이 다를 수 있다.
-
-**Jasypt ENC() 암호화 대상 (yml 포함 항목):**
-
-| 항목                                                                | 비고                                          |
-|-------------------------------------------------------------------|---------------------------------------------|
-| `db.encryption.key`                                               | AES-256-GCM DB 컬럼 암호화 키 (`application.yml`) |
-| `jwt.secret`                                                      | JWT 서명 키 (`application.yml`)                |
-| `cloudinary.cloud-name`                                           | Cloudinary 서버 인프라 (`application.yml`)       |
-| `cloudinary.api-key`                                              | Cloudinary 서버 인프라 (`application.yml`)       |
-| `cloudinary.api-secret`                                           | Cloudinary 서버 인프라 (`application.yml`)       |
-| `spring.datasource.url`                                           | Supabase DB URL (`dev/prod yml`)            |
-| `spring.datasource.username`                                      | DB 계정 (`dev/prod yml`)                      |
-| `spring.datasource.password`                                      | DB 비밀번호 (`dev/prod yml`)                    |
-| `spring.security.oauth2.client.registration.github.client-id`     | GitHub OAuth App (`dev/prod yml`)           |
-| `spring.security.oauth2.client.registration.github.client-secret` | GitHub OAuth App (`dev/prod yml`)           |
-
-**yml 제외 항목 (ENC() 불필요):**
-
-| 항목                                                  | 이유                                                                                                            |
-|-----------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
-| AI API 키 (Claude, Grok, GPT, Gemini)                | 사용자가 마이페이지에서 직접 입력 — yml 관리 불필요                                                                               |
-| `github.pat`                                        | 사용자가 마이페이지에서 직접 입력 — yml 관리 불필요                                                                               |
-| Hashnode 토큰 / publicationId                         | 마이페이지에서 사용자가 직접 등록                                                                                            |
-| `SPRING_DATA_REDIS` (host/port)                     | 내부 자동화 Redis — 민감정보 아님, 암호화 불필요                                                                               |
-| `github.client-id` / `github.client-secret` (마이페이지) | **불필요** — OAuth App 인증은 서버 yml로만 관리. 사용자별 OAuth App은 지원하지 않음. `Member.githubClientId/Secret` 필드 및 관련 로직 제거 대상 |
-
-> `.env` 파일은 완전히 제거. 모든 민감값은 Jasypt로 암호화 후 yml에 직접 포함.
-> AI API 키, GitHub PAT, Hashnode 설정은 yml 불필요 — 마이페이지(Member API 키 설정)에서 사용자가 직접 등록.
-> GitHub OAuth App Client ID/Secret은 마이페이지에서 받지 않음 — 서버 `application-prod.yml`에서만 관리.
+| 영역 | 기술 |
+|------|------|
+| 백엔드 | Spring Boot 4.0.3, Java 25, Gradle 9.3.1 |
+| 프론트 | React 18 + TypeScript + Vite 5 |
+| DB | H2 (local) / PostgreSQL Supabase (dev/prod) |
+| 캐시 | Redis (AI 사용량, Rate Limit, JWT blacklist) |
+| 암호화 | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼) |
+| 인증 | GitHub OAuth2 + JWT (Access 24h / Refresh 30일) |
+| 컨테이너 | Docker Compose (backend, frontend, redis, certbot) |
+| CI/CD | GitHub Actions → OCI 서버 롤링 배포 |
+| 인프라 | OCI 단일 서버 (2CPU/16GB), 도메인: `git-ai-blog.kr` |
+| 웹서버 | Nginx — HTTPS (Let's Encrypt 자동 갱신) + reverse proxy |
 
 ---
 
-## 3. 아키텍처
-
-### 계층 구조
-
-```
-Controller (HTTP 파라미터 읽기 + UseCase 호출)
-  → UseCase (단일 비즈니스 시나리오, @Transactional 선언)
-    → Repository 인터페이스 (Domain 계층)
-      ← JpaRepository 구현체 (Infra 계층)
-```
-
-### 패키지 구조
-
-최상위 패키지: `github.jhkoder.aiblog`
-
-```
-github.jhkoder.aiblog/
-├── common/               GlobalExceptionHandler, ApiResponse, DbMigrationRunner
-├── common/exception/     NotFoundException, InvalidStateException, BusinessRuleException
-│                         ExternalApiException, RateLimitException
-├── config/               SecurityConfig, WebClientConfig, WebMvcConfig, JasyptConfig
-│                         RedisConfig, AesGcmEncryptionConverter
-├── security/             JwtProvider, JwtAuthenticationFilter, RefreshTokenService
-│                         CustomOAuth2UserService, OAuth2SuccessHandler, AuthController
-├── infra/ai/             AiClient(interface), AiClientRouter, AiUsageLimiter (Redis)
-│                         ClaudeClient, GrokClient, GptClient, GeminiClient
-│                         RateLimitCache (Redis), TokenUsageTracker, ImageUsageLimiter (Redis)
-│                         prompt/PromptBuilder
-├── infra/github/         GitHubClient, WebhookSignatureVerifier
-├── infra/hashnode/       HashnodeClient, HashnodeGraphqlBuilder
-├── infra/image/          CloudinaryClient, GptImageClient, GeminiImageClient, ImageGenerationService
-├── post/                 Post(Entity), PostStatus, ContentType, PostRepository
-│                         PostController, 9개 UseCase (GenerateImageUseCase 포함)
-├── suggestion/           AiSuggestion(Entity), AiSuggestionRepository
-│                         AiSuggestionController, 5개 UseCase
-├── member/               Member(Entity), MemberRepository
-│                         MemberController, 4개 UseCase
-└── repo/                 Repo(Entity), RepoRepository, RepoCollectHistory, CollectType
-                          RepoController, GitHubWebhookController, 5개 UseCase
-```
-
-### 프론트엔드 구조
-
-```
-src/
-├── api/          axiosInstance, postApi, suggestionApi, memberApi, repoApi
-├── store/        authStore, postStore, suggestionStore (Zustand)
-├── types/        member.ts, post.ts, suggestion.ts, repo.ts
-├── hooks/        useDraft.ts, useTheme.ts
-├── components/   Layout, PostCard, AiSuggestionPanel, StatusBadge
-│                 ConfirmModal, TagInput, ImageGenButton
-├── pages/        LoginPage, PostListPage, PostDetailPage
-│                 PostCreatePage, PostEditPage, ProfilePage, RepoListPage
-└── router/       AppRouter.tsx
-```
-
----
-
-## 4. 핵심 도메인 정책
-
-### Post 상태 머신
-
-```
-DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
-           ↓ (거절)
-          DRAFT
-```
-
-- 상태 전이는 반드시 `Post` 도메인 메서드로만: `markAiSuggested()`, `accept()`, `markPublished()`, `revertFromAiSuggested()`
-- PUBLISHED 상태에서도 재발행·AI 개선 가능
-- 모든 상태에서 삭제 가능 (삭제 막는 상태 체크 없음)
-
-### 삭제 정책
-
-- Hashnode 발행 글 있으면 Hashnode도 함께 삭제
-- Hashnode 삭제 실패해도 DB 삭제는 반드시 진행
-- 관련 AI 제안 목록도 함께 삭제
-- 삭제 버튼은 상세 페이지에만 (목록 페이지에 없음)
-
-### Hashnode 발행 분기 정책
-
-- `hashnodeId` 없음 → `publishPost` (신규)
-- `hashnodeId` 있음 → `updatePost` (수정)
-- 항상 `publishPost` 호출하면 중복 생성됨
-
-### AI 사용량 제한 (`AiUsageLimiter`)
-
-- **Redis 기반** (In-memory 제거)
-- local: 5회/일, dev/prod: 20회/일
-- Redis TTL로 자정 자동 초기화
-- 한도 초과 시 즉시 429 반환, 재시도 없음
-
-### AI 클라이언트 라우팅 (`AiClientRouter`)
-
-| ContentType | 기본 모델             |
-|-------------|-------------------|
-| ALGORITHM   | Grok 3            |
-| CODE_REVIEW | Claude Sonnet 4.6 |
-| 나머지         | Claude Sonnet 4.6 |
-
-**선택 가능 모델 목록:**
-
-| 모델 ID               | 제공사     | 구분      | 비고           |
-|---------------------|---------|---------|--------------|
-| `claude-sonnet-4-6` | Claude  | 텍스트     | 기본값, 권장      |
-| `claude-opus-4-5`   | Claude  | 텍스트     | 선택 가능, 비권장   |
-| `grok-3`            | Grok    | 텍스트     | ALGORITHM 기본 |
-| `gpt-4o-mini`       | ChatGPT | 텍스트     | 가성비 추천       |
-| `gpt-4o`            | ChatGPT | 텍스트·이미지 | 고성능          |
-| `gemini-2.0-flash`  | Gemini  | 텍스트     | 구현됨           |
-
-- `requestedModel` 명시 시 강제 라우팅
-- **Sonnet이 기본 모델**. Opus는 선택 가능하나 권장하지 않음
-- **이미지 생성은 GPT 모델 (`gpt-4o`, `gpt-4o-mini`) 선택 시에만 활성화**
-
-### Rate Limit 캐시 (`RateLimitCache`)
-
-- **Redis 기반** (In-memory 제거)
-- AI API 응답 헤더에서 실시간 파싱
-- Claude: `anthropic-ratelimit-tokens-limit/remaining`, `anthropic-ratelimit-requests-limit/remaining`
-- Grok: `x-ratelimit-limit-tokens/remaining`, `x-ratelimit-limit-requests/remaining`
-- GPT: `x-ratelimit-limit-tokens/remaining`, `x-ratelimit-remaining-tokens/requests`
-- 키: `"memberId:provider"`, 값: `RateLimitInfo(tokenLimit, tokenRemaining, requestLimit, requestRemaining)`
-- 미조회 시 -1 반환 (프론트에서 "미조회" 안내 표시)
-
-### 이미지 사용 제한 (`ImageUsageLimiter`)
-
-- **GPT 모델 전용** (Claude Opus 이미지 사용 제거)
-- 일별: 10장/일, 게시글당: 5장
-- Redis TTL로 자동 초기화
-
-### 토큰 누적 추적 (`TokenUsageTracker`)
-
-- 모델별 입력/출력 토큰 누적
-- Redis 기반, 월 1일 자동 초기화 (TTL)
-
-### JWT 인증 정책
-
-- **Access Token**: 24시간, 응답 바디로 전달
-- **Refresh Token**: 30일, HttpOnly 쿠키로 전달
-- **Redis blacklist**: 로그아웃 시 Refresh Token을 blacklist에 등록 (TTL = 잔여 유효시간)
-- **Rotation**: Refresh Token 재발급 시 기존 토큰 무효화
-
-### GitHub Webhook 보안 정책
-
-- `POST /api/webhook/github`는 `X-Hub-Signature-256` 헤더 필수 검증
-- `WebhookSignatureVerifier`에서 HMAC-SHA256으로 서명 비교
-- 서명 불일치 시 즉시 403 반환
-- GitHub webhook IP 대역 whitelist 추가 적용
-
-### DB 컬럼 암호화 정책
-
-- `Member` 테이블의 민감 필드(`claudeApiKey`, `grokApiKey`, `gptApiKey`, `githubToken`, `hashnodeToken` 등)는 DB에 평문 저장 금지
-- `@Convert` + `AttributeConverter` 구현으로 AES-256-GCM DB 레벨 암호화 적용
-- 암호화 키는 환경변수로 관리 (코드에 하드코딩 금지)
-
-### AI 제안 소유권 정책
-
-- 수락/거절 시 `suggestion.postId == postId` 검증 필수
-- 불일치 시 404 반환
-
-### Repository 삭제 메서드 정책
-
-- `JpaRepository.deleteById()` 상속 노출 금지
-- 모든 Repository에서 `deletePost(Long id)`, `deleteRepo(Long id)` 형태로 별도 선언
-
-### 보안 — 민감 필드 응답 금지
-
-절대 Response DTO에 포함 금지:
-`githubToken`, `hashnodeToken`, `claudeApiKey`, `grokApiKey`, `gptApiKey`, `geminiApiKey`,
-`hashnodePublicationId`
-→ boolean 여부만 응답 (`hasHashnodeConnection`, `hasClaudeApiKey`, `hasGithubToken` 등)
-> `githubClientId/Secret` 필드는 `Member` 엔티티 및 모든 DTO에서 완전 제거됨 (사용자별 OAuth App 미지원)
-
-### API 요청 유효성 검사 정책
-
-- 모든 API 요청마다 `@Valid` + Bean Validation 적용
-- 에러 메시지는 명확하고 구체적으로 (예: "제목은 1자 이상 200자 이하여야 합니다")
-- GlobalExceptionHandler에서 ValidationException 일관 처리
-
----
-
-## 5. 구현된 기능 목록
-
-### Post
-
-| 기능           | 엔드포인트                           | 비고                         |
-|--------------|---------------------------------|----------------------------|
-| 생성           | `POST /api/posts`               |                            |
-| 목록           | `GET /api/posts`                | 페이징, 본인 글만                 |
-| 상세           | `GET /api/posts/{id}`           | 조회수 자동 증가                  |
-| 수정           | `PUT /api/posts/{id}`           | 제목/내용/ContentType          |
-| 삭제           | `DELETE /api/posts/{id}`        | Hashnode 연동 삭제 포함          |
-| 발행           | `POST /api/posts/{id}/publish`  | hashnodeId 유무로 신규/수정 분기    |
-| Hashnode 동기화   | `POST /api/posts/sync-hashnode`           | added/updated/deleted 반환              |
-| Hashnode 가져오기 | `POST /api/posts/import-hashnode`         | 연동된 Hashnode 글 전체 DB 저장              |
-| 이미지 생성        | `POST /api/posts/{id}/generate-image`     | GPT 모델 전용, Cloudinary 업로드 후 URL 반환   |
-| AI 사용량         | `GET /api/posts/ai-usage`                 | 호출 횟수 + Rate Limit + 토큰 누적           |
-| PDF 내보내기       | 프론트 `window.print()`                     | 99MB 초과 시 차단                          |
-
-### AI Suggestion
-
-| 기능    | 엔드포인트                                           | 비고                                  |
-|-------|-------------------------------------------------|-------------------------------------|
-| AI 요청 | `POST /api/ai-suggestions/{postId}`             | model/extraPrompt/tempContent 지정 가능 |
-| 최신 제안 | `GET /api/ai-suggestions/{postId}/latest`       |                                     |
-| 히스토리  | `GET /api/ai-suggestions/{postId}/history`      | createdAt DESC                      |
-| 수락    | `POST /api/ai-suggestions/{postId}/{id}/accept` | Optimistic Update                   |
-| 거절    | `POST /api/ai-suggestions/{postId}/{id}/reject` | Post → DRAFT 복원                     |
-
-### Member
-
-| 기능          | 엔드포인트                                  | 비고                              |
-|-------------|----------------------------------------|---------------------------------|
-| 프로필 조회      | `GET /api/members/me`                  | 민감 필드 제외                        |
-| Hashnode 연동 | `POST /api/members/hashnode-connect`   | 연동 시 게시글 자동 import              |
-| Hashnode 해제 | `DELETE /api/members/hashnode-connect` |                                 |
-| API 키 설정    | `PATCH /api/members/api-keys`          | Claude/Grok/GPT/Gemini/GitHub 키 |
-
-### Repo
-
-| 기능 | 엔드포인트                          | 비고                        |
-|----|--------------------------------|---------------------------|
-| 목록 | `GET /api/repos`               |                           |
-| 추가 | `POST /api/repos`              | owner/repo + 수집 타입        |
-| 삭제 | `DELETE /api/repos/{id}`       |                           |
-| 수집 | `POST /api/repos/{id}/collect` | GitHub 데이터 → 게시글 초안       |
-| 웹훅 | `POST /api/webhook/github`     | X-Hub-Signature-256 검증 필수 |
-
-### ContentType별 AI 프롬프트 전략
-
-| ContentType | 톤       |                     필수 요소 |
-|-------------|---------|--------------------------:|
-| ALGORITHM   | 엄격·교육적  | 시간/공간복잡도 표, 코드 블록, 단계별 설명 |
-| CODING      | 실무적·간결  |   에러 재현 → 해결 → 리팩토링 전후 비교 |
-| CS          | 학술적·깊이  |          개념 → 예시 → 트레이드오프 |
-| TEST        | 꼼꼼·방어적  |    Given-When-Then 표, 경계값 |
-| AUTOMATION  | 실용·튜토리얼 |            단계별 코드 + 실행 결과 |
-| DOCUMENT    | 명확·구조화  |              목차 → 본문 → 요약 |
-| CODE_REVIEW | 비판적·건설적 |      Good / Bad / 개선안 3단계 |
-| ETC         | 유연      |                     자유 형식 |
-
----
-
-## 6. 개선 필요 항목
-
-### 인프라 / 배포
-
-- [x] **backend Docker Compose 설정 파일 오류 수정** — `deploy.yml`에서 `docker compose -f /home/opc/app/docker-compose.yml` 경로
-  명시로 수정
-- [x] **배포 서버 GitHub 로그인 502 수정** — `nginx.conf`에 `/login/` 경로 proxy 추가 (`/login/oauth2/code/github` 콜백 처리)
-- [x] **프론트/백엔드 HTTPS 동작 보장** — nginx.conf 80→443 redirect + `/api/`, `/oauth2/`, `/login/` proxy 구성 완료. frontend
-  Dockerfile에 443 EXPOSE 추가
-- [x] **CI 스마트 재빌드 정책 구현** — `check-prev-result` job 추가. 이전 실패 시 강제 재빌드, 이전 기록 없으면(최초) 무조건 빌드, 이전 성공 시 파일 변경 없으면 skip
-- [x] **HTTPS 연결 완료** — Let's Encrypt 인증서 발급, certbot 자동 갱신 자동화, nginx SSL 설정. `https://git-ai-blog.kr` 정상 접속 확인
-- [x] **GitHub OAuth `redirect_uri` 오류 해결** — `application-prod.yml`에
-  `redirect-uri: https://git-ai-blog.kr/login/oauth2/code/github` 명시. GitHub OAuth App callback URL도 동일하게 등록 필요 (웹에서 수동)
-- [x] **backend `unhealthy` 해결** — `spring-boot-starter-actuator` 추가, `/actuator/health` SecurityConfig permitAll,
-  management 엔드포인트 노출 설정. 테스트 yml OAuth2 mock 설정 추가로 전체 테스트 통과
-- [x] **backend Dockerfile 레이어 캐시 최적화** — `COPY src` 전에 `RUN ./gradlew dependencies --no-daemon || true` 추가로 의존성 레이어 분리.
-  `.dockerignore` 추가 (`build/`, `.gradle/` 제외)
-- [x] **`Member.githubClientId/Secret` 필드 제거** — 마이페이지에서 GitHub OAuth App Client ID/Secret을 받을 필요 없음. `Member` 엔티티,
-  `ApiKeyUpdateRequest`, `MemberResponse`, `UpdateApiKeysUseCase`, `MemberDomainTest`에서 제거 완료.
-  프론트엔드 `member.ts` 타입, `ApiKeyUpdateRequest`, `ProfilePage` UI(입력 필드·state·핸들러)에서도 제거 완료
-- [x] **PostgreSQL prepared statement 충돌 해결** — Supabase PgBouncer 트랜잭션 모드에서 `prepared statement "S_1" already exists` 오류 발생.
-  `application-prod.yml`의 `spring.datasource.hikari.data-source-properties.prepareThreshold: 0` 추가로 서버측 prepared statement 비활성화
-
-### 운영 / 모니터링
-
-- [x] **모니터링 가이드 문서 작성 (`monitoring.md`)** — SSH 접속 후 직접 확인하는 방식으로 작성 완료
-    - `docker compose ps` / `docker compose logs -f backend`
-    - Nginx 접근/오류 로그, 컨테이너 재시작 대응, SSL 인증서 확인 절차 포함
-
-### 테스트
-
-- [x] **Controller 테스트 작성 및 통과** — `PostControllerTest`, `MemberControllerTest` (@WebMvcTest, Security 필터 포함)
-- [x] **Repository 통합 테스트 작성 및 통과** — `PostRepositoryTest`, `MemberRepositoryTest`, `AiSuggestionRepositoryTest`,
-  `RepoRepositoryTest` (@SpringBootTest + H2)
-- [x] **도메인 단위 테스트 통과** — `PostDomainTest`, `MemberDomainTest`, `WebhookSignatureVerifierTest`
-- [x] **UseCase 단위 테스트** — `CreatePostUseCaseTest`, `ImportHashnodePostUseCaseTest`, `AiClientRouterTest`
-- [x] **Spring Boot 4 테스트 환경 구성** — `@WebMvcTest` 패키지 이동, `TestRedisConfig` (Redis mock),
-  `test/resources/application.yml` 설정 (OAuth2 mock, Jasypt bean 방식)
-- [x] **미인증 요청 403 반환** — `SecurityConfig`에 `HttpStatusEntryPoint(FORBIDDEN)` 추가 (302 redirect → 403)
-- [x] **Hashnode 게시글 불러오기 단위 테스트** — `ImportHashnodePostUseCaseTest`: 정상 불러오기, 빈 목록, 회원 미존재, 직접 token 전달, PUBLISHED 상태 검증 4건
-
----
-
-## 7. 알려진 이슈 & 해결 기록
-
-| 문제                                            | 원인                                                                                        | 해결                                                                        |
-|-----------------------------------------------|-------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| Hashnode API INVALID_QUERY                    | Stellate CDN이 variables 캐시 거부                                                             | 쿼리 본문에 값 직접 인라인                                                           |
-| 재발행 시 Hashnode 글 중복                           | 항상 publishPost 호출                                                                         | hashnodeId 유무로 publish/update 분기                                          |
-| AI 제안 거절 후 AI_SUGGESTED 상태 유지                 | reject 시 Post 상태 미복원                                                                      | `revertFromAiSuggested()` 호출                                              |
-| 타인의 AI 제안 수락/거절 가능                            | suggestion.postId 소유권 검증 누락                                                               | `filter(s -> s.getPostId().equals(postId))`                               |
-| README 수집 시 런타임 오류                            | raw Accept 헤더로 String 응답을 Map으로 역직렬화                                                      | `bodyToMono(String.class)`                                                |
-| Cloudinary 서명 오류                              | HMAC-SHA256 사용                                                                            | SHA-1로 수정                                                                 |
-| 다크모드 텍스트 안 보임                                 | 하드코딩 색상 (`#111827` 등)                                                                     | CSS 변수(`var(--text)`) 교체                                                  |
-| Gemini 이미지 생성 실패                              | 무료 티어 할당량 초과 (429)                                                                        | Gemini 이미지 계획 취소, GPT 전환 예정                                               |
-| QEMU arm64 빌드 illegal instruction             | `node:20-alpine` musl libc + QEMU 비호환                                                     | `node:20-slim` (debian)으로 교체                                              |
-| prod 기동 시 `spring.datasource.password` 바인딩 실패 | `JASYPT_ENCRYPTOR_PASSWORD`에 특수문자(`$` 등) 포함 시 shell이 변수로 해석해 값 변형                         | deploy.yml 인라인 값을 작은따옴표로 감쌈: `JASYPT_ENCRYPTOR_PASSWORD='...'`            |
-| zustand immer 미들웨어 빌드 실패                      | `immer`가 zustand peer dependency인데 `package.json`에 누락                                     | `immer: ^10.0.0` dependencies에 추가                                         |
-| rollup 바이너리 모듈 누락 (반복)                        | npm optional dependency 공식 버그 — `npm ci` 또는 `package-lock.json` 잔존 시 lock 기반 재현           | CI에서 `npm install` 전에 `rm -f package-lock.json` 추가 (deploy.yml, test.yml) |
-| bootJar QEMU 빌드 4분 이상 멈춤                      | QEMU arm64 크로스컴파일 시 JVM 에뮬레이션 오버헤드                                                        | 경로 기반 조건부 빌드로 불필요한 빌드 스킵 (변경된 쪽만 빌드)                                      |
-| backend 컨테이너 Restarting                       | `no configuration file provided: not found` — deploy.yml에서 compose 파일 경로 미지정              | `docker compose -f /home/opc/app/docker-compose.yml` 명시                   |
-| 배포 서버 GitHub 로그인 502                          | nginx.conf에 `/login/` proxy 경로 누락 — OAuth 콜백 처리 불가                                        | nginx.conf에 `location /login/` proxy 블록 추가                                |
-| frontend `cannot load certificate` 반복 재시작     | 서버의 `docker-compose.yml`이 구버전 — `certbot_data` volume 마운트 없고 새 이미지 미pull                  | 서버에 최신 `docker-compose.yml` 수동 복사 후 `docker compose pull && up -d` 실행     |
-| 최초 인증서 없이 frontend 기동 시 nginx 즉시 종료           | nginx가 기동 시 SSL 인증서 파일 존재를 검증 — 파일 없으면 exit                                               | frontend 중단 → certbot standalone으로 인증서 발급 → frontend 재기동 순서 필수            |
-| frontend conf.d 비어있어 443 Connection refused   | 서버 `docker-compose.yml`에 `./nginx/conf:/etc/nginx/conf.d` 볼륨 마운트가 이미지 내 conf.d를 덮어씌움      | 서버에 최신 `docker-compose.yml` scp 복사 후 재기동. GHA 캐시도 `--no-cache`로 제거        |
-| GitHub OAuth `redirect_uri not associated` 오류 | prod GitHub OAuth App에 `https://git-ai-blog.kr/login/oauth2/code/github` callback URL 미등록 | GitHub OAuth App Settings에서 Authorization callback URL 추가 필요 (미해결)        |
-| backend 컨테이너 계속 `unhealthy`                   | Dockerfile HEALTHCHECK가 `/actuator/health` 호출하는데 `spring-boot-starter-actuator` 미포함       | Actuator 의존성 추가 또는 HEALTHCHECK 엔드포인트 변경 필요 (미해결)                          |
-| `prepared statement "S_1" already exists` + `current transaction is aborted` | Supabase가 내부적으로 PgBouncer 트랜잭션 모드 pooling을 사용 — 커넥션을 풀에 반납할 때 prepared statement 이름이 PostgreSQL 서버에 남아있어 다음 요청에서 충돌. DB 내용 전체 삭제 후 첫 로그인 시 발생 | `application-prod.yml`에 `spring.datasource.hikari.data-source-properties.prepareThreshold: 0` 추가 → 서버측 prepared statement 완전 비활성화 |
-
----
-
-## 8. 배포 계획 (OCI 단일 서버)
+## 3. 인프라 / 배포
 
 ### 서버 정보
-
-- IP: `168.107.26.27`
-- 도메인: `git-ai-blog.kr`
-- OS: Ubuntu 20.04 (server-setup.sh apt 기반)
-- 사양: 2CPU / 16GB RAM
-- SSH 키: `/private` 경로
-
-### 서버 구성
-
-```
-OCI (2CPU / 16GB RAM) — git-ai-blog.kr
-└── Nginx (80 → 443 redirect, HTTPS)
-    ├── /         → React 정적 빌드 서빙
-    └── /api      → localhost:8080 (Spring Boot)
-Spring Boot (8080, 내부 전용)
-Redis (6379, 내부 전용)
-```
+- IP: `168.107.26.27` / 도메인: `git-ai-blog.kr`
+- OS: Ubuntu 20.04 / 사양: 2CPU / 16GB RAM / SSH 키: `/private`
 
 ### Docker Compose 구성
-
 ```
-services:
-  backend   — Spring Boot JAR, application-prod.yml (Jasypt 암호화 값 포함), JASYPT_ENCRYPTOR_PASSWORD 환경변수 주입
-              hikari.data-source-properties.prepareThreshold=0 (PgBouncer 호환)
-  frontend  — Nginx + React 빌드 결과물, 80/443 포트
-              certbot_data(ro) + certbot_www 볼륨 마운트 (SSL 인증서 읽기, ACME 쓰기)
-              docker-entrypoint.sh: nginx 백그라운드 실행 + 6시간마다 인증서 변경 감지 → nginx reload
-  redis     — 사용량 카운터, Rate Limit 캐시, JWT blacklist
-              AOF 영속성 활성화 (appendonly yes), 헬스체크 포함
-  certbot   — 12시간마다 certbot renew --webroot 실행 (frontend 무중단 갱신)
+backend  — Spring Boot prod, JASYPT_ENCRYPTOR_PASSWORD, prepareThreshold=0
+frontend — Nginx + React, 80/443, certbot_data(ro) + certbot_www 마운트
+           docker-entrypoint.sh: 6시간마다 인증서 변경 감지 → nginx reload
+redis    — AOF 영속성, 헬스체크 포함
+certbot  — 12시간마다 certbot renew --webroot (frontend 무중단)
 ```
 
-**외부 볼륨 (external: true):**
-- `certbot_data` — `/etc/letsencrypt` (인증서 저장)
-- `certbot_www` — `/var/www/certbot` (ACME challenge)
+**외부 볼륨 (external: true):** `certbot_data`, `certbot_www`
+**내부 볼륨:** `redis_data`
 
-**내부 볼륨:**
-- `redis_data` — Redis AOF 데이터
-
-- `.env` 파일 사용 안 함 (dev/prod 모두)
-- 모든 민감값은 Jasypt로 암호화 후 `application-dev.yml` / `application-prod.yml`에 직접 포함
-- 서버 `server-setup.sh`의 `.env`는 단 두 개만 허용:
-  ```
-  JASYPT_ENCRYPTOR_PASSWORD=...
-  SPRING_PROFILES_ACTIVE=prod
-  ```
-- `DOCKER_USERNAME`, `DOCKER_HUB_TOKEN`은 GitHub Secrets에서만 관리 (서버 `.env` 불포함)
-
-> **주의**: 서버의 `/home/opc/app/docker-compose.yml`은 CI/CD로 자동 배포되지 않는다. `docker-compose.yml` 변경 시 수동으로 서버에 복사해야 한다.
+> **주의**: `docker-compose.yml` 변경 시 서버에 수동 복사 필요
 > ```bash
 > scp -i /path/to/key docker-compose.yml opc@168.107.26.27:/home/opc/app/docker-compose.yml
 > ```
 
+### 환경변수 정책
+| 프로파일 | 방식 |
+|---------|------|
+| `local` | 환경변수 없음, H2, CI도 local |
+| `dev` | `application-dev.yml` + `JASYPT_ENCRYPTOR_PASSWORD` |
+| `prod` | `application-prod.yml` + `JASYPT_ENCRYPTOR_PASSWORD` (서버 관리) |
+
+서버 `.env`는 단 두 개만 허용:
+```
+JASYPT_ENCRYPTOR_PASSWORD=...
+SPRING_PROFILES_ACTIVE=prod
+```
+
 ### GitHub Actions CI/CD 흐름
-
 ```
-sub branch push
-  → PR 생성
-    → [테스트 workflow] local 프로파일로 테스트 자동 실행 (실패 시 merge 차단)
-    → [라벨링 workflow] PR 내용 감지 → [bug]/[hotfix]/[release]/[feature]/[security] 태그 부착
-  → Squash and Merge to main
-    → [배포 workflow] Docker build → OCI 서버 롤링 배포 (SSH: /private 키 사용)
+sub branch push → PR 생성
+  → [test.yml]      local 프로파일 테스트 (실패 시 merge 차단)
+  → [auto-label.yml] feat/fix/hotfix 등 자동 태깅
+→ Squash Merge to main
+  → [deploy.yml]    Docker build (arm64) → Docker Hub push → OCI 롤링 배포
 ```
 
-### 롤링 배포 흐름 (UML)
+**스마트 재빌드 정책** (`check-prev-result` job):
 
-```
-main push
-  │
-  ├─[build-backend job]  (backend/** 변경 시에만)────────────┐
-  │   runs-on: ubuntu-22.04                                  │
-  │   actions/checkout                                        │
-  │   Cache Gradle (~/.gradle/caches, ~/.gradle/wrapper)     │
-  │     캐시 키: build.gradle + gradle-wrapper.properties 해시  │
-  │     ※ yml 파일은 캐시 대상 아님 (Docker 이미지 빌드 시 COPY로 포함)  │
-  │   Dockerfile 내부: bootJar 실행 → .jar → Docker 이미지 패키징  │
-  │   Docker Buildx 설정                                      │
-  │   Docker Hub 로그인                                        │
-  │   docker buildx build --platform linux/arm64             │
-  │     ./backend → jhkoders/aiblog-backend:latest  ──push──►│
-  │                                                           │
-  ├─[build-frontend job] (frontend/** 변경 시에만)────────────┤
-  │   runs-on: ubuntu-22.04                                   │
-  │   actions/checkout                                        │
-  │   Node 20 setup                                           │
-  │   npm install && npm run build                            │
-  │   Docker Buildx 설정                                      │
-  │   Docker Hub 로그인                                        │
-  │   docker buildx build --platform linux/arm64             │
-  │     ./frontend (dist 포함) → jhkoders/aiblog-frontend ──►│
-  │                                                           │
-  └─[deploy job]  needs: [build-backend, build-frontend]◄────┘
-      (build job success 또는 skipped 이면 항상 실행)
-      appleboy/ssh-action → opc@168.107.26.27
-        cd /home/opc/app
-        docker compose pull backend frontend   ← Docker Hub에서 latest pull
-        docker compose up -d --no-deps backend frontend
-          ├─ backend  컨테이너 교체 (Spring Boot prod 프로파일)
-          └─ frontend 컨테이너 교체 (nginx + React dist)
-        sleep 15  (헬스체크 대기)
-        docker compose ps
-        docker image prune -f
-```
+| 이전 결과 | 이번 실행 |
+|---------|---------|
+| 실패 | 파일 변경 없어도 강제 재빌드 |
+| skipped | 가장 최근 실제 결과 조회 후 판단 |
+| 성공 | 파일 변경 없으면 skip |
+| 기록 없음 | 무조건 빌드 |
 
-### 스마트 재빌드 정책
-
-현재 `dorny/paths-filter` 기반 빌드는 파일 변경이 없으면 무조건 skip한다. 이 경우 이전 빌드가 실패했어도 환경설정(yml, workflow 등)만 수정한 커밋에서 재빌드가 되지 않는 문제가
-있다.
-
-**원하는 동작:**
-
-| 이전 실행 결과           | 이번 실행                                         |
-|--------------------|-----------------------------------------------|
-| 빌드 **실패**          | 파일 변경 없어도 **강제 재빌드**                          |
-| 빌드 **skipped**     | 가장 최근 성공/실패 기록 조회 → 성공이면 다시 skip, 실패면 **재빌드** |
-| 빌드 **성공**          | 파일 변경 없으면 skip (현재와 동일)                       |
-| **이전 실행 기록 자체 없음** | **무조건 빌드** (최초 실행, 브랜치 신규 등)                  |
-
-**구현:**
-
-`gh run list`로 이전 실행 결과를 조회하는 `check-prev-result` job을 추가하고, `build-backend` / `build-frontend`의 `if` 조건에 이전 실패 여부를
-반영한다. 이전 실행 기록이 없으면 `true`로 처리해 무조건 빌드한다.
-
-```
-check-prev-result job
-  gh run list --workflow=deploy.yml --branch=main --limit=2 (현재 실행 제외한 직전 1개)
-  → 이전 실행이 없거나 backend/frontend job이 failure/skipped+이전실패 → true
-  → outputs: backend_needs_build, frontend_needs_build
-
-build-backend if 조건:
-  needs.changes.outputs.backend == 'true'
-  || needs.check-prev-result.outputs.backend_needs_build == 'true'
-
-build-frontend if 조건:
-  needs.changes.outputs.frontend == 'true'
-  || needs.check-prev-result.outputs.frontend_needs_build == 'true'
-```
-
-### 환경변수 관리
-
-| 프로파일    | 방식                                                                                       |
-|---------|------------------------------------------------------------------------------------------|
-| `local` | 환경변수 없음, 기본값으로 실행 (H2, mock 키). GitHub Actions CI도 local로 실행                             |
-| `dev`   | `application-dev.yml` (Jasypt 암호화 값 포함) + `JASYPT_ENCRYPTOR_PASSWORD` 환경변수               |
-| `prod`  | `application-prod.yml` (Jasypt 암호화 값 포함) + `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 (서버에서 직접 관리) |
-
-> **prod 전용 추가 설정**: `spring.datasource.hikari.data-source-properties.prepareThreshold: 0`
-> Supabase PgBouncer 트랜잭션 모드에서 prepared statement 이름 충돌을 방지하기 위해 서버측 캐싱 비활성화.
-
-### HTTPS
-
-- Let's Encrypt certbot 설치 (`git-ai-blog.kr`)
-- Nginx 80 → 443 redirect 설정
-- **모든 진입점은 `https://git-ai-blog.kr` 경로로만 접속** (http → https 강제 리다이렉트)
-
-**인증서 구조:**
-
-- `certbot_data` Docker volume → `/etc/letsencrypt` (인증서 저장)
-- `certbot_www` Docker volume → `/var/www/certbot` (ACME challenge)
-- frontend 컨테이너가 두 volume을 마운트해서 nginx가 인증서를 직접 읽음
-- `nginx.conf`에 `ssl_certificate /etc/letsencrypt/live/git-ai-blog.kr/fullchain.pem` 명시
-
-**최초 인증서 발급 (서버 초기 셋업 시):**
-
+### HTTPS 인증서 초기 발급 (서버 초기 셋업 시)
 ```bash
-# frontend 중지 후 standalone 모드로 80포트 점유해 발급
 docker compose -f /home/opc/app/docker-compose.yml stop frontend
 docker run --rm \
   -v certbot_data:/etc/letsencrypt \
   -v certbot_www:/var/www/certbot \
   -p 80:80 \
   certbot/certbot certonly --standalone \
-  -d git-ai-blog.kr \
-  --email jeonghun.kang.dev@gmail.com \
+  -d git-ai-blog.kr --email jeonghun.kang.dev@gmail.com \
   --agree-tos --non-interactive
 docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 ```
 
-**인증서 자동 갱신 자동화:**
-
-- [x] docker-compose에 certbot renew 자동화 연동
-- certbot 컨테이너: 12시간마다 `certbot renew --webroot` 실행 (frontend 중단 없이 갱신)
-- frontend 컨테이너: `docker-entrypoint.sh`에서 nginx 백그라운드 실행 + 6시간마다 인증서 변경 감지 → `nginx -s reload`
-- certbot_www volume을 frontend에서 rw로 마운트 (webroot challenge 파일 쓰기 허용)
+### GitHub OAuth App 설정
+| 환경 | Callback URL |
+|------|-------------|
+| local | `http://localhost:8080/login/oauth2/code/github` |
+| prod | `https://git-ai-blog.kr/login/oauth2/code/github` |
 
 ---
 
-## 9. 개발 환경 실행 방법
+## 4. 개선 필요 항목
 
-```bash
-# 백엔드 — local 프로파일 (환경변수 불필요, H2 사용)
-export JAVA_HOME=/Users/kang/Library/Java/JavaVirtualMachines/openjdk-25/Contents/Home
-cd backend && ./gradlew bootRun
+### 인프라 / 배포
+- [x] backend Docker Compose 설정 파일 경로 오류 수정
+- [x] 배포 서버 GitHub 로그인 502 수정 (nginx `/login/` proxy 추가)
+- [x] HTTPS 연결 완료 — `https://git-ai-blog.kr` 정상 접속
+- [x] CI 스마트 재빌드 정책 구현 (`check-prev-result` job)
+- [x] GitHub OAuth `redirect_uri` 오류 해결 (prod yml 명시)
+- [x] backend `unhealthy` 해결 (Actuator 추가, SecurityConfig permitAll)
+- [x] backend Dockerfile 레이어 캐시 최적화 + `.dockerignore` 추가
+- [x] `Member.githubClientId/Secret` 필드 제거 (백엔드 + 프론트엔드 완료)
+- [x] PostgreSQL prepared statement 충돌 해결 (`prepareThreshold: 0`)
 
-# 백엔드 — dev 프로파일 (JASYPT_ENCRYPTOR_PASSWORD 필요, Supabase 연결)
-export JASYPT_ENCRYPTOR_PASSWORD=your_password
-export SPRING_PROFILES_ACTIVE=dev
-cd backend && ./gradlew bootRun
+### 운영 / 모니터링
+- [x] 모니터링 가이드 문서 작성 (`monitoring.md`)
 
-# 프론트엔드
-cd frontend && npm run dev
+### 테스트
+- [x] Controller 테스트 (`PostControllerTest`, `MemberControllerTest`)
+- [x] Repository 통합 테스트 (4개 — H2 기반)
+- [x] 도메인 단위 테스트 (`PostDomainTest`, `MemberDomainTest`, `WebhookSignatureVerifierTest`)
+- [x] UseCase 단위 테스트 (`CreatePostUseCaseTest`, `ImportHashnodePostUseCaseTest`, `AiClientRouterTest`)
+- [x] Spring Boot 4 테스트 환경 구성 (TestRedisConfig, OAuth2 mock)
 
-# 포트 충돌 시
-lsof -ti :8080 | xargs kill -9
-lsof -ti :5173 | xargs kill -9
-```
+---
 
-> **local 프로파일**: 중요 암호값(API 키, DB 비밀번호) 없이 H2 in-memory DB로 실행 가능. 테스트도 local 기준으로 동작.
-> **dev 프로파일**: `JASYPT_ENCRYPTOR_PASSWORD` 환경변수 필요. `application-dev.yml`에 암호화 값 포함. `.env` 파일 불필요.
-> **prod**: 서버에서 `JASYPT_ENCRYPTOR_PASSWORD` 환경변수만 관리. `application-prod.yml`에 암호화 값 포함. `.env` 파일 불필요.
+## 5. 알려진 이슈 & 해결 기록 (주요)
 
-### GitHub OAuth App 설정
+| 문제 | 해결 |
+|------|------|
+| `prepared statement "S_1" already exists` | `prepareThreshold: 0` (prod yml) |
+| JASYPT 특수문자 shell 해석 | `JASYPT_ENCRYPTOR_PASSWORD='...'` 작은따옴표 |
+| backend `unhealthy` | Actuator 추가 |
+| QEMU arm64 curl segfault | wget으로 HEALTHCHECK 변경 |
+| `Post.tags` LazyInitializationException | `List.copyOf(post.getTags())` |
+| SyncHashnode Duplicate key | `Collectors.toMap` mergeFunction 추가 |
+| frontend conf.d 비어있어 443 거부 | GHA `--no-cache`, 서버 docker-compose.yml scp 복사 |
+| 최초 인증서 없이 nginx 즉시 종료 | certbot standalone 발급 후 frontend 재기동 순서 필수 |
+| Hashnode INVALID_QUERY | GraphQL 쿼리에 변수 직접 인라인 |
+| rollup 바이너리 누락 (반복) | CI에서 `rm -f package-lock.json` 후 install |
 
-GitHub OAuth App을 환경별로 두 개 등록해야 한다. (Settings → Developer settings → OAuth Apps)
+> 전체 이슈 기록 → `backend/claude.md`, `frontend/claude.md` 참고
 
-**Local 개발용 OAuth App:**
+---
 
-| 항목                         | 값                                                |
-|----------------------------|--------------------------------------------------|
-| Homepage URL               | `http://localhost:8080/`                         |
-| Authorization callback URL | `http://localhost:8080/login/oauth2/code/github` |
+## 6. 개발 규칙
 
-**Production OAuth App:**
-
-| 항목                         | 값                                                 |
-|----------------------------|---------------------------------------------------|
-| Homepage URL               | `https://git-ai-blog.kr/`                         |
-| Authorization callback URL | `https://git-ai-blog.kr/login/oauth2/code/github` |
-
-> 각 OAuth App의 Client ID / Client Secret은 Jasypt로 암호화 후 `application-dev.yml` / `application-prod.yml`에 포함.
-
-### 개발 기록 규칙
-
-구현 중 새로 발견한 내용(버그, 설계 결정, 특이사항 등)은 반드시 `research.md`에 기록.
+- 구현 중 새로 발견한 내용(버그, 설계 결정, 특이사항)은 `research.md`에 기록
+- Jasypt 암호화는 AI가 직접 수행하지 않음 — jasypt online tool에서 수동 암호화 후 yml에 붙여넣기
+- `any` / `unknown` 타입 사용 금지 (프론트엔드)
+- 작업 완료 시 해당 문서의 체크박스 완료 표시

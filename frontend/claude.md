@@ -1,0 +1,225 @@
+# Frontend — AI Blog Automation
+
+> React 18 · TypeScript · Vite 5
+
+---
+
+## 기술 스택
+
+| 영역 | 기술 |
+|------|------|
+| 프레임워크 | React 18 + TypeScript + Vite 5 |
+| 상태관리 | Zustand + immer 미들웨어 |
+| HTTP | Axios (JWT interceptor 자동 주입) |
+| 스타일 | CSS Modules + CSS 변수 (다크/라이트 모드) |
+| 라우팅 | React Router v7 |
+
+---
+
+## 폴더 구조
+
+```
+src/
+├── api/
+│   ├── axiosInstance.ts      기본 URL /api, JWT 인터셉터, 401 → 로그아웃
+│   ├── postApi.ts
+│   ├── suggestionApi.ts
+│   ├── memberApi.ts
+│   └── repoApi.ts
+├── store/
+│   ├── authStore.ts          token (localStorage 'ai_blog_token'), setToken, logout
+│   ├── postStore.ts          posts, currentPost, pagination, fetchPosts, fetchPost
+│   └── suggestionStore.ts    latest, history, accept(낙관적 업데이트), reject, clear
+├── types/
+│   ├── member.ts
+│   ├── post.ts
+│   ├── suggestion.ts
+│   └── repo.ts
+├── hooks/
+│   ├── useDraft.ts
+│   └── useTheme.ts
+├── components/
+│   ├── Layout/
+│   ├── PostCard/
+│   ├── AiSuggestionPanel/
+│   ├── StatusBadge/
+│   ├── Modal/ConfirmModal/
+│   ├── TagInput/
+│   └── ImageGenButton/
+├── pages/
+│   ├── LoginPage/
+│   ├── PostListPage/
+│   ├── PostDetailPage/
+│   ├── PostCreatePage/
+│   ├── PostEditPage/
+│   ├── ProfilePage/
+│   └── RepoListPage/
+└── router/AppRouter.tsx
+```
+
+---
+
+## 타입 정의
+
+### member.ts
+```typescript
+interface Member {
+  id: number
+  username: string
+  avatarUrl?: string
+  hasHashnodeConnection: boolean
+  hasClaudeApiKey: boolean
+  hasGrokApiKey: boolean
+  hasGptApiKey: boolean
+  hasGeminiApiKey: boolean
+  hasGithubToken: boolean
+}
+
+interface HashnodeConnectRequest { token: string; publicationId: string }
+
+interface ApiKeyUpdateRequest {
+  claudeApiKey?: string
+  grokApiKey?: string
+  gptApiKey?: string
+  geminiApiKey?: string
+  githubToken?: string
+}
+```
+
+> `githubClientId/Secret`은 제거됨 — 사용자별 OAuth App 미지원
+
+### post.ts
+```typescript
+type PostStatus = 'DRAFT' | 'AI_SUGGESTED' | 'ACCEPTED' | 'PUBLISHED'
+type ContentType = 'ALGORITHM' | 'CODING' | 'CS' | 'TEST' | 'AUTOMATION' | 'DOCUMENT' | 'CODE_REVIEW' | 'ETC'
+
+interface Post { id, title, content, contentType, status, hashnodeId?, hashnodeUrl?, tags, viewCount, createdAt, updatedAt }
+interface PostPage { content: Post[], totalElements, totalPages, number, size }
+
+interface AiUsage {
+  used: number; limit: number; remaining: number
+  sonnetInputTokens: number; sonnetOutputTokens: number
+  claudeTokenLimit: number; claudeTokenRemaining: number
+  claudeRequestLimit: number; claudeRequestRemaining: number
+  imageDailyUsed: number; imageDailyLimit: number
+  imageDailyRemaining: number; imagePerPostLimit: number
+  grokInputTokens: number; grokOutputTokens: number
+  grokTokenLimit: number; grokTokenRemaining: number
+  grokRequestLimit: number; grokRequestRemaining: number
+}
+```
+
+### suggestion.ts
+```typescript
+interface AiSuggestion { id, postId, suggestedContent, model, extraPrompt?, createdAt }
+interface AiSuggestionRequest { model?: string; extraPrompt?: string; tempContent?: string }
+```
+
+### repo.ts
+```typescript
+type CollectType = 'COMMIT' | 'PR' | 'WIKI' | 'README'
+interface Repo { id, owner, repoName, collectType, createdAt }
+interface RepoAddRequest { owner: string; repoName: string; collectType: CollectType }
+interface PrSummary { number, title, hasBlogLabel, alreadyCollected }
+```
+
+---
+
+## API 클라이언트
+
+### axiosInstance.ts
+- `baseURL: /api`
+- 요청 인터셉터: `Authorization: Bearer <token>` 주입
+- 응답 인터셉터: 401 → `authStore.logout()` + `/login` 리다이렉트
+
+### postApi.ts
+```typescript
+create(data)           POST /posts
+getList(page, size, tag?)  GET /posts
+getDetail(id)          GET /posts/{id}
+update(id, data)       PUT /posts/{id}
+delete(id)             DELETE /posts/{id}
+publish(id)            POST /posts/{id}/publish
+importFromHashnode()   POST /posts/import-hashnode
+syncHashnode()         POST /posts/sync-hashnode
+getAiUsage()           GET /posts/ai-usage
+generateImage(prompt, model)  POST /posts/{id}/generate-image
+```
+
+### memberApi.ts
+```typescript
+getMe()                    GET /members/me
+connectHashnode(data)      POST /members/hashnode-connect
+disconnectHashnode()       DELETE /members/hashnode-connect
+updateApiKeys(data)        PATCH /members/api-keys
+getAiUsage()               GET /posts/ai-usage
+```
+
+### suggestionApi.ts
+```typescript
+request(postId, data)       POST /ai-suggestions/{postId}
+getLatest(postId)           GET /ai-suggestions/{postId}/latest
+getHistory(postId)          GET /ai-suggestions/{postId}/history
+accept(postId, id)          POST /ai-suggestions/{postId}/{id}/accept
+reject(postId, id)          POST /ai-suggestions/{postId}/{id}/reject
+```
+
+### repoApi.ts
+```typescript
+getList()                   GET /repos
+add(data)                   POST /repos
+delete(id)                  DELETE /repos/{id}
+collect(id, wikiPage?)      POST /repos/{id}/collect
+getPrList(id)               GET /repos/{id}/prs
+collectPrs(id, prNumbers)   POST /repos/{id}/collect-prs
+```
+
+---
+
+## 상태관리 (Zustand)
+
+### authStore
+- `token: string | null` — localStorage `ai_blog_token`에 persist
+- `isAuthenticated: boolean`
+- `setToken(token)` / `logout()`
+
+### postStore (immer)
+- `posts: Post[]`, `currentPost: Post | null`
+- `totalPages`, `currentPage`, `activeTag`, `loading`
+- `fetchPosts(page, tag?)` — 태그 필터 유지
+- `fetchPost(id)` / `clearCurrentPost()`
+
+### suggestionStore (immer)
+- `latestSuggestion`, `history[]`, `loading`
+- `accept(postId, id)` — 낙관적 업데이트 후 실패 시 롤백
+- `reject(postId, id)` / `fetchLatest(postId)` / `fetchHistory(postId)` / `clear()`
+
+---
+
+## 타입 안전성 규칙
+
+- `any` / `unknown` 타입 사용 금지
+- catch 블록: `catch (e: unknown)` 후 타입 단언으로 접근
+- 모든 API 응답은 명시적 타입으로 정의
+
+---
+
+## 개발 환경 실행
+
+```bash
+cd frontend && npm run dev      # http://localhost:5173
+npx tsc --noEmit               # 타입 체크
+npm run build                  # 프로덕션 빌드
+```
+
+---
+
+## 주요 이슈 해결 기록
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| zustand immer 빌드 실패 | `immer` peer dependency 누락 | `immer: ^10.0.0` 추가 |
+| rollup 바이너리 누락 (반복) | npm optional dep 버그 | CI에서 `rm -f package-lock.json` 후 install |
+| QEMU arm64 illegal instruction | `node:20-alpine` musl + QEMU 비호환 | `node:20-slim` (debian)으로 교체 |
+| GHA 캐시로 nginx.conf 누락 | 이전 빌드 캐시 재사용 | frontend 빌드에 `--no-cache` 추가 |
+| 다크모드 텍스트 안 보임 | 하드코딩 색상 | CSS 변수 `var(--text)` 교체 |
