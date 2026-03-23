@@ -117,7 +117,7 @@ public class PostController {
 
         AiUsageResponse usage = AiUsageResponse.builder()
                 .used(aiUsageLimiter.getUsedCount(memberId))
-                .limit(aiUsageLimiter.getDailyLimit())
+                .limit(aiUsageLimiter.getEffectiveLimit(memberId))
                 .remaining(aiUsageLimiter.getRemainingCount(memberId))
                 .sonnetInputTokens(sonnet.inputTokens())
                 .sonnetOutputTokens(sonnet.outputTokens())

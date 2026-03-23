@@ -4,6 +4,7 @@
 > 개발자: 1인 개인 프로젝트 / 목표 사용자: 최대 100명
 
 **상세 문서:**
+
 - 백엔드 → [`backend/claude.md`](backend/claude.md)
 - 프론트엔드 → [`frontend/claude.md`](frontend/claude.md)
 - 운영/모니터링 → [`monitoring.md`](monitoring.md)
@@ -15,6 +16,7 @@
 GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
 
 **두 가지 흐름:**
+
 1. GitHub 레포 → 데이터 수집 → 글 초안 → AI 개선 → Hashnode 발행
 2. 직접 글 작성 → AI 개선 → Hashnode 발행
 
@@ -22,28 +24,30 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 
 ## 2. 기술 스택 요약
 
-| 영역 | 기술 |
-|------|------|
-| 백엔드 | Spring Boot 4.0.3, Java 25, Gradle 9.3.1 |
-| 프론트 | React 18 + TypeScript + Vite 5 |
-| DB | H2 (local) / PostgreSQL Supabase (dev/prod) |
-| 캐시 | Redis (AI 사용량, Rate Limit, JWT blacklist) |
-| 암호화 | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼) |
-| 인증 | GitHub OAuth2 + JWT (Access 24h / Refresh 30일) |
-| 컨테이너 | Docker Compose (backend, frontend, redis, certbot) |
-| CI/CD | GitHub Actions → OCI 서버 롤링 배포 |
-| 인프라 | OCI 단일 서버 (2CPU/16GB), 도메인: `git-ai-blog.kr` |
-| 웹서버 | Nginx — HTTPS (Let's Encrypt 자동 갱신) + reverse proxy |
+| 영역    | 기술                                                  |
+|-------|-----------------------------------------------------|
+| 백엔드   | Spring Boot 4.0.3, Java 25, Gradle 9.3.1            |
+| 프론트   | React 18 + TypeScript + Vite 5                      |
+| DB    | H2 (local) / PostgreSQL Supabase (dev/prod)         |
+| 캐시    | Redis (AI 사용량, Rate Limit, JWT blacklist)           |
+| 암호화   | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼)     |
+| 인증    | GitHub OAuth2 + JWT (Access 24h / Refresh 30일)      |
+| 컨테이너  | Docker Compose (backend, frontend, redis, certbot)  |
+| CI/CD | GitHub Actions → OCI 서버 롤링 배포                       |
+| 인프라   | OCI 단일 서버 (2CPU/16GB), 도메인: `git-ai-blog.kr`        |
+| 웹서버   | Nginx — HTTPS (Let's Encrypt 자동 갱신) + reverse proxy |
 
 ---
 
 ## 3. 인프라 / 배포
 
 ### 서버 정보
+
 - IP: `168.107.26.27` / 도메인: `git-ai-blog.kr`
 - OS: Ubuntu 20.04 / 사양: 2CPU / 16GB RAM / SSH 키: `/private`
 
 ### Docker Compose 구성
+
 ```
 backend  — Spring Boot prod, JASYPT_ENCRYPTOR_PASSWORD, prepareThreshold=0
 frontend — Nginx + React, 80/443, certbot_data(ro) + certbot_www 마운트
@@ -61,19 +65,22 @@ certbot  — 12시간마다 certbot renew --webroot (frontend 무중단)
 > ```
 
 ### 환경변수 정책
-| 프로파일 | 방식 |
-|---------|------|
-| `local` | 환경변수 없음, H2, CI도 local |
-| `dev` | `application-dev.yml` + `JASYPT_ENCRYPTOR_PASSWORD` |
-| `prod` | `application-prod.yml` + `JASYPT_ENCRYPTOR_PASSWORD` (서버 관리) |
+
+| 프로파일    | 방식                                                           |
+|---------|--------------------------------------------------------------|
+| `local` | 환경변수 없음, H2, CI도 local                                       |
+| `dev`   | `application-dev.yml` + `JASYPT_ENCRYPTOR_PASSWORD`          |
+| `prod`  | `application-prod.yml` + `JASYPT_ENCRYPTOR_PASSWORD` (서버 관리) |
 
 서버 `.env`는 단 두 개만 허용:
+
 ```
 JASYPT_ENCRYPTOR_PASSWORD=...
 SPRING_PROFILES_ACTIVE=prod
 ```
 
 ### GitHub Actions CI/CD 흐름
+
 ```
 sub branch push → PR 생성
   → [test.yml]      local 프로파일 테스트 (실패 시 merge 차단)
@@ -84,14 +91,15 @@ sub branch push → PR 생성
 
 **스마트 재빌드 정책** (`check-prev-result` job):
 
-| 이전 결과 | 이번 실행 |
-|---------|---------|
-| 실패 | 파일 변경 없어도 강제 재빌드 |
+| 이전 결과   | 이번 실행               |
+|---------|---------------------|
+| 실패      | 파일 변경 없어도 강제 재빌드    |
 | skipped | 가장 최근 실제 결과 조회 후 판단 |
-| 성공 | 파일 변경 없으면 skip |
-| 기록 없음 | 무조건 빌드 |
+| 성공      | 파일 변경 없으면 skip      |
+| 기록 없음   | 무조건 빌드              |
 
 ### HTTPS 인증서 초기 발급 (서버 초기 셋업 시)
+
 ```bash
 docker compose -f /home/opc/app/docker-compose.yml stop frontend
 docker run --rm \
@@ -105,19 +113,20 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 ```
 
 ### GitHub OAuth App 설정
-| 환경 | Callback URL |
-|------|-------------|
-| local | `http://localhost:8080/login/oauth2/code/github` |
-| prod | `https://git-ai-blog.kr/login/oauth2/code/github` |
+
+| 환경    | Callback URL                                      |
+|-------|---------------------------------------------------|
+| local | `http://localhost:8080/login/oauth2/code/github`  |
+| prod  | `https://git-ai-blog.kr/login/oauth2/code/github` |
 
 ---
 
 ## 4. 개선 필요 항목
 
 ### 인프라 / 배포
+
 - [x] backend Docker Compose 설정 파일 경로 오류 수정
-- [x] 배포 서버 GitHub 로그인 502 수정 (nginx `/login/` proxy 추가)
-- [x] HTTPS 연결 완료 — `https://git-ai-blog.kr` 정상 접속
+- [x] 배포 서버 GitHub 로그인 502 수정 (nginx `/login/` proxy 추가) -
 - [x] CI 스마트 재빌드 정책 구현 (`check-prev-result` job)
 - [x] GitHub OAuth `redirect_uri` 오류 해결 (prod yml 명시)
 - [x] backend `unhealthy` 해결 (Actuator 추가, SecurityConfig permitAll)
@@ -125,10 +134,27 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 - [x] `Member.githubClientId/Secret` 필드 제거 (백엔드 + 프론트엔드 완료)
 - [x] PostgreSQL prepared statement 충돌 해결 (`prepareThreshold: 0`)
 
+### 기능 개선
+
+- [x] AI 사용량 제한 — 사용자가 직접 일일 한도를 설정하고 도달 시 AI 사용 불가 처리 (Member.aiDailyLimit, AiUsageLimiter 우선순위 적용)
+- [x] Hashnode 발행 시 글 하단에 AI 메타정보 자동 추가 (사용 모델, 생성일자, 개선 횟수) — PublishPostUseCase에서 appendAiMeta() 처리
+- [x] 메인 페이지 우측 상단에 API 문서 링크 버튼 추가 (Layout.tsx navRight)
+
+### API 문서화
+
+- [x] springdoc-openapi (Swagger UI) 적용 — `/swagger-ui/index.html` 에서 확인 가능
+  - Spring REST Docs 3.0.x는 Spring Boot 4 (Spring Framework 7.x)와 미호환 (HttpHeaders API 변경)
+  - springdoc-openapi-starter-webmvc-ui 2.8.8 적용, OpenApiConfig 추가, JWT Bearer 인증 스킴 포함
+- [x] 메인 페이지 우측 상단에 API 문서 링크 버튼 추가 (Layout.tsx navRight)
+- [x] API 오류 응답 코드 문서화 (GlobalExceptionHandler 기반: 400, 403, 404, 422, 429, 503)
+- [ ] REST Docs + Redocly / Stoplight / Slate 3종 샘플 — Spring Boot 4 호환 REST Docs 라이브러리 출시 후 구현 예정
+
 ### 운영 / 모니터링
+
 - [x] 모니터링 가이드 문서 작성 (`monitoring.md`)
 
 ### 테스트
+
 - [x] Controller 테스트 (`PostControllerTest`, `MemberControllerTest`)
 - [x] Repository 통합 테스트 (4개 — H2 기반)
 - [x] 도메인 단위 테스트 (`PostDomainTest`, `MemberDomainTest`, `WebhookSignatureVerifierTest`)
@@ -139,18 +165,17 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 ## 5. 알려진 이슈 & 해결 기록 (주요)
 
-| 문제 | 해결 |
-|------|------|
-| `prepared statement "S_1" already exists` | `prepareThreshold: 0` (prod yml) |
-| JASYPT 특수문자 shell 해석 | `JASYPT_ENCRYPTOR_PASSWORD='...'` 작은따옴표 |
-| backend `unhealthy` | Actuator 추가 |
-| QEMU arm64 curl segfault | wget으로 HEALTHCHECK 변경 |
-| `Post.tags` LazyInitializationException | `List.copyOf(post.getTags())` |
-| SyncHashnode Duplicate key | `Collectors.toMap` mergeFunction 추가 |
-| frontend conf.d 비어있어 443 거부 | GHA `--no-cache`, 서버 docker-compose.yml scp 복사 |
-| 최초 인증서 없이 nginx 즉시 종료 | certbot standalone 발급 후 frontend 재기동 순서 필수 |
-| Hashnode INVALID_QUERY | GraphQL 쿼리에 변수 직접 인라인 |
-| rollup 바이너리 누락 (반복) | CI에서 `rm -f package-lock.json` 후 install |
+| 문제                                        | 해결                                             |
+|-------------------------------------------|------------------------------------------------|
+| `prepared statement "S_1" already exists` | `prepareThreshold: 0` (prod yml)               |
+| backend `unhealthy`                       | Actuator 추가                                    |
+| QEMU arm64 curl segfault                  | wget으로 HEALTHCHECK 변경                          |
+| `Post.tags` LazyInitializationException   | `List.copyOf(post.getTags())`                  |
+| SyncHashnode Duplicate key                | `Collectors.toMap` mergeFunction 추가            |
+| frontend conf.d 비어있어 443 거부               | GHA `--no-cache`, 서버 docker-compose.yml scp 복사 |
+| 최초 인증서 없이 nginx 즉시 종료                     | certbot standalone 발급 후 frontend 재기동 순서 필수     |
+| Hashnode INVALID_QUERY                    | GraphQL 쿼리에 변수 직접 인라인                          |
+| rollup 바이너리 누락 (반복)                       | CI에서 `rm -f package-lock.json` 후 install       |
 
 > 전체 이슈 기록 → `backend/claude.md`, `frontend/claude.md` 참고
 

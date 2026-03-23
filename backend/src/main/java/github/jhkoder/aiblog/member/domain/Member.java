@@ -54,6 +54,8 @@ public class Member {
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String githubToken;
 
+    private Integer aiDailyLimit;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -127,5 +129,9 @@ public class Member {
 
     public boolean hasGeminiApiKey() {
         return geminiApiKey != null && !geminiApiKey.isBlank();
+    }
+
+    public void updateAiDailyLimit(Integer limit) {
+        this.aiDailyLimit = limit;
     }
 }

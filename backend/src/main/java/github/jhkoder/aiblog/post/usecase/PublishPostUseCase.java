@@ -7,9 +7,12 @@ import github.jhkoder.aiblog.member.domain.MemberRepository;
 import github.jhkoder.aiblog.post.domain.Post;
 import github.jhkoder.aiblog.post.domain.PostRepository;
 import github.jhkoder.aiblog.post.dto.PostResponse;
+import github.jhkoder.aiblog.suggestion.domain.AiSuggestionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +21,7 @@ public class PublishPostUseCase {
     private final PostRepository postRepository;
     private final MemberRepository memberRepository;
     private final HashnodeClient hashnodeClient;
+    private final AiSuggestionRepository aiSuggestionRepository;
 
     @Transactional
     public PostResponse execute(Long postId, Long memberId) {
@@ -26,18 +30,39 @@ public class PublishPostUseCase {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다."));
 
+        long aiImproveCount = aiSuggestionRepository.countByPostId(postId);
+        String contentWithMeta = appendAiMeta(post.getContent(), post, aiImproveCount);
+
         if (post.getHashnodeId() == null) {
             HashnodeClient.PublishResult result = hashnodeClient.publishPost(
-                    post.getTitle(), post.getContent(), member.getHashnodeToken(), member.getHashnodePublicationId(),
+                    post.getTitle(), contentWithMeta, member.getHashnodeToken(), member.getHashnodePublicationId(),
                     post.getTags());
             post.markPublished(result.getId(), result.getUrl());
         } else {
             hashnodeClient.updatePost(
-                    post.getHashnodeId(), post.getTitle(), post.getContent(), member.getHashnodeToken(),
+                    post.getHashnodeId(), post.getTitle(), contentWithMeta, member.getHashnodeToken(),
                     post.getTags());
             post.markPublished(post.getHashnodeId(), post.getHashnodeUrl());
         }
 
         return PostResponse.from(post);
+    }
+
+    private String appendAiMeta(String content, Post post, long aiImproveCount) {
+        String latestModel = aiSuggestionRepository
+                .findTopByPostIdOrderByCreatedAtDesc(post.getId())
+                .map(s -> s.getModel())
+                .orElse(null);
+
+        StringBuilder meta = new StringBuilder(content);
+        meta.append("\n\n---\n\n");
+        meta.append("> **AI 작성 정보**  \n");
+        meta.append("> 생성일: ").append(post.getCreatedAt().toLocalDate()).append("  \n");
+        meta.append("> 최종 수정: ").append(LocalDate.now()).append("  \n");
+        if (latestModel != null) {
+            meta.append("> AI 모델: ").append(latestModel).append("  \n");
+        }
+        meta.append("> AI 개선 횟수: ").append(aiImproveCount).append("회");
+        return meta.toString();
     }
 }

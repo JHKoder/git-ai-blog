@@ -1,6 +1,8 @@
 package github.jhkoder.aiblog.infra.ai;
 
 import github.jhkoder.aiblog.common.exception.RateLimitException;
+import github.jhkoder.aiblog.member.domain.Member;
+import github.jhkoder.aiblog.member.domain.MemberRepository;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,7 @@ import java.time.LocalDateTime;
  * AI 호출 횟수 일별 제한기 (Redis 기반).
  * key: ai_usage:{memberId}:{date} (yyyy-MM-dd)
  * TTL: 자정 이후 자동 만료 — @Scheduled 불필요
+ * 우선순위: 사용자 설정 aiDailyLimit > 서버 기본값(ai.daily-limit)
  */
 @Slf4j
 @Component
@@ -25,19 +28,28 @@ public class AiUsageLimiter {
     private static final String KEY_PREFIX = "ai_usage:";
 
     private final StringRedisTemplate redisTemplate;
+    private final MemberRepository memberRepository;
 
     @Getter
     @Value("${ai.daily-limit:5}")
-    private int dailyLimit;
+    private int defaultDailyLimit;
 
     private String key(Long memberId) {
         return KEY_PREFIX + memberId + ":" + LocalDate.now();
     }
 
+    public int getEffectiveLimit(Long memberId) {
+        return memberRepository.findById(memberId)
+                .map(Member::getAiDailyLimit)
+                .filter(limit -> limit != null && limit > 0)
+                .orElse(defaultDailyLimit);
+    }
+
     public void check(Long memberId) {
+        int limit = getEffectiveLimit(memberId);
         int used = getUsedCount(memberId);
-        if (used >= dailyLimit) {
-            throw new RateLimitException("오늘 AI 호출 한도(" + dailyLimit + "회)를 초과했습니다.");
+        if (used >= limit) {
+            throw new RateLimitException("오늘 AI 호출 한도(" + limit + "회)를 초과했습니다.");
         }
     }
 
@@ -64,7 +76,13 @@ public class AiUsageLimiter {
     }
 
     public int getRemainingCount(Long memberId) {
-        return Math.max(0, dailyLimit - getUsedCount(memberId));
+        return Math.max(0, getEffectiveLimit(memberId) - getUsedCount(memberId));
+    }
+
+    /** @deprecated Use getEffectiveLimit(memberId) for member-aware limit */
+    @Deprecated
+    public int getDailyLimit() {
+        return defaultDailyLimit;
     }
 
     private Duration ttlUntilMidnight() {

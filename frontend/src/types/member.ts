@@ -8,6 +8,7 @@ export interface Member {
   hasGptApiKey: boolean
   hasGeminiApiKey: boolean
   hasGithubToken: boolean
+  aiDailyLimit: number | null
 }
 
 export interface HashnodeConnectRequest {
@@ -21,4 +22,5 @@ export interface ApiKeyUpdateRequest {
   gptApiKey?: string
   geminiApiKey?: string
   githubToken?: string
+  aiDailyLimit?: number
 }

@@ -9,4 +9,5 @@ public interface AiSuggestionRepository {
     Optional<AiSuggestion> findTopByPostIdOrderByCreatedAtDesc(Long postId);
     List<AiSuggestion> findByPostIdOrderByCreatedAtDesc(Long postId);
     void deleteByPostId(Long postId);
+    long countByPostId(Long postId);
 }

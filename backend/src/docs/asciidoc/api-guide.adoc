@@ -1,0 +1,96 @@
+= AI Blog Automation — API 가이드
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 3
+:sectlinks:
+:snippets: ../../../build/generated-snippets
+
+== 개요
+
+`git-ai-blog.kr` API 문서입니다.
+모든 요청은 JWT 인증이 필요합니다 (`Authorization: Bearer <token>` 헤더).
+
+=== 공통 응답 형식
+
+[source,json]
+----
+{
+  "success": true,
+  "message": "OK",
+  "data": { ... }
+}
+----
+
+=== 오류 코드
+
+|===
+| HTTP 상태 | 설명
+
+| 400 | 요청 파라미터 오류 (유효성 검사 실패)
+| 403 | 인증 필요 (JWT 없음 또는 만료)
+| 404 | 리소스를 찾을 수 없음
+| 422 | 도메인 규칙 위반 (잘못된 상태 전이 등)
+| 429 | AI 호출 한도 초과
+| 503 | 외부 API(Hashnode, Claude 등) 응답 불가
+|===
+
+---
+
+== Post API
+
+=== 게시글 생성
+
+operation::posts/create[snippets='request-fields,response-fields']
+
+==== 오류: 빈 제목
+
+operation::posts/create-error-empty-title[snippets='response-fields']
+
+---
+
+=== 게시글 상세 조회
+
+operation::posts/get-detail[snippets='path-parameters,response-fields']
+
+==== 오류: 게시글 없음 (404)
+
+operation::posts/get-detail-error-not-found[snippets='path-parameters,response-fields']
+
+---
+
+=== 게시글 삭제
+
+operation::posts/delete[snippets='path-parameters,response-fields']
+
+---
+
+== Member API
+
+=== 내 프로필 조회
+
+operation::members/get-me[snippets='response-fields']
+
+==== 오류: 인증 필요 (403)
+
+operation::members/get-me-error-forbidden[]
+
+---
+
+=== Hashnode 연동
+
+operation::members/hashnode-connect[snippets='request-fields,response-fields']
+
+==== 오류: 빈 토큰
+
+operation::members/hashnode-connect-error-empty-token[snippets='response-fields']
+
+---
+
+=== API 키 설정
+
+`aiDailyLimit` 필드를 통해 AI 일일 호출 한도를 직접 설정할 수 있습니다.
+설정하지 않으면 서버 기본값(local: 5회, prod: 20회)이 적용됩니다.
+
+operation::members/update-api-keys[snippets='request-fields,response-fields']

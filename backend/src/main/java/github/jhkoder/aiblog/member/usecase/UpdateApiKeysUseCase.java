@@ -34,6 +34,9 @@ public class UpdateApiKeysUseCase {
         if (request.getGithubToken() != null) {
             member.updateGithubCredentials(request.getGithubToken());
         }
+        if (request.getAiDailyLimit() != null) {
+            member.updateAiDailyLimit(request.getAiDailyLimit());
+        }
         return MemberResponse.from(member);
     }
 }

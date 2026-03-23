@@ -57,6 +57,9 @@ dependencies {
     implementation 'org.springframework:spring-aspects'
     implementation 'org.springframework:spring-aop'
 
+    // springdoc-openapi (Swagger UI) — Spring Boot 4 호환
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testImplementation 'org.springframework.security:spring-security-test'

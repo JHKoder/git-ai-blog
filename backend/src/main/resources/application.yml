@@ -62,6 +62,15 @@ resilience4j:
         wait-duration-in-open-state: 30s
         minimum-number-of-calls: 5
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+
 management:
   endpoints:
     web:

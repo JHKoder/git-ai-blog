@@ -26,6 +26,7 @@ export function Layout({ children }: Props) {
           <Link to="/repos" className={styles.navLink}>레포</Link>
         </div>
         <div className={styles.navRight}>
+          <a href="/swagger-ui/index.html" target="_blank" rel="noopener noreferrer" className={styles.navLink}>API 문서</a>
           <button className={styles.themeBtn} onClick={toggle} title={theme === 'light' ? '다크 모드' : '라이트 모드'}>
             {theme === 'light' ? '🌙' : '☀️'}
           </button>

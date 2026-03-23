@@ -25,6 +25,7 @@ export function ProfilePage() {
   const [gptKey, setGptKey] = useState('')
   const [geminiKey, setGeminiKey] = useState('')
   const [githubToken, setGithubToken] = useState('')
+  const [aiDailyLimit, setAiDailyLimit] = useState('')
   const [connectingHashnode, setConnectingHashnode] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
@@ -81,10 +82,11 @@ export function ProfilePage() {
       if (gptKey) data.gptApiKey = gptKey
       if (geminiKey) data.geminiApiKey = geminiKey
       if (githubToken) data.githubToken = githubToken
+      if (aiDailyLimit) data.aiDailyLimit = parseInt(aiDailyLimit, 10)
       const res = await memberApi.updateApiKeys(data)
       setMember(res.data.data)
       setClaudeKey(''); setGrokKey(''); setGptKey(''); setGeminiKey('')
-      setGithubToken('')
+      setGithubToken(''); setAiDailyLimit('')
       toast.success('설정이 저장됐습니다.')
     } catch {
       toast.error('저장 실패')
@@ -303,6 +305,25 @@ export function ProfilePage() {
               <label>Gemini API 키 (Google) {member.hasGeminiApiKey && <span className={styles.set}>✓ 설정됨</span>}</label>
               <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)}
                 placeholder="AIza..." className={styles.input} />
+            </div>
+          </div>
+
+          <div className={styles.keyGroup}>
+            <p className={styles.groupLabel}>AI 사용량 설정</p>
+            <div className={styles.field}>
+              <label>
+                일일 AI 호출 한도 <span className={styles.optional}>(현재: {member.aiDailyLimit != null ? `${member.aiDailyLimit}회` : '서버 기본값'})</span>
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                value={aiDailyLimit}
+                onChange={e => setAiDailyLimit(e.target.value)}
+                placeholder="예: 20 (1~1000)"
+                className={styles.input}
+              />
+              <span className={styles.hint}>설정 시 이 값이 일일 AI 호출 한도로 적용됩니다. 한도 초과 시 AI 기능이 비활성화됩니다.</span>
             </div>
           </div>
 

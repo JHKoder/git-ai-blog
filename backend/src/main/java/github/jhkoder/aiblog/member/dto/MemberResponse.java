@@ -16,6 +16,7 @@ public class MemberResponse {
     private boolean hasGptApiKey;
     private boolean hasGeminiApiKey;
     private boolean hasGithubToken;
+    private Integer aiDailyLimit;
 
     public static MemberResponse from(Member member) {
         return MemberResponse.builder()
@@ -28,6 +29,7 @@ public class MemberResponse {
                 .hasGptApiKey(member.hasGptApiKey())
                 .hasGeminiApiKey(member.hasGeminiApiKey())
                 .hasGithubToken(member.hasGithubToken())
+                .aiDailyLimit(member.getAiDailyLimit())
                 .build();
     }
 }
