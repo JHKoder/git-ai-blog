@@ -19,7 +19,7 @@ COPY src src
 
 # 실제 빌드
 RUN --mount=type=cache,target=/cache \
-    ./gradlew bootJar -x test --no-daemon --stacktrace
+    ./gradlew bootJar -x test --no-daemon
 
 # -------- runtime --------
 FROM eclipse-temurin:25-jre-jammy
