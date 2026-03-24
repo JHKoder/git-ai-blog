@@ -1,6 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-23
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-24
 > 개발자: 1인 개인 프로젝트 / 목표 사용자: 최대 100명
 
 **상세 문서:**
@@ -28,7 +28,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 |-------|-----------------------------------------------------|
 | 백엔드   | Spring Boot 4.0.3, Java 25, Gradle 9.3.1            |
 | 프론트   | React 18 + TypeScript + Vite 5                      |
-| DB    | H2 (local) / PostgreSQL Supabase (dev/prod)         |
+| DB    | H2 (local) / Docker PostgreSQL (dev) / Supabase (prod) |
 | 캐시    | Redis (AI 사용량, Rate Limit, JWT blacklist)           |
 | 암호화   | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼)     |
 | 인증    | GitHub OAuth2 + JWT (Access 24h / Refresh 30일)      |
@@ -116,6 +116,7 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 | 환경    | Callback URL                                      |
 |-------|---------------------------------------------------|
 | local | `http://localhost:8080/login/oauth2/code/github`  |
+| dev   | `http://localhost:8080/login/oauth2/code/github`  |
 | prod  | `https://git-ai-blog.kr/login/oauth2/code/github` |
 
 ---
@@ -154,7 +155,7 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 ### 인프라 / 배포
 
 - [x] backend Docker Compose 설정 파일 경로 오류 수정
-- [x] 배포 서버 GitHub 로그인 502 수정 (nginx `/login/` proxy 추가) -
+- [x] 배포 서버 GitHub 로그인 502 수정 (nginx `/login/` proxy 추가)
 - [x] CI 스마트 재빌드 정책 구현 (`check-prev-result` job)
 - [x] GitHub OAuth `redirect_uri` 오류 해결 (prod yml 명시)
 - [x] backend `unhealthy` 해결 (Actuator 추가, SecurityConfig permitAll)
@@ -173,12 +174,6 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
   모델별 limit 필드 추가, `AiUsageLimiter`에서 모델별 체크
 - [x] **API 키 연동 검증** — 현재 API 키 저장 시 형식만 저장. 저장 시 실제 API를 최소 호출(ping/model 목록 조회 등)해서 유효한 키인지 검증 후 "연동됨" 상태 표시. 유효하지
   않으면 저장 거부 또는 경고. 백엔드 `PATCH /api/members/api-keys`에서 검증 로직 추가
-
-- [x] **Swagger UI 라우팅 충돌 수정** — 메인 페이지의 API 문서 버튼 클릭 시 백엔드(8080 또는 prod에서 `/swagger-ui/index.html`)로 연결되는데
-  내부 로직(OAuth2SuccessHandler 등)이 요청을 프론트엔드 `/` 로 리다이렉트해 Swagger UI에 도달하지 못하는 문제.
-  SecurityConfig는 `anyRequest().permitAll()` 이므로 인증 차단 문제는 아님.
-  원인은 prod Nginx에서 `/swagger-ui/**`, `/v3/api-docs/**` 경로가 backend로 프록시되지 않고 frontend(React)로 라우팅되는 것으로 추정.
-  **해결 방향**: nginx.conf에 `/swagger-ui/` 및 `/v3/` 경로를 backend(`http://backend:8080`)로 프록시 추가
 
 - [ ] **기본 프롬프트 교체** — 현재 `PromptBuilder.getInstruction(ContentType)`이 ContentType별 짧은 지시문만 사용.
   아래 SEO 최적화 블로그 작성 가이드를 기본 프롬프트로 교체:
@@ -201,7 +196,7 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
   - 공개 프롬프트 탐색: 전체 사용자 중 가장 많이 선택된 순 조회 / `{user.name}님이 가장 많이 선택한 프롬프트` 조회
   - **변경 범위 (백엔드)**:
     - `Prompt` 도메인: `id, memberId, title, content, usageCount, isPublic, createdAt`
-    - API: `GET/POST/DELETE /api/prompts` (본인), `GET /api/prompts/popular` (공개 인기순), `GET /api/prompts/members/{id}/popular`
+    - API: `GET/POST/PUT/DELETE /api/prompts` (본인), `GET /api/prompts/popular` (공개 인기순), `GET /api/prompts/members/{id}/popular`
     - `AiSuggestionRequest`에 `promptId?: Long` 추가 → `RequestAiSuggestionUseCase`에서 프롬프트 조회 후 적용
   - **변경 범위 (프론트엔드)**:
     - 프롬프트 관리 페이지 또는 ProfilePage 내 섹션
@@ -214,6 +209,8 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
     - springdoc-openapi-starter-webmvc-ui 2.8.8 적용, OpenApiConfig 추가, JWT Bearer 인증 스킴 포함
 - [x] 메인 페이지 우측 상단에 API 문서 링크 버튼 추가 (Layout.tsx navRight)
 - [x] API 오류 응답 코드 문서화 (GlobalExceptionHandler 기반: 400, 403, 404, 422, 429, 503)
+- [x] **Swagger UI 라우팅 충돌 수정** — prod Nginx에서 `/swagger-ui/`, `/v3/` 경로가 React SPA로 라우팅되어 접근 불가하던 문제.
+  nginx.conf에 해당 경로를 `proxy_pass http://backend:8080` 으로 추가하여 해결
 - [ ] REST Docs + Redocly / Stoplight / Slate 3종 샘플 — Spring Boot 4 호환 REST Docs 라이브러리 출시 후 구현 예정
 
 ### 운영 / 모니터링
@@ -243,6 +240,7 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 | 최초 인증서 없이 nginx 즉시 종료                     | certbot standalone 발급 후 frontend 재기동 순서 필수     |
 | Hashnode INVALID_QUERY                    | GraphQL 쿼리에 변수 직접 인라인                          |
 | rollup 바이너리 누락 (반복)                       | CI에서 `rm -f package-lock.json` 후 install       |
+| `--no-daemon` 등 플래그가 태스크명으로 파싱됨           | gradlew `eval "$@"` 버그 → `$@` 로 수정 (157번 줄)   |
 
 > 전체 이슈 기록 → `backend/claude.md`, `frontend/claude.md` 참고
 
