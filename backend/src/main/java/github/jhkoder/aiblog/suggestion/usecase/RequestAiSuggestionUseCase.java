@@ -11,6 +11,8 @@ import github.jhkoder.aiblog.member.domain.Member;
 import github.jhkoder.aiblog.member.domain.MemberRepository;
 import github.jhkoder.aiblog.post.domain.Post;
 import github.jhkoder.aiblog.post.domain.PostRepository;
+import github.jhkoder.aiblog.prompt.domain.Prompt;
+import github.jhkoder.aiblog.prompt.domain.PromptRepository;
 import github.jhkoder.aiblog.suggestion.domain.AiSuggestion;
 import github.jhkoder.aiblog.suggestion.domain.AiSuggestionRepository;
 import github.jhkoder.aiblog.suggestion.dto.AiSuggestionRequest;
@@ -31,6 +33,7 @@ public class RequestAiSuggestionUseCase {
     private final PromptBuilder promptBuilder;
     private final ImageGenerationService imageGenerationService;
     private final TokenUsageTracker tokenUsageTracker;
+    private final PromptRepository promptRepository;
 
     @Transactional
     public AiSuggestionResponse execute(Long postId, Long memberId, AiSuggestionRequest request) {
@@ -45,7 +48,19 @@ public class RequestAiSuggestionUseCase {
                 ? request.getTempContent()
                 : post.getContent();
 
-        String prompt = promptBuilder.build(post.getContentType(), contentToImprove, request.getExtraPrompt());
+        // promptId가 있으면 커스텀 프롬프트 content를 extraPrompt 앞에 병합, usageCount 증가
+        String effectiveExtraPrompt = request.getExtraPrompt();
+        if (request.getPromptId() != null) {
+            Prompt customPrompt = promptRepository.findById(request.getPromptId())
+                    .orElseThrow(() -> new NotFoundException("프롬프트를 찾을 수 없습니다."));
+            String customContent = customPrompt.getContent();
+            effectiveExtraPrompt = (effectiveExtraPrompt != null && !effectiveExtraPrompt.isBlank())
+                    ? customContent + "\n" + effectiveExtraPrompt
+                    : customContent;
+            customPrompt.incrementUsageCount();
+        }
+
+        String prompt = promptBuilder.build(post.getContentType(), contentToImprove, effectiveExtraPrompt);
 
         AiClientRouter.RouteResult route = aiClientRouter.route(post.getContentType(), request.getModel(), member);
         AiClient.AiResponse aiResponse = route.client().completeWithUsage(prompt, route.model(), route.apiKey(), memberId);
@@ -58,7 +73,7 @@ public class RequestAiSuggestionUseCase {
         suggestedContent = imageGenerationService.resolveImagePlaceholders(suggestedContent, route.model(), route.apiKey());
 
         AiSuggestion suggestion = AiSuggestion.create(
-                postId, memberId, suggestedContent, route.model(), request.getExtraPrompt());
+                postId, memberId, suggestedContent, route.model(), effectiveExtraPrompt);
         aiSuggestionRepository.save(suggestion);
 
         post.markAiSuggested();

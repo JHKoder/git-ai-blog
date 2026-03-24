@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { memberApi } from '../../api/memberApi'
 import { postApi } from '../../api/postApi'
+import { promptApi } from '../../api/promptApi'
 import { Member, ApiKeyUpdateRequest } from '../../types/member'
 import { AiUsage } from '../../types/post'
+import { Prompt, PromptRequest } from '../../types/prompt'
 import styles from './ProfilePage.module.css'
 
 function RateLimitBar({ used, limit, color }: { used: number; limit: number; color: string }) {
@@ -33,10 +35,55 @@ export function ProfilePage() {
   const [connectingHashnode, setConnectingHashnode] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
+  // 커스텀 프롬프트
+  const [prompts, setPrompts] = useState<Prompt[]>([])
+  const [promptTitle, setPromptTitle] = useState('')
+  const [promptContent, setPromptContent] = useState('')
+  const [promptPublic, setPromptPublic] = useState(false)
+  const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null)
+
   useEffect(() => {
     memberApi.getMe().then(res => setMember(res.data.data))
     memberApi.getAiUsage().then(res => setAiUsage(res.data.data)).catch(() => {})
+    promptApi.getMyPrompts().then(res => setPrompts(res.data.data)).catch(() => {})
   }, [])
+
+  const handlePromptSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const data: PromptRequest = { title: promptTitle, content: promptContent, isPublic: promptPublic }
+      if (editingPrompt) {
+        const res = await promptApi.update(editingPrompt.id, data)
+        setPrompts(prev => prev.map(p => p.id === editingPrompt.id ? res.data.data : p))
+        toast.success('프롬프트가 수정됐습니다.')
+      } else {
+        const res = await promptApi.create(data)
+        setPrompts(prev => [...prev, res.data.data])
+        toast.success('프롬프트가 추가됐습니다.')
+      }
+      setPromptTitle(''); setPromptContent(''); setPromptPublic(false); setEditingPrompt(null)
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message || '저장 실패')
+    }
+  }
+
+  const handlePromptEdit = (p: Prompt) => {
+    setEditingPrompt(p)
+    setPromptTitle(p.title)
+    setPromptContent(p.content)
+    setPromptPublic(p.isPublic)
+  }
+
+  const handlePromptDelete = async (id: number) => {
+    try {
+      await promptApi.delete(id)
+      setPrompts(prev => prev.filter(p => p.id !== id))
+      toast.success('삭제됐습니다.')
+    } catch {
+      toast.error('삭제 실패')
+    }
+  }
 
   const handleHashnodeConnect = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -395,6 +442,77 @@ export function ProfilePage() {
 
           <button type="submit" className={styles.saveBtn}>저장</button>
         </form>
+      </div>
+
+      {/* 커스텀 프롬프트 관리 */}
+      <div className={styles.section}>
+        <h3>커스텀 프롬프트 <span className={styles.optional}>({prompts.length} / 30)</span></h3>
+        <p className={styles.hint}>AI 개선 요청 시 선택할 수 있는 나만의 프롬프트를 관리합니다.</p>
+
+        <form onSubmit={handlePromptSubmit} className={styles.form} style={{ marginTop: 12 }}>
+          <div className={styles.field}>
+            <label>제목</label>
+            <input
+              value={promptTitle}
+              onChange={e => setPromptTitle(e.target.value)}
+              placeholder="예: SEO 최적화 요청"
+              required
+              className={styles.input}
+            />
+          </div>
+          <div className={styles.field}>
+            <label>내용</label>
+            <textarea
+              value={promptContent}
+              onChange={e => setPromptContent(e.target.value)}
+              placeholder="AI에게 전달할 추가 지시사항을 입력하세요."
+              required
+              rows={4}
+              className={styles.textarea}
+            />
+          </div>
+          <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={promptPublic}
+              onChange={e => setPromptPublic(e.target.checked)}
+            />
+            공개 (다른 사용자도 인기순 탐색에서 볼 수 있습니다)
+          </label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="submit" className={styles.saveBtn}>
+              {editingPrompt ? '수정' : '추가'}
+            </button>
+            {editingPrompt && (
+              <button
+                type="button"
+                className={styles.disconnectBtn}
+                onClick={() => { setEditingPrompt(null); setPromptTitle(''); setPromptContent(''); setPromptPublic(false) }}
+              >
+                취소
+              </button>
+            )}
+          </div>
+        </form>
+
+        {prompts.length > 0 && (
+          <ul className={styles.promptList}>
+            {prompts.map(p => (
+              <li key={p.id} className={styles.promptItem}>
+                <div className={styles.promptItemHeader}>
+                  <span className={styles.promptTitle}>{p.title}</span>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {p.isPublic && <span className={styles.publicBadge}>공개</span>}
+                    <span className={styles.usageCount}>{p.usageCount}회 사용</span>
+                    <button className={styles.editBtn} onClick={() => handlePromptEdit(p)}>수정</button>
+                    <button className={styles.deleteBtn} onClick={() => handlePromptDelete(p.id)}>삭제</button>
+                  </div>
+                </div>
+                <p className={styles.promptContentPreview}>{p.content}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )

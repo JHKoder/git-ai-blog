@@ -7,6 +7,8 @@ import github.jhkoder.aiblog.post.domain.PostStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -107,5 +109,61 @@ class PostDomainTest {
         post.incrementViewCount();
 
         assertThat(post.getViewCount()).isEqualTo(before + 1);
+    }
+
+    @Test
+    @DisplayName("태그는 소문자로 정규화된다")
+    void updateTags_normalizesToLowercase() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.updateTags(List.of("Java", "SPRING", "Spring-Boot"));
+        assertThat(post.getTags()).containsExactly("java", "spring", "spring-boot");
+    }
+
+    @Test
+    @DisplayName("태그에서 허용되지 않는 특수문자가 제거된다")
+    void updateTags_removesSpecialCharacters() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.updateTags(List.of("java!", "c++", "node.js", "백엔드@개발"));
+        assertThat(post.getTags()).containsExactly("java", "c", "nodejs", "백엔드개발");
+    }
+
+    @Test
+    @DisplayName("태그는 최대 30자로 잘린다")
+    void updateTags_truncatesLongTag() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        String longTag = "a".repeat(40);
+        post.updateTags(List.of(longTag));
+        assertThat(post.getTags()).containsExactly("a".repeat(30));
+    }
+
+    @Test
+    @DisplayName("빈 문자열 또는 null 태그는 제거된다")
+    void updateTags_removesBlankAndNullTags() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.updateTags(List.of("java", "", "  ", "spring"));
+        assertThat(post.getTags()).containsExactly("java", "spring");
+    }
+
+    @Test
+    @DisplayName("중복 태그는 첫 번째만 유지된다")
+    void updateTags_removesDuplicates() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.updateTags(List.of("java", "Java", "JAVA"));
+        assertThat(post.getTags()).containsExactly("java");
+    }
+
+    @Test
+    @DisplayName("null 태그 목록은 빈 리스트로 처리된다")
+    void updateTags_withNull_setsEmptyList() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.updateTags(null);
+        assertThat(post.getTags()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("create 팩토리 메서드에서도 태그가 정규화된다")
+    void create_withTags_normalizesOnCreation() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING, List.of("Java", "SPRING!"));
+        assertThat(post.getTags()).containsExactly("java", "spring");
     }
 }

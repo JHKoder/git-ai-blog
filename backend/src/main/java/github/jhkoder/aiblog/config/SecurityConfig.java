@@ -39,6 +39,8 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/api/auth/logout",
                                 "/api/auth/mock-login",
+                                "/api/prompts/popular",
+                                "/api/prompts/members/*/popular",
                                 "/actuator/health"
                         ).permitAll()
                         .requestMatchers("/api/**").authenticated()

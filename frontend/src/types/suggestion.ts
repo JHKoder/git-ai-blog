@@ -11,4 +11,5 @@ export interface AiSuggestionRequest {
   model?: string
   extraPrompt?: string
   tempContent?: string
+  promptId?: number
 }

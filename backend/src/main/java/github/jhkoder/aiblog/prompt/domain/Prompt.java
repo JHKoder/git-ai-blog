@@ -1,0 +1,76 @@
+package github.jhkoder.aiblog.prompt.domain;
+
+import github.jhkoder.aiblog.common.exception.BusinessRuleException;
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "prompts")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Prompt {
+
+    private static final int MAX_PROMPTS_PER_MEMBER = 30;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private Long memberId;
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String content;
+
+    @Column(nullable = false)
+    private int usageCount;
+
+    @Column(nullable = false)
+    private boolean isPublic;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public static Prompt create(Long memberId, String title, String content, boolean isPublic, long existingCount) {
+        if (existingCount >= MAX_PROMPTS_PER_MEMBER) {
+            throw new BusinessRuleException("프롬프트는 최대 " + MAX_PROMPTS_PER_MEMBER + "개까지 등록할 수 있습니다.");
+        }
+        Prompt prompt = new Prompt();
+        prompt.memberId = memberId;
+        prompt.title = title;
+        prompt.content = content;
+        prompt.isPublic = isPublic;
+        prompt.usageCount = 0;
+        return prompt;
+    }
+
+    public void update(String title, String content, boolean isPublic) {
+        this.title = title;
+        this.content = content;
+        this.isPublic = isPublic;
+    }
+
+    public void incrementUsageCount() {
+        this.usageCount++;
+    }
+}

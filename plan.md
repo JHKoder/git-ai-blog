@@ -133,7 +133,7 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
   의존성이므로 무시 불가
 - [x] **GitHub Actions** — CI는 `test/resources/application.yml`에서 Redis autoconfiguration 완전 제외 (
   `DataRedisAutoConfiguration` exclude), local 프로파일 사용. Redis 영향 없음 확인
-- [ ] **local/dev mock 로그인** — local + dev 프로파일 모두 mock 로그인 지원 필요.
+- [x] **local/dev mock 로그인** — local + dev 프로파일 모두 mock 로그인 지원 필요.
   현재 `MockLoginController`가 `@Profile("local")` 전용이라 dev(`./gradlew serverRun`)에서 엔드포인트 없음.
   → `@Profile({"local", "dev"})` 로 확장, dev용 mock 계정(`dev-test-user`) 별도 사용.
   프론트 버튼은 현재 `import.meta.env.DEV`(Vite 개발 서버 여부)로만 제어 중 — 백엔드 프로파일과 무관.
@@ -175,7 +175,7 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 - [x] **API 키 연동 검증** — 현재 API 키 저장 시 형식만 저장. 저장 시 실제 API를 최소 호출(ping/model 목록 조회 등)해서 유효한 키인지 검증 후 "연동됨" 상태 표시. 유효하지
   않으면 저장 거부 또는 경고. 백엔드 `PATCH /api/members/api-keys`에서 검증 로직 추가
 
-- [ ] **기본 프롬프트 교체** — 현재 `PromptBuilder.getInstruction(ContentType)`이 ContentType별 짧은 지시문만 사용.
+- [x] **기본 프롬프트 교체** — 현재 `PromptBuilder.getInstruction(ContentType)`이 ContentType별 짧은 지시문만 사용.
   아래 SEO 최적화 블로그 작성 가이드를 기본 프롬프트로 교체:
   - 목표: 읽기 쉽고 SEO 최적화된 실무형 블로그 (대상: 백엔드 주니어~미드레벨)
   - 제목 SEO 최적화 + 후보 3개, 썸네일 문구 3개, "이 글에서 얻을 수 있는 것" 3줄 요약
@@ -185,11 +185,11 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
   - 톤: 전문적 + 친근 / 출력: 순수 Markdown / 마지막에 사용 AI 모델 표기
   - **변경 범위**: `PromptBuilder` 기본 instruction 전면 교체. ContentType별 세부 지침은 위 규칙에 추가 병합
 
-- [ ] **게시글 태그 통일화** — 현재 게시글 태그(`Post.tags: List<String>`)와 AI 응답에서 나오는 태그가 형식 불일치 가능성 있음.
+- [x] **게시글 태그 통일화** — 현재 게시글 태그(`Post.tags: List<String>`)와 AI 응답에서 나오는 태그가 형식 불일치 가능성 있음.
   태그 정규화 로직(소문자, 특수문자 제거, 최대 길이 등) 공통 적용 및 테스트 구성.
   **변경 범위**: `Post.updateTags()` 또는 UseCase 레벨에서 태그 정규화 추가, 단위 테스트 작성
 
-- [ ] **커스텀 프롬프트 시스템** — AI 개선 요청 시 기본 프롬프트 외 사용자 정의 프롬프트 지원:
+- [x] **커스텀 프롬프트 시스템** — AI 개선 요청 시 기본 프롬프트 외 사용자 정의 프롬프트 지원:
   - 사용자당 최대 30개 커스텀 프롬프트 등록
   - 프롬프트 조회: 본인 사용 횟수 내림차순 정렬
   - 공유/비공유 설정: 커스텀 프롬프트에 `isPublic` 플래그. 기본값 비공개

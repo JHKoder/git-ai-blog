@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import toast from 'react-hot-toast'
 import { AiSuggestion, AiSuggestionRequest } from '../../types/suggestion'
 import { suggestionApi } from '../../api/suggestionApi'
+import { promptApi } from '../../api/promptApi'
+import { Prompt } from '../../types/prompt'
 import { useSuggestionStore } from '../../store/suggestionStore'
 import styles from './AiSuggestionPanel.module.css'
 
@@ -39,7 +41,13 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
   const [requesting, setRequesting] = useState(false)
   const [model, setModel] = useState('')
   const [extraPrompt, setExtraPrompt] = useState('')
+  const [myPrompts, setMyPrompts] = useState<Prompt[]>([])
+  const [selectedPromptId, setSelectedPromptId] = useState<number | ''>('')
   const { accept, reject } = useSuggestionStore()
+
+  useEffect(() => {
+    promptApi.getMyPrompts().then(res => setMyPrompts(res.data.data)).catch(() => {})
+  }, [])
 
   const handleRequest = async () => {
     setRequesting(true)
@@ -47,12 +55,14 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
       const req: AiSuggestionRequest = {}
       if (model) req.model = model
       if (extraPrompt) req.extraPrompt = extraPrompt
+      if (selectedPromptId !== '') req.promptId = selectedPromptId
       await suggestionApi.request(postId, req)
       toast.success('AI 제안이 생성됐습니다.')
       setExtraPrompt('')
       onSuggestionUpdate?.()
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || 'AI 요청 실패')
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message || 'AI 요청 실패')
     } finally {
       setRequesting(false)
     }
@@ -92,6 +102,21 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
               {MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
           </div>
+          {myPrompts.length > 0 && (
+            <div className={styles.formRow}>
+              <label className={styles.formLabel}>커스텀 프롬프트 <span className={styles.optional}>(선택)</span></label>
+              <select
+                value={selectedPromptId}
+                onChange={e => setSelectedPromptId(e.target.value === '' ? '' : Number(e.target.value))}
+                className={styles.select}
+              >
+                <option value=''>선택 안 함</option>
+                {myPrompts.map(p => (
+                  <option key={p.id} value={p.id}>{p.title} ({p.usageCount}회)</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className={styles.formRow}>
             <label className={styles.formLabel}>추가 요청사항 <span className={styles.optional}>(선택)</span></label>
             <textarea
