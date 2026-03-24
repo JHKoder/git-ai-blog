@@ -2,20 +2,20 @@ package github.jhkoder.aiblog.infra.hashnode;
 
 import github.jhkoder.aiblog.common.exception.ExternalApiException;
 import github.jhkoder.aiblog.common.exception.RateLimitException;
+import github.jhkoder.aiblog.infra.hashnode.HashnodeGraphqlBuilder.GqlRequest;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,26 +54,26 @@ public class HashnodeClient {
         }
     }
 
-    public PublishResult publishPost(String title, String content, String token, String publicationId, java.util.List<String> tags) {
-        String query = graphqlBuilder.buildPublishQuery(title, content, publicationId, tags);
-        JsonNode response = executeWithRetry(query, token);
+    public PublishResult publishPost(String title, String content, String token, String publicationId, List<String> tags) {
+        GqlRequest req = graphqlBuilder.buildPublishRequest(title, content, publicationId, tags);
+        JsonNode response = executeWithRetry(req, token);
         JsonNode post = response.path("data").path("publishPost").path("post");
         return new PublishResult(post.path("id").asText(), post.path("url").asText());
     }
 
-    public void updatePost(String postId, String title, String content, String token, java.util.List<String> tags) {
-        String query = graphqlBuilder.buildUpdateQuery(postId, title, content, tags);
-        executeWithRetry(query, token);
+    public void updatePost(String postId, String title, String content, String token, List<String> tags) {
+        GqlRequest req = graphqlBuilder.buildUpdateRequest(postId, title, content, tags);
+        executeWithRetry(req, token);
     }
 
-    public void deletePost(String postId) {
-        String query = graphqlBuilder.buildDeleteQuery(postId);
-        executeWithRetry(query, null);
+    public void deletePost(String postId, String token) {
+        GqlRequest req = graphqlBuilder.buildDeleteRequest(postId);
+        executeWithRetry(req, token);
     }
 
     public List<HashnodePostInfo> fetchMyPosts(String token, String publicationId) {
-        String query = graphqlBuilder.buildFetchPostsQuery(publicationId);
-        JsonNode response = executeWithRetry(query, token);
+        GqlRequest req = graphqlBuilder.buildFetchPostsRequest(publicationId);
+        JsonNode response = executeWithRetry(req, token);
         List<HashnodePostInfo> posts = new ArrayList<>();
         JsonNode edges = response.path("data").path("publication").path("posts").path("edges");
         for (JsonNode edge : edges) {
@@ -90,13 +90,13 @@ public class HashnodeClient {
 
     @Retry(name = "hashnode")
     @CircuitBreaker(name = "hashnode")
-    private JsonNode executeWithRetry(String query, String token) {
+    private JsonNode executeWithRetry(GqlRequest req, String token) {
         int maxRetries = 2;
         long delayMs = 1000;
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
-                return execute(query, token);
+                return execute(req, token);
             } catch (RateLimitException e) {
                 throw e;
             } catch (WebClientResponseException e) {
@@ -124,9 +124,13 @@ public class HashnodeClient {
         throw new ExternalApiException("Hashnode API 최대 재시도 횟수 초과");
     }
 
-    private JsonNode execute(String query, String token) throws Exception {
-        // JSON body를 문자열로 직접 구성 (Map 직렬화 codec 의존 제거)
-        String jsonBody = "{\"query\":" + objectMapper.writeValueAsString(query) + "}";
+    private JsonNode execute(GqlRequest req, String token) throws Exception {
+        // objectMapper가 query + variables 전체를 올바르게 직렬화 — 이중 이스케이프 없음
+        String jsonBody = objectMapper.writeValueAsString(
+                objectMapper.createObjectNode()
+                        .put("query", req.query())
+                        .set("variables", objectMapper.valueToTree(req.variables()))
+        );
 
         WebClient.RequestBodySpec spec = webClientBuilder.build()
                 .post()
@@ -142,7 +146,17 @@ public class HashnodeClient {
                 .bodyToMono(String.class)
                 .block(Duration.ofSeconds(30));
 
-        return objectMapper.readTree(responseBody);
+        JsonNode root = objectMapper.readTree(responseBody);
+
+        // GraphQL errors 필드 확인
+        JsonNode errors = root.path("errors");
+        if (!errors.isMissingNode() && errors.isArray() && errors.size() > 0) {
+            String errorMsg = errors.get(0).path("message").asText("Unknown GraphQL error");
+            log.error("Hashnode GraphQL 오류: {}", errors);
+            throw new ExternalApiException("Hashnode GraphQL 오류: " + errorMsg);
+        }
+
+        return root;
     }
 
     private void sleepSafely(long ms) {

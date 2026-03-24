@@ -24,18 +24,18 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 
 ## 2. 기술 스택 요약
 
-| 영역    | 기술                                                  |
-|-------|-----------------------------------------------------|
-| 백엔드   | Spring Boot 4.0.3, Java 25, Gradle 9.3.1            |
-| 프론트   | React 18 + TypeScript + Vite 5                      |
+| 영역    | 기술                                                     |
+|-------|--------------------------------------------------------|
+| 백엔드   | Spring Boot 4.0.3, Java 25, Gradle 9.3.1               |
+| 프론트   | React 18 + TypeScript + Vite 5                         |
 | DB    | H2 (local) / Docker PostgreSQL (dev) / Supabase (prod) |
-| 캐시    | Redis (AI 사용량, Rate Limit, JWT blacklist)           |
-| 암호화   | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼)     |
-| 인증    | GitHub OAuth2 + JWT (Access 24h / Refresh 30일)      |
-| 컨테이너  | Docker Compose (backend, frontend, redis, certbot)  |
-| CI/CD | GitHub Actions → OCI 서버 롤링 배포                       |
-| 인프라   | OCI 단일 서버 (2CPU/16GB), 도메인: `git-ai-blog.kr`        |
-| 웹서버   | Nginx — HTTPS (Let's Encrypt 자동 갱신) + reverse proxy |
+| 캐시    | Redis (AI 사용량, Rate Limit, JWT blacklist)              |
+| 암호화   | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼)        |
+| 인증    | GitHub OAuth2 + JWT (Access 24h / Refresh 30일)         |
+| 컨테이너  | Docker Compose (backend, frontend, redis, certbot)     |
+| CI/CD | GitHub Actions → OCI 서버 롤링 배포                          |
+| 인프라   | OCI 단일 서버 (2CPU/16GB), 도메인: `git-ai-blog.kr`           |
+| 웹서버   | Nginx — HTTPS (Let's Encrypt 자동 갱신) + reverse proxy    |
 
 ---
 
@@ -177,30 +177,31 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 - [x] **기본 프롬프트 교체** — 현재 `PromptBuilder.getInstruction(ContentType)`이 ContentType별 짧은 지시문만 사용.
   아래 SEO 최적화 블로그 작성 가이드를 기본 프롬프트로 교체:
-  - 목표: 읽기 쉽고 SEO 최적화된 실무형 블로그 (대상: 백엔드 주니어~미드레벨)
-  - 제목 SEO 최적화 + 후보 3개, 썸네일 문구 3개, "이 글에서 얻을 수 있는 것" 3줄 요약
-  - 구조: 문제→원인→해결(코드)→Before/After 수치화→자주 하는 실수→3줄 정리
-  - h2/h3, Mermaid 다이어그램, 실무 팁 3개, 운영 시나리오, 검색 키워드 5개, 체크리스트, CTA
-  - 코드: 실행 가능한 수준(import, 의존성 포함), 잘못된 예시 → 개선 예시 비교, 성능 수치화 필수
-  - 톤: 전문적 + 친근 / 출력: 순수 Markdown / 마지막에 사용 AI 모델 표기
-  - **변경 범위**: `PromptBuilder` 기본 instruction 전면 교체. ContentType별 세부 지침은 위 규칙에 추가 병합
+    - 목표: 읽기 쉽고 SEO 최적화된 실무형 블로그 (대상: 백엔드 주니어~미드레벨)
+    - 제목 SEO 최적화 + 후보 3개, 썸네일 문구 3개, "이 글에서 얻을 수 있는 것" 3줄 요약
+    - 구조: 문제→원인→해결(코드)→Before/After 수치화→자주 하는 실수→3줄 정리
+    - h2/h3, Mermaid 다이어그램, 실무 팁 3개, 운영 시나리오, 검색 키워드 5개, 체크리스트, CTA
+    - 코드: 실행 가능한 수준(import, 의존성 포함), 잘못된 예시 → 개선 예시 비교, 성능 수치화 필수
+    - 톤: 전문적 + 친근 / 출력: 순수 Markdown / 마지막에 사용 AI 모델 표기
+    - **변경 범위**: `PromptBuilder` 기본 instruction 전면 교체. ContentType별 세부 지침은 위 규칙에 추가 병합
 
 - [x] **게시글 태그 통일화** — 현재 게시글 태그(`Post.tags: List<String>`)와 AI 응답에서 나오는 태그가 형식 불일치 가능성 있음.
   태그 정규화 로직(소문자, 특수문자 제거, 최대 길이 등) 공통 적용 및 테스트 구성.
   **변경 범위**: `Post.updateTags()` 또는 UseCase 레벨에서 태그 정규화 추가, 단위 테스트 작성
 
 - [x] **커스텀 프롬프트 시스템** — AI 개선 요청 시 기본 프롬프트 외 사용자 정의 프롬프트 지원:
-  - 사용자당 최대 30개 커스텀 프롬프트 등록
-  - 프롬프트 조회: 본인 사용 횟수 내림차순 정렬
-  - 공유/비공유 설정: 커스텀 프롬프트에 `isPublic` 플래그. 기본값 비공개
-  - 공개 프롬프트 탐색: 전체 사용자 중 가장 많이 선택된 순 조회 / `{user.name}님이 가장 많이 선택한 프롬프트` 조회
-  - **변경 범위 (백엔드)**:
-    - `Prompt` 도메인: `id, memberId, title, content, usageCount, isPublic, createdAt`
-    - API: `GET/POST/PUT/DELETE /api/prompts` (본인), `GET /api/prompts/popular` (공개 인기순), `GET /api/prompts/members/{id}/popular`
-    - `AiSuggestionRequest`에 `promptId?: Long` 추가 → `RequestAiSuggestionUseCase`에서 프롬프트 조회 후 적용
-  - **변경 범위 (프론트엔드)**:
-    - 프롬프트 관리 페이지 또는 ProfilePage 내 섹션
-    - AI 개선 요청 모달에서 프롬프트 선택 UI (내 프롬프트 + 인기 프롬프트)
+    - 사용자당 최대 30개 커스텀 프롬프트 등록
+    - 프롬프트 조회: 본인 사용 횟수 내림차순 정렬
+    - 공유/비공유 설정: 커스텀 프롬프트에 `isPublic` 플래그. 기본값 비공개
+    - 공개 프롬프트 탐색: 전체 사용자 중 가장 많이 선택된 순 조회 / `{user.name}님이 가장 많이 선택한 프롬프트` 조회
+    - **변경 범위 (백엔드)**:
+        - `Prompt` 도메인: `id, memberId, title, content, usageCount, isPublic, createdAt`
+        - API: `GET/POST/PUT/DELETE /api/prompts` (본인), `GET /api/prompts/popular` (공개 인기순),
+          `GET /api/prompts/members/{id}/popular`
+        - `AiSuggestionRequest`에 `promptId?: Long` 추가 → `RequestAiSuggestionUseCase`에서 프롬프트 조회 후 적용
+    - **변경 범위 (프론트엔드)**:
+        - 프롬프트 관리 페이지 또는 ProfilePage 내 섹션
+        - AI 개선 요청 모달에서 프롬프트 선택 UI (내 프롬프트 + 인기 프롬프트)
 
 ### API 문서화
 
@@ -212,6 +213,12 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 - [x] **Swagger UI 라우팅 충돌 수정** — prod Nginx에서 `/swagger-ui/`, `/v3/` 경로가 React SPA로 라우팅되어 접근 불가하던 문제.
   nginx.conf에 해당 경로를 `proxy_pass http://backend:8080` 으로 추가하여 해결
 - [ ] REST Docs + Redocly / Stoplight / Slate 3종 샘플 — Spring Boot 4 호환 REST Docs 라이브러리 출시 후 구현 예정
+
+### 게시글 뷰어 개선
+
+- [ ] **Markdown 테이블 렌더링** — 게시글 상세 페이지에서 `| 구성 요소 | 역할 |` 형식의 테이블이 텍스트로만 출력됨. ReactMarkdown에 GFM(GitHub Flavored Markdown) 플러그인(`remark-gfm`) 적용하여 테이블, 체크박스 등 GFM 문법 정상 렌더링 테스트 및 검증
+- [ ] **Mermaid 다이어그램 렌더링** — AI가 생성하는 `graph LR` 등 Mermaid 코드블록이 코드 원문으로만 표시됨. `rehype-mermaid` 또는 `react-mermaid2` 등으로 다이어그램 렌더링 지원
+- [ ] **DRAFT 상태에서 발행 버튼 활성화** — 현재 발행 버튼은 `ACCEPTED` 상태에서만 표시됨. 게시글 작성 직후(DRAFT) 바로 발행 가능하도록 상태 조건 확대 또는 DRAFT → 직접 발행 흐름 추가
 
 ### 운영 / 모니터링
 
@@ -240,7 +247,8 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 | 최초 인증서 없이 nginx 즉시 종료                     | certbot standalone 발급 후 frontend 재기동 순서 필수     |
 | Hashnode INVALID_QUERY                    | GraphQL 쿼리에 변수 직접 인라인                          |
 | rollup 바이너리 누락 (반복)                       | CI에서 `rm -f package-lock.json` 후 install       |
-| `--no-daemon` 등 플래그가 태스크명으로 파싱됨           | gradlew `eval "$@"` 버그 → `$@` 로 수정 (157번 줄)   |
+| `--no-daemon` 등 플래그가 태스크명으로 파싱됨           | gradlew `eval "$@"` 버그 → `$@` 로 수정 (157번 줄)    |
+| Hashnode 발행 400 Bad Request                   | `escapeGraphql()` 후 `objectMapper.writeValueAsString()` 이중 이스케이프 → GraphQL variables 방식으로 전환. `deletePost` 토큰 누락도 함께 수정 |
 
 > 전체 이슈 기록 → `backend/claude.md`, `frontend/claude.md` 참고
 
