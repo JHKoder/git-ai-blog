@@ -88,3 +88,15 @@
 }
 
 .submitBtn:disabled { opacity: 0.6; }
+
+.publishBtn {
+  background: #8b5cf6;
+  color: #fff;
+  border: none;
+  padding: 8px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.publishBtn:disabled { opacity: 0.6; cursor: not-allowed; }

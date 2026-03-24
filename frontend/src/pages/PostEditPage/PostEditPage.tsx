@@ -24,6 +24,7 @@ export function PostEditPage() {
   const [tags, setTags] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState('')
   const [loading, setLoading] = useState(false)
+  const [publishing, setPublishing] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [initialized, setInitialized] = useState(false)
   const [hasGptApiKey, setHasGptApiKey] = useState<boolean>(false)
@@ -115,6 +116,26 @@ export function PostEditPage() {
     }
   }
 
+  const handleSaveAndPublish = async () => {
+    if (title.length < 6) {
+      toast.error('Hashnode 발행 조건: 제목은 최소 6자 이상이어야 합니다.')
+      return
+    }
+    setPublishing(true)
+    try {
+      await postApi.update(Number(id), { title, content, tags })
+      await postApi.publish(Number(id))
+      clearDraft()
+      toast.success('저장 후 Hashnode에 발행됐습니다.')
+      navigate(`/posts/${id}`)
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message || '발행 실패')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   if (!currentPost) return <p>로딩 중...</p>
 
   return (
@@ -164,8 +185,16 @@ export function PostEditPage() {
         </div>
         <div className={styles.actions}>
           <button type="button" className={styles.cancelBtn} onClick={() => navigate(-1)}>취소</button>
-          <button type="submit" className={styles.submitBtn} disabled={loading}>
+          <button type="submit" className={styles.submitBtn} disabled={loading || publishing}>
             {loading ? '저장 중...' : '저장'}
+          </button>
+          <button
+            type="button"
+            className={styles.publishBtn}
+            onClick={handleSaveAndPublish}
+            disabled={loading || publishing}
+          >
+            {publishing ? '발행 중...' : '저장 후 발행'}
           </button>
         </div>
       </form>

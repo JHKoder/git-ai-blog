@@ -50,13 +50,18 @@ export function PostDetailPage() {
   }
 
   const handlePublish = async () => {
+    if (currentPost && currentPost.title.length < 6) {
+      toast.error('Hashnode 발행 조건: 제목은 최소 6자 이상이어야 합니다.')
+      return
+    }
     setPublishing(true)
     try {
       await postApi.publish(Number(id))
       toast.success('Hashnode에 발행됐습니다.')
       fetchPost(Number(id))
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || '발행 실패')
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message || '발행 실패')
     } finally {
       setPublishing(false)
     }
@@ -75,6 +80,11 @@ export function PostDetailPage() {
         <div className={styles.actions}>
           <button className={styles.pdfBtn} onClick={handleExportPdf}>PDF 내보내기</button>
           <button className={styles.editBtn} onClick={() => navigate(`/posts/${id}/edit`)}>수정</button>
+          {(currentPost.status === 'ACCEPTED' || currentPost.status === 'PUBLISHED') && (
+            <button className={styles.publishBtn} onClick={handlePublish} disabled={publishing}>
+              {publishing ? '발행 중...' : currentPost.status === 'PUBLISHED' ? '재발행' : 'Hashnode 발행'}
+            </button>
+          )}
           <button className={styles.deleteBtn} onClick={() => setShowDeleteModal(true)}>삭제</button>
         </div>
       </div>

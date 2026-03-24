@@ -39,6 +39,17 @@ public class PublishPostUseCase {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다."));
 
+        // Hashnode 발행 전 사전 유효성 검증
+        if (post.getTitle() == null || post.getTitle().trim().length() < 6) {
+            throw new BusinessRuleException("Hashnode 발행 조건: 제목은 최소 6자 이상이어야 합니다. (현재: " + (post.getTitle() == null ? 0 : post.getTitle().trim().length()) + "자)");
+        }
+        if (post.getContent() == null || post.getContent().isBlank()) {
+            throw new BusinessRuleException("Hashnode 발행 조건: 본문이 비어있습니다.");
+        }
+        if (!member.hasHashnodeConnection()) {
+            throw new BusinessRuleException("Hashnode 연동이 필요합니다. 마이페이지에서 Hashnode Token과 Publication ID를 설정해 주세요.");
+        }
+
         long aiImproveCount = aiSuggestionRepository.countByPostId(postId);
         String contentWithMeta = appendAiMeta(post.getContent(), post, aiImproveCount);
 
