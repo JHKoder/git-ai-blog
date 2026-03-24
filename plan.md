@@ -10,6 +10,7 @@
 - 운영/모니터링 → [`monitoring.md`](monitoring.md)
 
 ---
+
 ## 1. 프로젝트 개요
 
 GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
@@ -135,7 +136,8 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
   현재 `MockLoginController`가 `@Profile("local")` 전용이라 dev(`./gradlew serverRun`)에서 엔드포인트 없음.
   → `@Profile({"local", "dev"})` 로 확장, dev용 mock 계정(`dev-test-user`) 별도 사용.
   프론트 버튼은 현재 `import.meta.env.DEV`(Vite 개발 서버 여부)로만 제어 중 — 백엔드 프로파일과 무관.
-  prod 비활성화: 백엔드는 `@Profile`로 자동 차단됨. 프론트는 `import.meta.env.DEV`가 prod 빌드에서 `false`로 평가되어 Vite가 dead code 제거 → 버튼이 번들에 포함되지 않음. **prod 비활성화는 이미 정상 동작**.
+  prod 비활성화: 백엔드는 `@Profile`로 자동 차단됨. 프론트는 `import.meta.env.DEV`가 prod 빌드에서 `false`로 평가되어 Vite가 dead code 제거 → 버튼이 번들에
+  포함되지 않음. **prod 비활성화는 이미 정상 동작**.
 - [x] **프로파일별 Hashnode 발행 권한 분리** — local/dev는 Hashnode 실제 발행 불가 (발행 버튼 비활성화 또는 명시적 오류). dev는 발행 흐름까지 테스트 가능하나 실제 전송 차단
   후 롤백. prod만 실제 발행 허용. 백엔드에서 프로파일 조건으로 제어
 
@@ -177,6 +179,33 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
   SecurityConfig는 `anyRequest().permitAll()` 이므로 인증 차단 문제는 아님.
   원인은 prod Nginx에서 `/swagger-ui/**`, `/v3/api-docs/**` 경로가 backend로 프록시되지 않고 frontend(React)로 라우팅되는 것으로 추정.
   **해결 방향**: nginx.conf에 `/swagger-ui/` 및 `/v3/` 경로를 backend(`http://backend:8080`)로 프록시 추가
+
+- [ ] **기본 프롬프트 교체** — 현재 `PromptBuilder.getInstruction(ContentType)`이 ContentType별 짧은 지시문만 사용.
+  아래 SEO 최적화 블로그 작성 가이드를 기본 프롬프트로 교체:
+  - 목표: 읽기 쉽고 SEO 최적화된 실무형 블로그 (대상: 백엔드 주니어~미드레벨)
+  - 제목 SEO 최적화 + 후보 3개, 썸네일 문구 3개, "이 글에서 얻을 수 있는 것" 3줄 요약
+  - 구조: 문제→원인→해결(코드)→Before/After 수치화→자주 하는 실수→3줄 정리
+  - h2/h3, Mermaid 다이어그램, 실무 팁 3개, 운영 시나리오, 검색 키워드 5개, 체크리스트, CTA
+  - 코드: 실행 가능한 수준(import, 의존성 포함), 잘못된 예시 → 개선 예시 비교, 성능 수치화 필수
+  - 톤: 전문적 + 친근 / 출력: 순수 Markdown / 마지막에 사용 AI 모델 표기
+  - **변경 범위**: `PromptBuilder` 기본 instruction 전면 교체. ContentType별 세부 지침은 위 규칙에 추가 병합
+
+- [ ] **게시글 태그 통일화** — 현재 게시글 태그(`Post.tags: List<String>`)와 AI 응답에서 나오는 태그가 형식 불일치 가능성 있음.
+  태그 정규화 로직(소문자, 특수문자 제거, 최대 길이 등) 공통 적용 및 테스트 구성.
+  **변경 범위**: `Post.updateTags()` 또는 UseCase 레벨에서 태그 정규화 추가, 단위 테스트 작성
+
+- [ ] **커스텀 프롬프트 시스템** — AI 개선 요청 시 기본 프롬프트 외 사용자 정의 프롬프트 지원:
+  - 사용자당 최대 30개 커스텀 프롬프트 등록
+  - 프롬프트 조회: 본인 사용 횟수 내림차순 정렬
+  - 공유/비공유 설정: 커스텀 프롬프트에 `isPublic` 플래그. 기본값 비공개
+  - 공개 프롬프트 탐색: 전체 사용자 중 가장 많이 선택된 순 조회 / `{user.name}님이 가장 많이 선택한 프롬프트` 조회
+  - **변경 범위 (백엔드)**:
+    - `Prompt` 도메인: `id, memberId, title, content, usageCount, isPublic, createdAt`
+    - API: `GET/POST/DELETE /api/prompts` (본인), `GET /api/prompts/popular` (공개 인기순), `GET /api/prompts/members/{id}/popular`
+    - `AiSuggestionRequest`에 `promptId?: Long` 추가 → `RequestAiSuggestionUseCase`에서 프롬프트 조회 후 적용
+  - **변경 범위 (프론트엔드)**:
+    - 프롬프트 관리 페이지 또는 ProfilePage 내 섹션
+    - AI 개선 요청 모달에서 프롬프트 선택 UI (내 프롬프트 + 인기 프롬프트)
 
 ### API 문서화
 
