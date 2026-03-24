@@ -10,7 +10,6 @@
 - 운영/모니터링 → [`monitoring.md`](monitoring.md)
 
 ---
-
 ## 1. 프로젝트 개요
 
 GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
@@ -132,8 +131,11 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
   의존성이므로 무시 불가
 - [x] **GitHub Actions** — CI는 `test/resources/application.yml`에서 Redis autoconfiguration 완전 제외 (
   `DataRedisAutoConfiguration` exclude), local 프로파일 사용. Redis 영향 없음 확인
-- [x] **local GitHub 로그인 불가** — local 프로파일은 `local-dummy-client-id`를 사용해 실제 GitHub OAuth 인증 불가. GitHub 로그인 테스트는 dev
-  프로파일로만 가능. `GET /api/auth/mock-login` 엔드포인트 추가 (`@Profile("local")` 전용), 프론트 LoginPage에 `import.meta.env.DEV` 조건으로 Mock 로그인 버튼 표시
+- [ ] **local/dev mock 로그인** — local + dev 프로파일 모두 mock 로그인 지원 필요.
+  현재 `MockLoginController`가 `@Profile("local")` 전용이라 dev(`./gradlew serverRun`)에서 엔드포인트 없음.
+  → `@Profile({"local", "dev"})` 로 확장, dev용 mock 계정(`dev-test-user`) 별도 사용.
+  프론트 버튼은 현재 `import.meta.env.DEV`(Vite 개발 서버 여부)로만 제어 중 — 백엔드 프로파일과 무관.
+  prod 비활성화: 백엔드는 `@Profile`로 자동 차단됨. 프론트는 `import.meta.env.DEV`가 prod 빌드에서 `false`로 평가되어 Vite가 dead code 제거 → 버튼이 번들에 포함되지 않음. **prod 비활성화는 이미 정상 동작**.
 - [x] **프로파일별 Hashnode 발행 권한 분리** — local/dev는 Hashnode 실제 발행 불가 (발행 버튼 비활성화 또는 명시적 오류). dev는 발행 흐름까지 테스트 가능하나 실제 전송 차단
   후 롤백. prod만 실제 발행 허용. 백엔드에서 프로파일 조건으로 제어
 
