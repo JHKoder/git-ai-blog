@@ -11,10 +11,12 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -97,7 +99,7 @@ public class HashnodeClient {
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
                 return execute(req, token);
-            } catch (RateLimitException e) {
+            } catch (RateLimitException | ExternalApiException e) {
                 throw e;
             } catch (WebClientResponseException e) {
                 int statusCode = e.getStatusCode().value();
@@ -109,7 +111,7 @@ public class HashnodeClient {
                     sleepSafely(delayMs);
                     delayMs *= 2;
                 } else {
-                    throw new ExternalApiException("Hashnode API 오류: " + e.getMessage(), e);
+                    throw new ExternalApiException("Hashnode API 오류: " + e.getStatusCode().value(), e);
                 }
             } catch (Exception e) {
                 if (attempt < maxRetries) {
@@ -141,14 +143,26 @@ public class HashnodeClient {
             spec = spec.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
         }
 
+        // 4xx/5xx 모두 바디를 읽어서 GraphQL 오류 메시지를 추출한다
         String responseBody = spec.bodyValue(jsonBody)
                 .retrieve()
+                .onStatus(
+                        status -> status.isError(),
+                        clientResponse -> clientResponse.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .flatMap(body -> {
+                                    log.error("Hashnode HTTP {} 응답 바디: {}", clientResponse.statusCode().value(), body);
+                                    String detail = extractGraphqlError(body);
+                                    return Mono.error(new ExternalApiException(
+                                            "Hashnode API " + clientResponse.statusCode().value() + ": " + detail));
+                                })
+                )
                 .bodyToMono(String.class)
                 .block(Duration.ofSeconds(30));
 
         JsonNode root = objectMapper.readTree(responseBody);
 
-        // GraphQL errors 필드 확인
+        // 200이지만 GraphQL errors 포함된 경우
         JsonNode errors = root.path("errors");
         if (!errors.isMissingNode() && errors.isArray() && errors.size() > 0) {
             String errorMsg = errors.get(0).path("message").asText("Unknown GraphQL error");
@@ -157,6 +171,20 @@ public class HashnodeClient {
         }
 
         return root;
+    }
+
+    /** 응답 바디에서 GraphQL errors[0].message를 추출한다. 파싱 실패 시 원본 바디를 반환. */
+    private String extractGraphqlError(String body) {
+        if (body == null || body.isBlank()) return "응답 없음";
+        try {
+            JsonNode root = objectMapper.readTree(body);
+            JsonNode errors = root.path("errors");
+            if (errors.isArray() && errors.size() > 0) {
+                return errors.get(0).path("message").asText(body);
+            }
+        } catch (Exception ignored) {
+        }
+        return body.length() > 300 ? body.substring(0, 300) + "..." : body;
     }
 
     private void sleepSafely(long ms) {
