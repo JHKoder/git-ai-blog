@@ -216,9 +216,21 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 ### 게시글 뷰어 개선
 
-- [ ] **Markdown 테이블 렌더링** — 게시글 상세 페이지에서 `| 구성 요소 | 역할 |` 형식의 테이블이 텍스트로만 출력됨. ReactMarkdown에 GFM(GitHub Flavored Markdown) 플러그인(`remark-gfm`) 적용하여 테이블, 체크박스 등 GFM 문법 정상 렌더링 테스트 및 검증
-- [ ] **Mermaid 다이어그램 렌더링** — AI가 생성하는 `graph LR` 등 Mermaid 코드블록이 코드 원문으로만 표시됨. `rehype-mermaid` 또는 `react-mermaid2` 등으로 다이어그램 렌더링 지원
-- [ ] **DRAFT 상태에서 발행 버튼 활성화** — 현재 발행 버튼은 `ACCEPTED` 상태에서만 표시됨. 게시글 작성 직후(DRAFT) 바로 발행 가능하도록 상태 조건 확대 또는 DRAFT → 직접 발행 흐름 추가
+> **검토 결과**: `react-markdown@9` 기본 설치 상태. `remark-gfm` 플러그인 미설치로 GFM 문법 전체 미지원.
+> 영향 범위: 테이블, 체크박스(`- [ ]`), 취소선(`~~text~~`), autolinks, 각주.
+> `PostDetailPage`와 `AiSuggestionPanel` 두 곳 모두 `<ReactMarkdown>` 사용 → 양쪽 동시 적용 필요.
+
+- [ ] **GFM(GitHub Flavored Markdown) 전체 지원** — `remark-gfm` 미설치로 아래 문법이 전혀 렌더링되지 않음.
+  `npm install remark-gfm` 후 `PostDetailPage`와 `AiSuggestionPanel`의 `<ReactMarkdown remarkPlugins={[remarkGfm]}>` 적용.
+  미지원 항목:
+  - 테이블 (`| col | col |`) — 텍스트로만 출력
+  - 체크박스 (`- [ ] 항목`, `- [x] 항목`) — 텍스트로만 출력
+  - 취소선 (`~~취소~~`) — 텍스트로만 출력
+  - autolinks (URL/이메일 자동 링크) — 텍스트로만 출력
+- [ ] **Mermaid 다이어그램 렌더링** — AI가 생성하는 `graph LR` 등 Mermaid 코드블록이 코드 원문으로만 표시됨. `rehype-mermaid` 또는 `react-mermaid2` 등으로
+  다이어그램 렌더링 지원
+- [ ] **DRAFT 상태에서 발행 버튼 활성화** — 현재 발행 버튼은 `ACCEPTED` 상태에서만 표시됨. 게시글 작성 직후(DRAFT) 바로 발행 가능하도록 상태 조건 확대 또는 DRAFT → 직접 발행
+  흐름 추가
 
 ### 운영 / 모니터링
 
@@ -236,19 +248,19 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 ## 5. 알려진 이슈 & 해결 기록 (주요)
 
-| 문제                                        | 해결                                             |
-|-------------------------------------------|------------------------------------------------|
-| `prepared statement "S_1" already exists` | `prepareThreshold: 0` (prod yml)               |
-| backend `unhealthy`                       | Actuator 추가                                    |
-| QEMU arm64 curl segfault                  | wget으로 HEALTHCHECK 변경                          |
-| `Post.tags` LazyInitializationException   | `List.copyOf(post.getTags())`                  |
-| SyncHashnode Duplicate key                | `Collectors.toMap` mergeFunction 추가            |
-| frontend conf.d 비어있어 443 거부               | GHA `--no-cache`, 서버 docker-compose.yml scp 복사 |
-| 최초 인증서 없이 nginx 즉시 종료                     | certbot standalone 발급 후 frontend 재기동 순서 필수     |
-| Hashnode INVALID_QUERY                    | GraphQL 쿼리에 변수 직접 인라인                          |
-| rollup 바이너리 누락 (반복)                       | CI에서 `rm -f package-lock.json` 후 install       |
-| `--no-daemon` 등 플래그가 태스크명으로 파싱됨           | gradlew `eval "$@"` 버그 → `$@` 로 수정 (157번 줄)    |
-| Hashnode 발행 400 Bad Request                   | `escapeGraphql()` 후 `objectMapper.writeValueAsString()` 이중 이스케이프 → GraphQL variables 방식으로 전환. `deletePost` 토큰 누락도 함께 수정. 발행 전 검증: 제목 6자↑, 본문 비어있음, Hashnode 토큰/publicationId null/blank 추가 |
+| 문제                                        | 해결                                                                                                                                                                                         |
+|-------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `prepared statement "S_1" already exists` | `prepareThreshold: 0` (prod yml)                                                                                                                                                           |
+| backend `unhealthy`                       | Actuator 추가                                                                                                                                                                                |
+| QEMU arm64 curl segfault                  | wget으로 HEALTHCHECK 변경                                                                                                                                                                      |
+| `Post.tags` LazyInitializationException   | `List.copyOf(post.getTags())`                                                                                                                                                              |
+| SyncHashnode Duplicate key                | `Collectors.toMap` mergeFunction 추가                                                                                                                                                        |
+| frontend conf.d 비어있어 443 거부               | GHA `--no-cache`, 서버 docker-compose.yml scp 복사                                                                                                                                             |
+| 최초 인증서 없이 nginx 즉시 종료                     | certbot standalone 발급 후 frontend 재기동 순서 필수                                                                                                                                                 |
+| Hashnode INVALID_QUERY                    | GraphQL 쿼리에 변수 직접 인라인                                                                                                                                                                      |
+| rollup 바이너리 누락 (반복)                       | CI에서 `rm -f package-lock.json` 후 install                                                                                                                                                   |
+| `--no-daemon` 등 플래그가 태스크명으로 파싱됨           | gradlew `eval "$@"` 버그 → `$@` 로 수정 (157번 줄)                                                                                                                                                |
+| Hashnode 발행 400 Bad Request               | `escapeGraphql()` 후 `objectMapper.writeValueAsString()` 이중 이스케이프 → GraphQL variables 방식으로 전환. `deletePost` 토큰 누락도 함께 수정. 발행 전 검증: 제목 6자↑, 본문 비어있음, Hashnode 토큰/publicationId null/blank 추가 |
 
 > 전체 이슈 기록 → `backend/claude.md`, `frontend/claude.md` 참고
 
