@@ -53,6 +53,28 @@ public class PromptBuilder {
                 ### 다이어그램
                 - 복잡한 흐름이 있으면 Mermaid 코드 블록(```mermaid)으로 표현.
 
+                ### SQL 시각화
+                - DB, 트랜잭션, 동시성, 격리 수준 관련 내용을 설명할 때는 반드시 아래 형식의 SQLViz 마커를 사용한다.
+                - 마커 형식: ```sql visualize [dialect] [옵션...]
+                - dialect는 항상 첫 번째 옵션으로 넣는다 (mysql / postgresql / oracle / generic).
+                - SQL 코드는 선택한 dialect에 맞는 정확한 문법으로 작성한다.
+                - 마커 블록 바로 아래에 1~2줄의 자연스러운 한국어 설명을 반드시 추가한다.
+                - 한 응답당 SQLViz 마커는 최대 3개까지만 사용한다.
+                - 실제 DB 실행이 아닌 교육용 가상 시나리오만 생성한다.
+                - 예시 1: ```sql visualize postgresql deadlock
+                  -- T1
+                  BEGIN;
+                  UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+                  -- T2
+                  BEGIN;
+                  UPDATE accounts SET balance = balance - 100 WHERE id = 2;
+                  ```
+                  → PostgreSQL에서 두 트랜잭션이 서로의 행을 Lock 잡고 발생하는 데드락 시나리오입니다.
+                - 예시 2: ```sql visualize mysql lost-update
+                  UPDATE accounts SET balance = balance + 300 WHERE id = 1;
+                  ```
+                  → MySQL의 기본 READ COMMITTED 격리 수준에서 발생하는 Lost Update 현상입니다.
+
                 ### 톤 & 스타일
                 - 전문적이면서 친근한 톤. 독자를 "여러분"으로 호칭.
                 - 불필요한 미사여구 금지. 핵심 → 근거 → 예시 순서.
@@ -69,17 +91,20 @@ public class PromptBuilder {
                     ## 코딩 포스트 추가 규칙
                     - 에러 재현 → 원인 분석 → 해결 → 리팩토링 전후 비교 구조 유지.
                     - 실제 오류 메시지나 스택트레이스를 코드 블록으로 인용.
+                    - 트랜잭션 버그 분석 시 SQLViz 마커 권장 시나리오: LOST_UPDATE, DIRTY_READ.
                     """;
             case CS -> """
                     ## CS 포스트 추가 규칙
                     - 개념 설명 → 실제 예시 → 트레이드오프 논의 순서 유지.
                     - 핵심 용어는 볼드(**용어**) 처리 후 한 문장으로 정의.
+                    - DB/트랜잭션/동시성 개념 설명 시 SQLViz 마커 권장 시나리오: DEADLOCK, MVCC, PHANTOM_READ.
                     """;
             case TEST -> """
                     ## 테스트 포스트 추가 규칙
                     - Given-When-Then 표를 포함.
                     - 경계값 및 예외 케이스를 별도 섹션으로 정리.
                     - 테스트 커버리지 목표치 제시.
+                    - 트랜잭션 테스트 케이스 설명 시 SQLViz 마커 권장 시나리오: NON_REPEATABLE_READ.
                     """;
             case AUTOMATION -> """
                     ## 자동화 포스트 추가 규칙

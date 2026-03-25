@@ -57,6 +57,9 @@ dependencies {
     implementation 'org.springframework:spring-aspects'
     implementation 'org.springframework:spring-aop'
 
+    // JSQLParser — SQL AST 파싱 (SQLViz 시뮬레이션 엔진용)
+    implementation 'com.github.jsqlparser:jsqlparser:5.0'
+
     // springdoc-openapi (Swagger UI) — Spring Boot 4 호환
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
 
