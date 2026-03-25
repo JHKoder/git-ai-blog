@@ -28,9 +28,10 @@ github.jhkoder.aiblog/
 │   exception/            NotFoundException, InvalidStateException, BusinessRuleException
 │                         ExternalApiException, RateLimitException
 ├── config/               SecurityConfig, WebClientConfig, WebMvcConfig, JasyptConfig
-│                         RedisConfig, AesGcmEncryptionConverter
+│                         RedisConfig, AesGcmEncryptionConverter, OpenApiConfig
 ├── security/             JwtProvider, JwtAuthenticationFilter, RefreshTokenService
 │                         CustomOAuth2UserService, OAuth2SuccessHandler, AuthController
+│                         MockLoginController
 ├── infra/ai/             AiClient(interface), AiClientRouter, AiUsageLimiter
 │                         ClaudeClient, GrokClient, GptClient, GeminiClient
 │                         RateLimitCache, TokenUsageTracker, ImageUsageLimiter
@@ -41,6 +42,7 @@ github.jhkoder.aiblog/
 │                         ImageGenerationService
 ├── post/                 Post, PostStatus, ContentType, PostRepository
 │                         PostController, 9개 UseCase
+│                         dto/PostPageResponse (Page<T> 직렬화 DTO)
 ├── suggestion/           AiSuggestion, AiSuggestionRepository
 │                         AiSuggestionController, 5개 UseCase
 ├── member/               Member, MemberRepository
@@ -48,10 +50,12 @@ github.jhkoder.aiblog/
 ├── repo/                 Repo, RepoCollectHistory, RepoRepository, CollectType
 │                         RepoController, GitHubWebhookController, 5개 UseCase
 ├── prompt/               Prompt, PromptRepository
-│                         PromptController, 4개 UseCase (내 프롬프트 CRUD + 인기 프롬프트)
+│                         PromptController, 5개 UseCase (내 프롬프트 CRUD + 인기 프롬프트)
 └── sqlviz/               SqlVizWidget, SqlVizScenario, IsolationLevel
-                          SqlVizController, EmbedController, 3개 UseCase
-                          simulation/SqlVizSimulationEngine (6개 시나리오 가상 시뮬레이션)
+                          SqlVizController, SqlVizEmbedController, 4개 UseCase
+                          simulation/SqlVizSimulationEngine, SqlParser, ParsedSql
+                                     RowKey, VirtualDatabase, VirtualRow, TransactionContext
+                                     SimulationResult, SimulationStep (6개 시나리오 가상 시뮬레이션)
 ```
 
 ---
