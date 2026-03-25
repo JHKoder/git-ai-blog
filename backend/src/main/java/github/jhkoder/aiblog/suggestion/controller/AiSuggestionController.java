@@ -4,6 +4,7 @@ import github.jhkoder.aiblog.common.ApiResponse;
 import github.jhkoder.aiblog.suggestion.dto.AiSuggestionRequest;
 import github.jhkoder.aiblog.suggestion.dto.AiSuggestionResponse;
 import github.jhkoder.aiblog.suggestion.usecase.*;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,7 +27,7 @@ public class AiSuggestionController {
     public ResponseEntity<ApiResponse<AiSuggestionResponse>> request(
             @AuthenticationPrincipal Long memberId,
             @PathVariable Long postId,
-            @RequestBody(required = false) AiSuggestionRequest request) {
+            @Valid @RequestBody(required = false) AiSuggestionRequest request) {
         if (request == null) request = new AiSuggestionRequest();
         return ResponseEntity.ok(ApiResponse.ok(requestAiSuggestionUseCase.execute(postId, memberId, request)));
     }

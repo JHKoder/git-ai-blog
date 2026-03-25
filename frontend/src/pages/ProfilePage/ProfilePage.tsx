@@ -457,8 +457,10 @@ export function ProfilePage() {
               onChange={e => setPromptTitle(e.target.value)}
               placeholder="예: SEO 최적화 요청"
               required
+              maxLength={100}
               className={styles.input}
             />
+            <span className={styles.charCount}>{promptTitle.length} / 100</span>
           </div>
           <div className={styles.field}>
             <label>내용</label>
@@ -468,8 +470,10 @@ export function ProfilePage() {
               placeholder="AI에게 전달할 추가 지시사항을 입력하세요."
               required
               rows={4}
+              maxLength={2000}
               className={styles.textarea}
             />
+            <span className={styles.charCount}>{promptContent.length} / 2000</span>
           </div>
           <label className={styles.checkboxLabel}>
             <input

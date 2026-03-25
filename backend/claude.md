@@ -176,6 +176,8 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | 특정 사용자 인기 프롬프트   | `GET /api/prompts/members/{id}/popular`        |
 
 - 사용자당 최대 30개 / 사용 횟수 내림차순 정렬 / `isPublic` 플래그로 공개/비공개 설정
+- 입력 제한: `title` 100자, `content` 2000자 (`@Size` 검증, 400 반환)
+- `AiSuggestionRequest.extraPrompt` 500자 제한
 - `AiSuggestionRequest`에 `promptId` 포함 시 해당 프롬프트 적용 후 `usageCount` 증가
 
 ### SQL Visualization Widget

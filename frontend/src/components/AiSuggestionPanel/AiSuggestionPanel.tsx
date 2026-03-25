@@ -125,7 +125,9 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
               onChange={e => setExtraPrompt(e.target.value)}
               className={styles.textarea}
               rows={3}
+              maxLength={500}
             />
+            <span className={styles.charCount}>{extraPrompt.length} / 500</span>
           </div>
           <button className={styles.requestBtn} onClick={handleRequest} disabled={requesting}>
             {requesting ? (

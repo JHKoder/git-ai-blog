@@ -209,3 +209,10 @@
 }
 
 .rejectBtn:hover { background: var(--border); }
+
+.charCount {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  text-align: right;
+  margin-top: 2px;
+}

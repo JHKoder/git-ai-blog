@@ -6,6 +6,7 @@ import github.jhkoder.aiblog.prompt.dto.PromptResponse;
 import github.jhkoder.aiblog.prompt.usecase.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -36,7 +37,7 @@ public class PromptController {
     @PostMapping
     public ResponseEntity<ApiResponse<PromptResponse>> create(
             @AuthenticationPrincipal Long memberId,
-            @RequestBody PromptRequest request) {
+            @Valid @RequestBody PromptRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(createPromptUseCase.execute(memberId, request)));
     }
 
@@ -45,7 +46,7 @@ public class PromptController {
     public ResponseEntity<ApiResponse<PromptResponse>> update(
             @PathVariable Long id,
             @AuthenticationPrincipal Long memberId,
-            @RequestBody PromptRequest request) {
+            @Valid @RequestBody PromptRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(updatePromptUseCase.execute(id, memberId, request)));
     }
 

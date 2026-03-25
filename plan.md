@@ -57,7 +57,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 ### 기능
 - [x] AI 사용량 제한 — 전체 + 모델별 일일 한도, Redis 기반, 초과 시 429
 - [x] AI 모델 선택 — Claude/Grok/GPT/Gemini 수동 또는 ContentType 자동 라우팅
-- [x] 커스텀 프롬프트 — 사용자당 최대 30개, 공개/비공개, 인기순 탐색
+- [x] 커스텀 프롬프트 — 사용자당 최대 30개, 공개/비공개, 인기순 탐색 (제목 100자 / 내용 2000자 제한)
 - [x] 기본 프롬프트 교체 — SEO 최적화 가이드 (`PromptBuilder`)
 - [x] API 키 연동 검증 — 저장 시 실제 API 호출로 유효성 확인
 - [x] 이미지 생성 — AI 개선 플로우에서 분리, `ImageGenButton` 수동 전용
