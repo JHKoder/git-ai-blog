@@ -49,7 +49,24 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception e) {
+        if (isBrokenPipe(e)) {
+            log.warn("클라이언트가 연결을 먼저 끊었습니다 (Broken pipe): {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        }
         log.error("Unhandled exception", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("서버 오류가 발생했습니다."));
+    }
+
+    private boolean isBrokenPipe(Exception e) {
+        Throwable cause = e;
+        while (cause != null) {
+            if (cause instanceof java.io.IOException io
+                    && io.getMessage() != null
+                    && io.getMessage().contains("Broken pipe")) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 }

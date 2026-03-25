@@ -9,6 +9,8 @@ import { PostCreatePage } from '../pages/PostCreatePage/PostCreatePage'
 import { PostEditPage } from '../pages/PostEditPage/PostEditPage'
 import { RepoListPage } from '../pages/RepoListPage/RepoListPage'
 import { ProfilePage } from '../pages/ProfilePage/ProfilePage'
+import { SqlVizPage } from '../pages/SqlVizPage/SqlVizPage'
+import { SqlVizEmbedPage } from '../pages/SqlVizEmbedPage/SqlVizEmbedPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -45,6 +47,8 @@ export function AppRouter() {
         <Route path="/posts/:id/edit" element={<PrivateRoute><Layout><PostEditPage /></Layout></PrivateRoute>} />
         <Route path="/repos" element={<PrivateRoute><Layout><RepoListPage /></Layout></PrivateRoute>} />
         <Route path="/profile" element={<PrivateRoute><Layout><ProfilePage /></Layout></PrivateRoute>} />
+        <Route path="/sqlviz" element={<PrivateRoute><Layout><SqlVizPage /></Layout></PrivateRoute>} />
+        <Route path="/embed/sqlviz/:id" element={<SqlVizEmbedPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

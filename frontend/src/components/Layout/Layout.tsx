@@ -24,6 +24,7 @@ export function Layout({ children }: Props) {
           <Link to="/" className={styles.logo}>AI Blog</Link>
           <Link to="/" className={styles.navLink}>게시글</Link>
           <Link to="/repos" className={styles.navLink}>레포</Link>
+          <Link to="/sqlviz" className={styles.navLink}>SQL Viz</Link>
         </div>
         <div className={styles.navRight}>
           <a href="/swagger-ui/index.html" target="_blank" rel="noopener noreferrer" className={styles.navLink}>API 문서</a>

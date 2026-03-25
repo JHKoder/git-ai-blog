@@ -28,8 +28,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/oauth2/**",
@@ -41,23 +40,20 @@ public class SecurityConfig {
                                 "/api/auth/mock-login",
                                 "/api/prompts/popular",
                                 "/api/prompts/members/*/popular",
+                                "/api/embed/sqlviz/**",
                                 "/actuator/health"
                         ).permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
-                )
-                .headers(headers -> headers
+                ).headers(headers -> headers
                         .frameOptions(frame -> frame.sameOrigin())
-                )
-                .oauth2Login(oauth2 -> oauth2
+                ).oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo ->
                                 userInfo.userService(customOAuth2UserService))
                         .successHandler(oAuth2SuccessHandler)
-                )
-                .exceptionHandling(ex -> ex
+                ).exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.FORBIDDEN))
-                )
-                .addFilterBefore(jwtAuthenticationFilter,
+                ).addFilterBefore(jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

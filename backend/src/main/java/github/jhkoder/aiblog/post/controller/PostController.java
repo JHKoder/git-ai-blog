@@ -102,9 +102,12 @@ public class PostController {
             @AuthenticationPrincipal Long memberId,
             @RequestBody java.util.Map<String, String> body) {
         String prompt = body.getOrDefault("prompt", "");
-        String model  = body.getOrDefault("model", "");
         if (prompt.isBlank()) return ResponseEntity.badRequest().body(ApiResponse.error("prompt가 필요합니다."));
-        if (model.isBlank())  return ResponseEntity.badRequest().body(ApiResponse.error("model이 필요합니다."));
+        // 이미지 생성은 GPT 전용 — 어떤 모델이 전달되든 GPT 전용으로 강제
+        String model = body.getOrDefault("model", "");
+        if (!model.startsWith("gpt-")) {
+            model = "gpt-4o-mini";
+        }
         return ResponseEntity.ok(ApiResponse.ok(generateImageUseCase.execute(memberId, prompt, model)));
     }
 

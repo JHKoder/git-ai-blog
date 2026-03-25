@@ -205,13 +205,13 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 ### 버그 수정
 
-- [ ] **이미지 생성 모델 라우팅 버그** — GPT가 아닌 모델(예: `claude-opus-4-5`)로 AI 개선 요청 후 이미지 생성 시도 시 "GPT 모델이 아님" 오류로 스킵됨.
+- [x] **이미지 생성 모델 라우팅 버그** — GPT가 아닌 모델(예: `claude-opus-4-5`)로 AI 개선 요청 후 이미지 생성 시도 시 "GPT 모델이 아님" 오류로 스킵됨.
   원인: 이미지 생성 시 모델 선택 UI가 AI 개선에서 선택한 모델을 그대로 넘기거나, 백엔드 `ImageGenerationService`가 GPT 전용 체크에서 잘못된 모델값을 수신.
   해결 방향: 이미지 생성은 GPT 모델 전용으로 고정. GPT API 키 보유 시 `gpt-4o-mini`(기본) 또는 `gpt-4o`로 자동 라우팅. GPT 키 없으면 생성 불가(현재 프론트
   `hasGptApiKey` 체크 이미 있음).
   백엔드 `ImageGenerationService`에서 들어온 model 값 무시하고 GPT 전용으로 강제하거나, 컨트롤러에서 model 파라미터 검증 추가.
 
-- [ ] **Broken pipe `HttpMessageNotWritableException`** — AI 개선 요청 등 응답이 긴 API 호출 시 클라이언트가 먼저 연결을 끊으면 `Broken pipe` 예외가
+- [x] **Broken pipe `HttpMessageNotWritableException`** — AI 개선 요청 등 응답이 긴 API 호출 시 클라이언트가 먼저 연결을 끊으면 `Broken pipe` 예외가
   `GlobalExceptionHandler`까지 올라와 불필요한 `Unhandled exception` 로그 발생.
   ```
   HttpMessageNotWritableException: Could not write JSON: ServletOutputStream failed to flush: Broken pipe
@@ -317,15 +317,15 @@ src/
 └── store/analyzeStore.ts
 ```
 
-**구현 범위 (미정 — 상세 설계 후 착수):**
-- [ ] SQL Viz 페이지 (`/sqlviz`) — SQL 입력 + Isolation Level + 옵션 + 시각화 미리보기
-- [ ] 임베드 코드 생성 API (`POST /api/sqlviz`) — 위젯 ID 발급, 공개 임베드 URL 생성
-- [ ] 공개 임베드 엔드포인트 (`GET /embed/sqlviz/{id}`) — 인증 불필요, iframe용
-- [ ] Hashnode Widget 코드 생성 (`%%[sqlviz-{id}]` 형태)
-- [ ] `EmbedGenerator` 컴포넌트 — iframe 코드 + Widget 코드 복사 UI
-- [ ] `ConcurrencyTimeline` 컴포넌트 — 재생/정지 슬라이더, Isolation Level 토글
-- [ ] 백엔드 가상 시뮬레이션 아키텍처 — 실제 DB 실행 없이 시나리오 JSON 반환
-- [ ] 샘플 시나리오 내장 (데드락, Lost Update, Phantom Read 등)
+**구현 범위:**
+- [x] SQL Viz 페이지 (`/sqlviz`) — SQL 입력 + Isolation Level + 옵션 + 시각화 미리보기
+- [x] 임베드 코드 생성 API (`POST /api/sqlviz`) — 위젯 ID 발급, 공개 임베드 URL 생성
+- [x] 공개 임베드 엔드포인트 (`GET /embed/sqlviz/{id}`) — 인증 불필요, iframe용
+- [x] Hashnode Widget 코드 생성 (`%%[sqlviz-{id}]` 형태)
+- [x] `EmbedGenerator` 컴포넌트 — iframe 코드 + Widget 코드 복사 UI
+- [x] `ConcurrencyTimeline` 컴포넌트 — 재생/정지 슬라이더, Isolation Level 토글
+- [x] 백엔드 가상 시뮬레이션 아키텍처 — 실제 DB 실행 없이 시나리오 JSON 반환
+- [x] 샘플 시나리오 내장 (데드락, Lost Update, Phantom Read 등)
 
 ### 운영 / 모니터링
 
