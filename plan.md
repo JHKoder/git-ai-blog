@@ -11,6 +11,10 @@
 
 ---
 
+/*
+  
+*/
+
 ## 1. 프로젝트 개요
 
 GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
@@ -18,32 +22,32 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 **두 가지 흐름:**
 
 1. GitHub 레포
-→ 데이터 수집
-→ 글 초안
-→ AI 개선
-→ Hashnode 발행
+   → 데이터 수집
+   → 글 초안
+   → AI 개선
+   → Hashnode 발행
 2. 직접 글 작성
-→ AI 개선
-→ Hashnode 발행
+   → AI 개선
+   → Hashnode 발행
 
 ---
 
 ## 2. 기술 스택 요약
 
-| 영역    | 기술                                                     |
-|-------|--------------------------------------------------------|
-| 백엔드   | Spring Boot 4.0.3, Java 25, Gradle 9.3.1               |
-| 프론트   | React 18 + TypeScript + Vite 5                         |
-| DB    | H2 (local) / Docker PostgreSQL (dev) / Supabase (prod) |
-| 캐시    | Redis (AI 사용량, Rate Limit, JWT blacklist)              |
-| 암호화   | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼)        |
-| 인증    | GitHub OAuth2 + JWT (Access 24h / Refresh 30일)         |
-| 컨테이너  | Docker Compose (backend, frontend, redis, certbot)     |
-| CI/CD | GitHub Actions
-→ OCI 서버 롤링 배포                          |
-| 인프라   | OCI 단일 서버 (2CPU/16GB), 도메인: `git-ai-blog.kr`           |
-| 웹서버   | Nginx
-— HTTPS (Let's Encrypt 자동 갱신) + reverse proxy    |
+| 영역                                            | 기술                                                     |
+|-----------------------------------------------|--------------------------------------------------------|
+| 백엔드                                           | Spring Boot 4.0.3, Java 25, Gradle 9.3.1               |
+| 프론트                                           | React 18 + TypeScript + Vite 5                         |
+| DB                                            | H2 (local) / Docker PostgreSQL (dev) / Supabase (prod) |
+| 캐시                                            | Redis (AI 사용량, Rate Limit, JWT blacklist)              |
+| 암호화                                           | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼)        |
+| 인증                                            | GitHub OAuth2 + JWT (Access 24h / Refresh 30일)         |
+| 컨테이너                                          | Docker Compose (backend, frontend, redis, certbot)     |
+| CI/CD                                         | GitHub Actions                                         
+ → OCI 서버 롤링 배포                                |
+| 인프라                                           | OCI 단일 서버 (2CPU/16GB), 도메인: `git-ai-blog.kr`           |
+| 웹서버                                           | Nginx                                                  
+ — HTTPS (Let's Encrypt 자동 갱신) + reverse proxy |
 
 ---
 
@@ -187,6 +191,7 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 **사용 흐름:** `/sqlviz` → 제목/SQL/시나리오/격리수준 입력 → 타임라인/실행흐름 미리보기 → `%%[sqlviz-{id}]` 복사 → Hashnode 붙여넣기
 
 **구현 항목 (전체 완료):**
+
 - [x] 백엔드: `POST/GET/DELETE /api/sqlviz`, `GET /api/embed/sqlviz/{id}` (공개, 인증 불필요)
 - [x] 시뮬레이션 엔진 — 6개 시나리오(DEADLOCK/DIRTY_READ/NON_REPEATABLE_READ/PHANTOM_READ/LOST_UPDATE/MVCC), 격리 수준 분기
 - [x] 프론트: `SqlVizPage`, `SqlVizEmbedPage`, `ConcurrencyTimeline`, `ExecutionFlow`, `SqlEditor`, `EmbedGenerator`
@@ -198,33 +203,128 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 ### SQLViz + AI 프롬프트 연동 가이드
 
-> AI가 DB/트랜잭션/동시성 관련 본문을 작성할 때 SQLViz 마커를 심어두면, 사용자가 수동으로 위젯을 생성해 교체하는 흐름.
+> AI가 게시글을 작성/개선할 때 SQL 흐름이 필요한 부분을 SQLViz 위젯으로 유도하는 방법 정리.
 > **기능 추가 없이 기존 시스템만으로 연동 가능.**
 
-**마커 형식** (SQL 코드 포함하므로 코드 블록 방식):
+#### 개념: AI가 직접 SQLViz를 만드는 게 아니다
+
+AI(Claude/Grok/GPT)는 텍스트만 반환한다. SQLViz 위젯 자체는 사용자가 `/sqlviz` 페이지에서 직접 생성하고 임베드 코드를 복사해서 게시글에 붙여넣는 흐름이다. AI의 역할은 **"여기에
+SQLViz 위젯을 넣어라"는 마커(placeholder)를 본문에 심어주는 것**이다.
+
+#### 현재 이미지 마커 방식 (참고)
+
+`PromptBuilder.java`에 이미 이미지 마커 패턴이 적용되어 있다:
+
+```
+[IMAGE: architecture diagram showing microservices]
+```
+
+→ AI가 이 형식을 본문에 삽입하면 프론트에서 이미지 생성 버튼으로 전환.
+
+#### SQLViz 마커 형식 (코드 블록 방식)
+
+이미지 마커의 인라인 방식과 달리, SQLViz는 SQL 코드를 포함하므로 **코드 블록 방식**을 사용한다:
+
 ````
-```sql visualize [dialect] [옵션]
+```sql visualize [dialect] [옵션...]
 -- SQL 코드
 ```
 ````
-- dialect: `mysql` / `postgresql` / `oracle` / `generic`
-- 옵션: `deadlock`, `lost-update`, `dirty-read`, `non-repeatable`, `phantom-read`, `mvcc`
 
-**[ ] PromptBuilder 지시문 추가 (미구현)** — `PromptBuilder.java` base 지시문 다이어그램 섹션 아래에 추가:
+**dialect (필수, 첫 번째 위치):**
+
+- `mysql`
+- `postgresql` 또는 `postgres`
+- `oracle`
+- `generic` (기본값)
+
+**옵션 (dialect 뒤에 공백으로 구분, 최대 2개):**
+
+- `deadlock`, `lost-update`, `dirty-read`, `non-repeatable`, `phantom-read`, `mvcc`, `locking`, `timeline`
+
+#### PromptBuilder에 추가할 지시문 (미구현 — `PromptBuilder.java` `base` 지시문 다이어그램 섹션 아래에 추가 예정)
+
+`PromptBuilder.java`의 `base` 지시문 **다이어그램 섹션** 바로 아래에 아래 내용을 추가한다:
 
 ```
 ### SQL 시각화
-- DB, 트랜잭션, 동시성 관련 내용 설명 시 위 마커 형식 사용. 한 응답당 최대 3개.
-- 마커 바로 아래에 한국어 설명 1~2줄 추가. 실제 DB 실행이 아닌 교육용 시나리오만 생성.
+- DB, 트랜잭션, 동시성, 격리 수준 관련 내용을 설명할 때는 반드시 아래 형식의 SQLViz 마커를 사용한다.
+- 마커 형식: ```sql visualize [dialect] [옵션...]
+- dialect는 항상 첫 번째 옵션으로 넣는다 (mysql / postgresql / oracle / generic).
+- SQL 코드는 선택한 dialect에 맞는 정확한 문법으로 작성한다.
+- 마커 블록 바로 아래에 1~2줄의 자연스러운 한국어 설명을 반드시 추가한다.
+- 한 응답당 SQLViz 마커는 최대 3개까지만 사용한다.
+- 실제 DB 실행이 아닌 교육용 가상 시나리오만 생성한다.
 ```
 
-**ContentType별 권장 시나리오 (PromptBuilder ContentType 분기에 추가 예정):**
+#### Few-shot 예시 (PromptBuilder 지시문에 포함)
 
-| ContentType | 권장 시나리오 |
-|-------------|------------|
-| CS | DEADLOCK, MVCC, PHANTOM_READ |
-| CODING | LOST_UPDATE, DIRTY_READ |
-| TEST | NON_REPEATABLE_READ |
+**예시 1 — PostgreSQL 데드락:**
+
+````
+```sql visualize postgresql deadlock
+-- T1
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+
+-- T2
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 2;
+```
+→ PostgreSQL에서 두 트랜잭션이 서로의 행을 Lock 잡고 발생하는 데드락 시나리오입니다.
+````
+
+**예시 2 — MySQL Lost Update:**
+
+````
+```sql visualize mysql lost-update
+UPDATE accounts SET balance = balance + 300 WHERE id = 1;
+```
+→ MySQL의 기본 READ COMMITTED 격리 수준에서 발생하는 Lost Update 현상입니다.
+````
+
+**예시 3 — Oracle Phantom Read:**
+
+````
+```sql visualize oracle phantom-read
+SELECT * FROM accounts WHERE balance > 500;
+```
+→ Oracle에서 REPEATABLE READ 격리 수준에서도 Phantom Read가 발생할 수 있는 예시입니다.
+````
+
+#### 사용자 흐름 (AI 마커 → 실제 위젯 삽입)
+
+```
+1. 사용자가 게시글 AI 개선 요청
+2. AI가 본문에 ```sql visualize [dialect] [옵션] 마커 삽입 + 한국어 설명 1~2줄
+3. 사용자가 PostDetailPage/PostEditPage에서 마커 확인
+4. 수동으로 /sqlviz 페이지 이동 (게시글 내 버튼 연동은 미구현)
+5. 마커의 dialect/옵션/SQL을 입력창에 채워서 위젯 생성
+6. 생성된 hashnodeWidgetCode(%%[sqlviz-{id}]) 또는 iframe 코드를 본문의 마커 위치에 교체
+```
+
+#### 지원 시나리오 × 격리 수준 매트릭스 (현재 구현 상태)
+
+| 시나리오                | READ_UNCOMMITTED | READ_COMMITTED | REPEATABLE_READ | SERIALIZABLE |
+|---------------------|:----------------:|:--------------:|:---------------:|:------------:|
+| DEADLOCK            |     ✅ 항상 충돌      |    ✅ 항상 충돌     |     ✅ 항상 충돌     |   ✅ 항상 충돌    |
+| DIRTY_READ          |     ✅ 충돌 발생      |     ✅ 방지됨      |      ✅ 방지됨      |    ✅ 방지됨     |
+| NON_REPEATABLE_READ |     ✅ 충돌 발생      |    ✅ 충돌 발생     |      ✅ 방지됨      |    ✅ 방지됨     |
+| PHANTOM_READ        |     ✅ 충돌 발생      |    ✅ 충돌 발생     |     ✅ 충돌 발생     |    ✅ 방지됨     |
+| LOST_UPDATE         |     ✅ 항상 충돌      |    ✅ 항상 충돌     |     ✅ 항상 충돌     |   ✅ 항상 충돌    |
+| MVCC                |     ✅ 충돌 없음      |    ✅ 충돌 없음     |     ✅ 충돌 없음     |   ✅ 충돌 없음    |
+
+> 시뮬레이션 로직: `SqlVizSimulationEngine.java` — 격리 수준 조합에 따라 충돌/방지 분기 처리
+
+#### ContentType별 프롬프트 추가 권장 (미구현 — PromptBuilder ContentType 분기에 추가 예정)
+
+| ContentType | SQLViz 추천 시나리오                          |
+|-------------|-----------------------------------------|
+| CS          | DEADLOCK, MVCC, PHANTOM_READ — 개념 설명 시  |
+| CODING      | LOST_UPDATE, DIRTY_READ — 코드 버그 분석 시    |
+| TEST        | NON_REPEATABLE_READ — 트랜잭션 테스트 케이스 설명 시 |
+| ALGORITHM   | 해당 없음                                   |
+| 기타          | 판단에 따라 선택적 사용                           |
 
 ---
 
