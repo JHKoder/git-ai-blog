@@ -1,6 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-24
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-25
 > 개발자: 1인 개인 프로젝트 / 목표 사용자: 최대 100명
 
 **상세 문서:**
@@ -207,15 +207,18 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 - [ ] **이미지 생성 모델 라우팅 버그** — GPT가 아닌 모델(예: `claude-opus-4-5`)로 AI 개선 요청 후 이미지 생성 시도 시 "GPT 모델이 아님" 오류로 스킵됨.
   원인: 이미지 생성 시 모델 선택 UI가 AI 개선에서 선택한 모델을 그대로 넘기거나, 백엔드 `ImageGenerationService`가 GPT 전용 체크에서 잘못된 모델값을 수신.
-  해결 방향: 이미지 생성은 GPT 모델 전용으로 고정. GPT API 키 보유 시 `gpt-4o-mini`(기본) 또는 `gpt-4o`로 자동 라우팅. GPT 키 없으면 생성 불가(현재 프론트 `hasGptApiKey` 체크 이미 있음).
+  해결 방향: 이미지 생성은 GPT 모델 전용으로 고정. GPT API 키 보유 시 `gpt-4o-mini`(기본) 또는 `gpt-4o`로 자동 라우팅. GPT 키 없으면 생성 불가(현재 프론트
+  `hasGptApiKey` 체크 이미 있음).
   백엔드 `ImageGenerationService`에서 들어온 model 값 무시하고 GPT 전용으로 강제하거나, 컨트롤러에서 model 파라미터 검증 추가.
 
-- [ ] **Broken pipe `HttpMessageNotWritableException`** — AI 개선 요청 등 응답이 긴 API 호출 시 클라이언트가 먼저 연결을 끊으면 `Broken pipe` 예외가 `GlobalExceptionHandler`까지 올라와 불필요한 `Unhandled exception` 로그 발생.
+- [ ] **Broken pipe `HttpMessageNotWritableException`** — AI 개선 요청 등 응답이 긴 API 호출 시 클라이언트가 먼저 연결을 끊으면 `Broken pipe` 예외가
+  `GlobalExceptionHandler`까지 올라와 불필요한 `Unhandled exception` 로그 발생.
   ```
   HttpMessageNotWritableException: Could not write JSON: ServletOutputStream failed to flush: Broken pipe
   Caused by: java.io.IOException: Broken pipe
   ```
-  해결 방향: `GlobalExceptionHandler`에서 `IOException: Broken pipe` (또는 `HttpMessageNotWritableException` wrapping `IOException`) 감지 시 `WARN` 레벨로만 로깅하고 별도 응답 없이 무시. 실제 서버 오류가 아니므로 클라이언트 연결 종료 패턴으로 처리.
+  해결 방향: `GlobalExceptionHandler`에서 `IOException: Broken pipe` (또는 `HttpMessageNotWritableException` wrapping
+  `IOException`) 감지 시 `WARN` 레벨로만 로깅하고 별도 응답 없이 무시. 실제 서버 오류가 아니므로 클라이언트 연결 종료 패턴으로 처리.
 
 ### API 문서화
 
@@ -251,42 +254,78 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 ### SQL Visualization Widget (SQLViz Widget)
 
-> **한 줄 설명**: 개발자 블로그에서 SQL 코드를 작성하면 임베드/위젯 형태로 실행 계획(Execution Plan)을 인터랙티브하게 시각화해주는 신규 대형 기능.
-> **최종 목표**: "개발자들이 블로그에 SQL을 쓸 때, 단순 코드 블록이 아닌 인터랙티브한 시각화 위젯으로 자동 변환되게 만드는 플랫폼 기능"
+> **한 줄 설명**: 개발자 블로그에서 SQL 코드를 단순 코드 블록이 아닌, 인터랙티브 시각화 위젯으로 자동 변환해주는 신규 대형 기능.
+> **최종 목표**: "개발자들이 블로그에 SQL을 쓸 때, 데드락·동시성 문제·트랜잭션 흐름을 Timeline + React Flow로 눈으로 보게 만드는 플랫폼 기능"
+> **핵심 차별점**: 단순 Execution Plan이 아닌 — 가상 데드락 시나리오, Dirty Read / Non-Repeatable Read / Phantom Read / Lost Update 등 동시성 문제, MVCC vs Locking 충돌을 초급~중상급 수준으로 시각화
 
 **확정 방향성:**
 - 본 프로젝트(기존 SaaS)에 신규 기능으로 통합
-- Hashnode 블로그 작성자 대상 — 임베드/위젯 중심 설계
-- JS SDK 방식 완전 배제
-- Markdown 확장 문법(` ```sql visualize `)은 UI 편의용으로 유지, 실제 동작은 임베드 코드로 제공
+- JS SDK 방식 완전 배제 — 임베드/iframe 중심
+- Hashnode 삽입: Widgets 등록 후 `%%[sqlviz-deadlock-xxx]` 또는 iframe 코드 직접 사용
 - Chrome Extension은 MVP 이후 별도 검증
 
 **사용자 흐름 (Hashnode 작성자):**
-1. 본 SaaS에서 SQL 작성 → 옵션 선택 (index, mvcc, lock 등)
-2. 분석 버튼 클릭 → React Flow 기반 시각화 미리보기
-3. "Hashnode용 Embed 생성" 버튼 클릭
-4. SaaS가 `iframe embed 코드` 또는 `%%[sqlviz-123]` Hashnode Widget 코드 즉시 제공
-5. 작성자가 코드를 Hashnode 글에 붙여넣기만 하면 됨
 
-**기술 스택 (기존과 동일):**
+1. 본 SaaS에서 SQL 여러 개 + Isolation Level + 옵션 선택 → 시각화 미리보기
+2. "Hashnode Embed 생성" 버튼 클릭 → `iframe embed 코드` 또는 `%%[sqlviz-{id}]` Widget 코드 즉시 복사
+3. 작성자가 코드를 Hashnode 글에 붙여넣기만 하면 됨
+- **UX 목표**: 3클릭 이내에 embed 코드 획득
 
-| 영역      | 기술                                    |
-|---------|---------------------------------------|
-| 프론트     | React 18 + TypeScript + Vite 5        |
-| 상태관리    | Zustand + immer                       |
-| HTTP    | Axios (JWT 인터셉터)                      |
-| 스타일     | CSS Modules + CSS 변수 (다크/라이트)         |
-| 라우팅     | React Router v7                       |
-| 시각화(메인) | React Flow                            |
-| 시각화(보조) | Recharts                              |
-| SQL 에디터 | Monaco Editor                         |
+**3자 시점 요구사항 (검토 완료):**
 
-**구현 범위 (미정 — 추후 상세 설계 필요):**
-- [ ] SQL Viz 페이지 (`/sqlviz`) — SQL 입력 + 옵션 + 시각화 미리보기
+| 시점 | 목표 | 핵심 요구사항 |
+|------|------|-------------|
+| 개발자(작성자) | "이 쿼리들이 동시에 실행되면 데드락이 발생한다"를 눈으로 보여주기 | 샘플 시나리오 제공, 다크/라이트 모드, 모바일 responsive + 터치 지원 |
+| 운영자(SaaS 운영자) | 안전하고 유지보수 쉬운 서비스 운영 + 수익화 | SQL 직접 실행 금지(가상 시뮬레이션만), 백엔드 가벼운 JSON 반환 + 프론트 렌더링, Virtual Threads 활용 |
+| 방문자(블로그 독자) | "데드락이 이렇게 발생하는구나"를 직관적으로 이해 | Timeline 슬라이더 재생/정지, Isolation Level 토글, iframe lazy loading, 자동 height 조정 |
+
+**보안 원칙**: SQL 직접 실행 절대 금지 → 가상 시뮬레이션 또는 EXPLAIN만 사용 (read-only sandbox)
+
+**수익화 방향 (초안):**
+- Free: 기본 Execution Plan + 간단 데드락 시나리오
+- Pro: 복잡한 중상급 시나리오, AI 설명, 커스텀 시뮬레이션, 무제한 생성
+
+**Hashnode 호환성 (2026년 확인):**
+- Widgets를 통해 iframe 제한 없이 등록 및 사용 가능
+- iframe 내부 JavaScript / React Flow / 애니메이션 모두 정상 동작
+- 주의: 무거운 iframe 다수 → 블로그 로딩 속도 저하 (Hashnode 공식 경고) → `iframe-resizer` + lazy loading + 가벼운 기본 모드 필수
+
+**기술 스택 (기존 동일 + 신규):**
+
+| 영역        | 기술                             |
+|-----------|--------------------------------|
+| 프론트       | React 18 + TypeScript + Vite 5 |
+| 상태관리      | Zustand + immer                |
+| HTTP      | Axios (JWT 인터셉터)               |
+| 스타일       | CSS Modules + CSS 변수 (다크/라이트)  |
+| 라우팅       | React Router v7                |
+| 시각화 (메인)  | React Flow                     |
+| 시각화 (보조)  | Recharts                       |
+| SQL 에디터   | Monaco Editor                  |
+| 백엔드       | Java 25 + Virtual Threads      |
+
+**프론트 폴더 구조 (신규 추가분):**
+```
+src/
+├── components/Visualization/
+│   ├── ExecutionFlow/       React Flow 기반 실행 계획 시각화
+│   ├── ConcurrencyTimeline/ Timeline 슬라이더 + 동시성 시뮬레이션
+│   ├── SqlEditor/           Monaco Editor 래퍼
+│   └── EmbedGenerator/      iframe/Widget 코드 생성 UI (최우선)
+├── pages/SqlVizPage.tsx
+├── api/analyzeApi.ts
+└── store/analyzeStore.ts
+```
+
+**구현 범위 (미정 — 상세 설계 후 착수):**
+- [ ] SQL Viz 페이지 (`/sqlviz`) — SQL 입력 + Isolation Level + 옵션 + 시각화 미리보기
 - [ ] 임베드 코드 생성 API (`POST /api/sqlviz`) — 위젯 ID 발급, 공개 임베드 URL 생성
 - [ ] 공개 임베드 엔드포인트 (`GET /embed/sqlviz/{id}`) — 인증 불필요, iframe용
 - [ ] Hashnode Widget 코드 생성 (`%%[sqlviz-{id}]` 형태)
-- [ ] React Flow 기반 실행 계획 시각화 컴포넌트
+- [ ] `EmbedGenerator` 컴포넌트 — iframe 코드 + Widget 코드 복사 UI
+- [ ] `ConcurrencyTimeline` 컴포넌트 — 재생/정지 슬라이더, Isolation Level 토글
+- [ ] 백엔드 가상 시뮬레이션 아키텍처 — 실제 DB 실행 없이 시나리오 JSON 반환
+- [ ] 샘플 시나리오 내장 (데드락, Lost Update, Phantom Read 등)
 
 ### 운영 / 모니터링
 
