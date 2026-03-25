@@ -45,8 +45,13 @@ github.jhkoder.aiblog/
 │                         AiSuggestionController, 5개 UseCase
 ├── member/               Member, MemberRepository
 │                         MemberController, 4개 UseCase
-└── repo/                 Repo, RepoCollectHistory, RepoRepository, CollectType
-                          RepoController, GitHubWebhookController, 5개 UseCase
+├── repo/                 Repo, RepoCollectHistory, RepoRepository, CollectType
+│                         RepoController, GitHubWebhookController, 5개 UseCase
+├── prompt/               Prompt, PromptRepository
+│                         PromptController, 4개 UseCase (내 프롬프트 CRUD + 인기 프롬프트)
+└── sqlviz/               SqlVizWidget, SqlVizScenario, IsolationLevel
+                          SqlVizController, EmbedController, 3개 UseCase
+                          simulation/SqlVizSimulationEngine (6개 시나리오 가상 시뮬레이션)
 ```
 
 ---
@@ -160,6 +165,32 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 | 웹훅       | `POST /api/webhook/github` (X-Hub-Signature-256 검증) |
 | 인증       | `POST /api/auth/refresh`, `POST /api/auth/logout`   |
 
+### Prompt (커스텀 프롬프트)
+
+| 기능               | 엔드포인트                                          |
+|------------------|------------------------------------------------|
+| 내 프롬프트 목록        | `GET /api/prompts`                             |
+| 생성               | `POST /api/prompts`                            |
+| 수정/삭제            | `PUT/DELETE /api/prompts/{id}`                 |
+| 공개 인기 프롬프트       | `GET /api/prompts/popular`                     |
+| 특정 사용자 인기 프롬프트   | `GET /api/prompts/members/{id}/popular`        |
+
+- 사용자당 최대 30개 / 사용 횟수 내림차순 정렬 / `isPublic` 플래그로 공개/비공개 설정
+- `AiSuggestionRequest`에 `promptId` 포함 시 해당 프롬프트 적용 후 `usageCount` 증가
+
+### SQL Visualization Widget
+
+| 기능         | 엔드포인트                      | 인증 |
+|------------|----------------------------|----|
+| 위젯 생성      | `POST /api/sqlviz`         | ✅  |
+| 내 위젯 목록   | `GET /api/sqlviz`          | ✅  |
+| 위젯 삭제      | `DELETE /api/sqlviz/{id}`  | ✅  |
+| 공개 임베드 조회  | `GET /api/embed/sqlviz/{id}` | ❌  |
+
+**보안 원칙**: SQL 직접 실행 절대 금지 — 순수 Java 로직 가상 시뮬레이션만 사용
+**Jackson 주의**: Spring Boot 4 + Jackson 3.x에서 `tools.jackson.databind.ObjectMapper` / `tools.jackson.core.JacksonException` / `tools.jackson.core.type.TypeReference` 사용 (`com.fasterxml.jackson` 아님)
+**JPA Repository 주의**: `JpaSqlVizWidgetRepository`는 반드시 `public interface`여야 Spring Data JPA 빈 등록됨
+
 ---
 
 ## 프로파일 / 환경변수 정책
@@ -229,3 +260,4 @@ cd backend && ./gradlew serverRun
 | 테스트 34개 실패 (ClientRegistrationRepository) | test yml에 OAuth2 설정 누락     | mock OAuth2 설정 추가                   |
 | `--no-daemon` 등 플래그가 태스크명으로 파싱됨           | gradlew eval `"$@"` 버그     | `"$@"` → `$@` 으로 수정 (gradlew 157번 줄) |
 | Hashnode 발행 400 Bad Request                   | `escapeGraphql()` 후 `objectMapper.writeValueAsString()` 이중 이스케이프 | GraphQL variables 방식으로 전환 (`HashnodeGraphqlBuilder` 전면 교체). `deletePost` 호출 시 token 누락도 수정 |
+| 테스트 21개 실패 (`NoSuchBeanDefinitionException`) | 1) `JpaSqlVizWidgetRepository` package-private → Spring Data JPA 빈 등록 실패. 2) Spring Boot 4 / Jackson 3.x에서 `com.fasterxml.jackson.databind.ObjectMapper`로 주입 불가 | 1) `public interface` 추가. 2) `tools.jackson.databind.ObjectMapper` 임포트로 교체 |

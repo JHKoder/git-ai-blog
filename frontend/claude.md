@@ -6,13 +6,16 @@
 
 ## 기술 스택
 
-| 영역    | 기술                               |
-|-------|----------------------------------|
-| 프레임워크 | React 18 + TypeScript + Vite 5   |
-| 상태관리  | Zustand + immer 미들웨어             |
-| HTTP  | Axios (JWT interceptor 자동 주입)    |
-| 스타일   | CSS Modules + CSS 변수 (다크/라이트 모드) |
-| 라우팅   | React Router v7                  |
+| 영역       | 기술                                        |
+|----------|-------------------------------------------|
+| 프레임워크    | React 18 + TypeScript + Vite 5            |
+| 상태관리     | Zustand + immer 미들웨어                      |
+| HTTP     | Axios (JWT interceptor 자동 주입)             |
+| 스타일      | CSS Modules + CSS 변수 (다크/라이트 모드)          |
+| 라우팅      | React Router v7                           |
+| Markdown | react-markdown + remark-gfm + Mermaid     |
+| SQL 에디터  | @monaco-editor/react                      |
+| 플로우 그래프  | @xyflow/react (ReactFlow)                 |
 
 ---
 
@@ -21,32 +24,42 @@
 ```
 src/
 ├── api/
-│   ├── axiosInstance.ts      기본 URL /api, JWT 인터셉터, 401 → 로그아웃
+│   ├── axiosInstance.ts      기본 URL /api, JWT 인터셉터, 401 → 로그아웃 (default export)
 │   ├── postApi.ts
 │   ├── suggestionApi.ts
 │   ├── memberApi.ts
 │   ├── repoApi.ts
-│   └── promptApi.ts
+│   ├── promptApi.ts
+│   └── sqlvizApi.ts          create / getList / delete / getEmbed
 ├── store/
 │   ├── authStore.ts          token (localStorage 'ai_blog_token'), setToken, logout
 │   ├── postStore.ts          posts, currentPost, pagination, fetchPosts, fetchPost
-│   └── suggestionStore.ts    latest, history, accept(낙관적 업데이트), reject, clear
+│   ├── suggestionStore.ts    latest, history, accept(낙관적 업데이트), reject, clear
+│   └── sqlvizStore.ts        widgets[], loading, fetchWidgets/createWidget/deleteWidget
 ├── types/
 │   ├── member.ts
 │   ├── post.ts
 │   ├── suggestion.ts
-│   └── repo.ts
+│   ├── repo.ts
+│   └── sqlviz.ts             SqlVizWidget, SimulationStep/Result, enum + label 상수
 ├── hooks/
 │   ├── useDraft.ts
 │   └── useTheme.ts
 ├── components/
 │   ├── Layout/
 │   ├── PostCard/
-│   ├── AiSuggestionPanel/
+│   ├── AiSuggestionPanel/    AI 개선 요청 + 커스텀 프롬프트 선택 + 수락/거절
 │   ├── StatusBadge/
 │   ├── Modal/ConfirmModal/
 │   ├── TagInput/
-│   └── ImageGenButton/
+│   ├── ImageGenButton/
+│   ├── MarkdownRenderer/     ReactMarkdown + remark-gfm 공통 래퍼 (MermaidBlock 통합)
+│   ├── MermaidBlock/         동적 import + mermaid.render() + error fallback
+│   └── Visualization/
+│       ├── SqlEditor/        Monaco Editor SQL 문법 강조, 다크/라이트 연동
+│       ├── ConcurrencyTimeline/ 트랜잭션 타임라인, 재생/정지/스크러빙
+│       ├── ExecutionFlow/    ReactFlow 노드-엣지 그래프
+│       └── EmbedGenerator/  %%[sqlviz-id] + iframe 코드 클립보드 복사
 ├── pages/
 │   ├── LoginPage/
 │   ├── PostListPage/
@@ -54,8 +67,10 @@ src/
 │   ├── PostCreatePage/
 │   ├── PostEditPage/
 │   ├── ProfilePage/
-│   └── RepoListPage/
-└── router/AppRouter.tsx
+│   ├── RepoListPage/
+│   ├── SqlVizPage/            위젯 생성/관리/미리보기 (인증 필요)
+│   └── SqlVizEmbedPage/       공개 임베드 단독 페이지 (인증 불필요)
+└── router/AppRouter.tsx       `/sqlviz` (PrivateRoute), `/embed/sqlviz/:id` (공개) 등록
 ```
 
 ---
@@ -320,6 +335,11 @@ POST / repos / {id}
 - `accept(postId, id)` — 낙관적 업데이트 후 실패 시 롤백
 - `reject(postId, id)` / `fetchLatest(postId)` / `fetchHistory(postId)` / `clear()`
 
+### sqlvizStore
+
+- `widgets: SqlVizWidget[]`, `loading: boolean`
+- `fetchWidgets()` / `createWidget(req)` (목록 맨 앞 추가) / `deleteWidget(id)`
+
 ---
 
 ## 타입 안전성 규칙
@@ -350,14 +370,16 @@ npm run build                  # 프로덕션 빌드
 | GHA 캐시로 nginx.conf 누락          | 이전 빌드 캐시 재사용                     | frontend 빌드에 `--no-cache` 추가             |
 | 다크모드 텍스트 안 보임                  | 하드코딩 색상                          | CSS 변수 `var(--text)` 교체                  |
 | Hashnode 발행 버튼 위치             | ACCEPTED 상태 하단에만 있어 접근 불편         | PostDetailPage 상단 actions에 추가 (모든 상태), PostEditPage "저장 후 발행" 추가 |
-| GFM 문법 미렌더링                   | `remark-gfm` 플러그인 미설치             | `remark-gfm` 설치, PostDetailPage + AiSuggestionPanel 양쪽 `remarkPlugins={[remarkGfm]}` 적용 |
+| GFM 문법 미렌더링                   | `remark-gfm` 플러그인 미설치             | `remark-gfm` 설치 + `MarkdownRenderer` 공통 컴포넌트로 통합 |
+| Mermaid 코드블록 원문 출력             | 렌더링 컴포넌트 없음                       | `MermaidBlock` (동적 import + mermaid.render()) + `MarkdownRenderer` 통합 |
+| npm 캐시 권한 오류 (`EACCES`)        | npm cache 디렉터리 권한 문제              | `npm install --cache /tmp/npm-cache` 로 우회 |
+| `import { api }` named import 오류 | `axiosInstance.ts`가 default export  | `import api from './axiosInstance'` 로 수정 |
 
 **Hashnode 발행 전 프론트 검증:**
 - 제목 6자 미만 → `toast.error` (Hashnode API 최소 길이 요구사항)
 - 백엔드에서도 동일 검증 후 422 반환 (이중 방어)
 
-**GFM 지원 항목** (`remark-gfm` 적용):
-- 테이블 (`| col | col |`)
-- 체크박스 (`- [ ]`, `- [x]`)
-- 취소선 (`~~text~~`)
-- autolinks (URL 자동 링크)
+**MarkdownRenderer 사용 패턴:**
+- `PostDetailPage`, `AiSuggestionPanel` 양쪽 모두 `<MarkdownRenderer content={...} />` 사용
+- `ReactMarkdown` + `remark-gfm` 직접 사용 금지 (MarkdownRenderer로 통일)
+- Mermaid 언어 감지: ` ```mermaid ` 코드블록 → `MermaidBlock` 자동 분기
