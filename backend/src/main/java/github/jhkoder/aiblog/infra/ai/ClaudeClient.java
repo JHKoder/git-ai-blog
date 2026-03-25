@@ -56,6 +56,7 @@ public class ClaudeClient implements AiClient {
         if (apiKey == null || apiKey.isBlank()) throw new ExternalApiException("Claude API 키가 설정되지 않았습니다. 마이페이지에서 API 키를 등록해주세요.");
         String key = apiKey;
 
+        String responseBody = null;
         try {
             Map<String, Object> body = Map.of(
                     "model", model,
@@ -66,7 +67,7 @@ public class ClaudeClient implements AiClient {
 
             AtomicReference<HttpHeaders> headersRef = new AtomicReference<>();
 
-            String responseBody = webClientBuilder.build()
+            responseBody = webClientBuilder.build()
                     .post()
                     .uri(baseUrl + "/v1/messages")
                     .header("x-api-key", key)
@@ -98,6 +99,7 @@ public class ClaudeClient implements AiClient {
             return new AiResponse(text, usage.path("input_tokens").asLong(0), usage.path("output_tokens").asLong(0));
 
         } catch (Exception e) {
+            log.error("[Claude] API 오류 — response: {}", responseBody);
             throw new ExternalApiException("Claude API 호출 실패: " + e.getMessage(), e);
         }
     }

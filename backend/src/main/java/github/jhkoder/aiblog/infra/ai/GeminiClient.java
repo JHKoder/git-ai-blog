@@ -48,6 +48,7 @@ public class GeminiClient implements AiClient {
 
         String resolvedModel = (model != null && !model.isBlank()) ? model : GEMINI_2_FLASH;
 
+        String responseBody = null;
         try {
             Map<String, Object> body = Map.of(
                     "contents", List.of(
@@ -56,7 +57,7 @@ public class GeminiClient implements AiClient {
             );
             String jsonBody = objectMapper.writeValueAsString(body);
 
-            String responseBody = webClientBuilder.build()
+            responseBody = webClientBuilder.build()
                     .post()
                     .uri(BASE_URL + "/v1beta/models/" + resolvedModel + ":generateContent?key=" + key)
                     .contentType(MediaType.APPLICATION_JSON)
@@ -78,6 +79,7 @@ public class GeminiClient implements AiClient {
             return new AiResponse(text, inputTokens, outputTokens);
 
         } catch (Exception e) {
+            log.error("[Gemini] API 오류 — response: {}", responseBody);
             throw new ExternalApiException("Gemini API 호출 실패: " + e.getMessage(), e);
         }
     }

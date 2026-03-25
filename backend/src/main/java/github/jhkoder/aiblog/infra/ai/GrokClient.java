@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class GrokClient implements AiClient {
@@ -44,6 +46,7 @@ public class GrokClient implements AiClient {
         if (apiKey == null || apiKey.isBlank()) throw new ExternalApiException("Grok API 키가 설정되지 않았습니다. 마이페이지에서 API 키를 등록해주세요.");
         String key = apiKey;
 
+        String responseBody = null;
         try {
             Map<String, Object> body = Map.of(
                     "model", model != null ? model : GROK_3,
@@ -53,7 +56,7 @@ public class GrokClient implements AiClient {
 
             AtomicReference<HttpHeaders> headersRef = new AtomicReference<>();
 
-            String responseBody = webClientBuilder.build()
+            responseBody = webClientBuilder.build()
                     .post()
                     .uri(baseUrl + "/v1/chat/completions")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + key)
@@ -84,6 +87,7 @@ public class GrokClient implements AiClient {
             return new AiResponse(text, usage.path("prompt_tokens").asLong(0), usage.path("completion_tokens").asLong(0));
 
         } catch (Exception e) {
+            log.error("[Grok] API 오류 — response: {}", responseBody);
             throw new ExternalApiException("Grok API 호출 실패: " + e.getMessage(), e);
         }
     }

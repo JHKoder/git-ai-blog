@@ -53,6 +53,7 @@ public class GptClient implements AiClient {
 
         String resolvedModel = (model != null && !model.isBlank()) ? model : GPT_4O_MINI;
 
+        String responseBody = null;
         try {
             Map<String, Object> body = Map.of(
                     "model", resolvedModel,
@@ -62,7 +63,7 @@ public class GptClient implements AiClient {
 
             AtomicReference<HttpHeaders> headersRef = new AtomicReference<>();
 
-            String responseBody = webClientBuilder.build()
+            responseBody = webClientBuilder.build()
                     .post()
                     .uri(BASE_URL + "/v1/chat/completions")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + key)
@@ -95,6 +96,7 @@ public class GptClient implements AiClient {
                     usage.path("completion_tokens").asLong(0));
 
         } catch (Exception e) {
+            log.error("[GPT] API 오류 — response: {}", responseBody);
             throw new ExternalApiException("GPT API 호출 실패: " + e.getMessage(), e);
         }
     }
