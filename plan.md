@@ -11,10 +11,6 @@
 
 ---
 
-/*
-  
-*/
-
 ## 1. 프로젝트 개요
 
 GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / Gemini AI로 블로그 글을 개선하고 Hashnode에 발행하는 자동화 시스템.
@@ -162,9 +158,18 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 - [x] 기본 프롬프트 교체 — SEO 최적화 블로그 작성 가이드 (`PromptBuilder`)
 - [x] API 키 연동 검증 — 저장 시 실제 API 호출로 유효성 확인
 - [x] Hashnode 발행 시 AI 메타정보 자동 추가 (모델, 생성일, 개선 횟수)
-- [x] 이미지 생성 GPT 전용 라우팅 + 키 미설정 시 버튼 비활성화
 - [x] 게시글 태그 정규화 (소문자, 특수문자 제거)
 - [x] Swagger UI (`/swagger-ui/index.html`) — springdoc-openapi 2.8.8
+
+> **이미지 생성 기능 방향 변경**: AI 개선 플로우에서 이미지 자동 생성 제거.
+> AI 개선 실패 시 이전에 생성된 이미지가 DB에 남을 수 있는 문제 방지.
+> 이미지 생성은 사용자가 수동으로 별도 버튼(`ImageGenButton`)으로만 사용.
+
+- [ ] **AI 개선 플로우에서 이미지 생성 로직 제거** — `RequestAiSuggestionUseCase` 또는 관련 로직에서 이미지 자동 생성 호출 제거. `ImageGenButton`은 별도 독립 기능으로 유지.
+
+### 내부 기능 최적화
+
+- [ ] **기존 기능 회귀 검증** — 기능 수정/리팩토링 후 기존 기능(AI 제안 요청/수락/거절, Hashnode 발행, 이미지 생성, 태그 정규화 등)이 정상 동작하는지 테스트 코드 및 수동 검증 포함
 
 ### 게시글 뷰어
 
@@ -183,14 +188,14 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 - [x] Swagger UI 라우팅 충돌 수정 (nginx.conf에 `/swagger-ui/`, `/v3/` → backend proxy 추가)
 - [ ] REST Docs + Redocly / Stoplight / Slate — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
-### SQL Visualization Widget ✅ 구현 완료
+### SQL Visualization Widget
 
 > SQL 동시성 문제(데드락, Dirty Read 등)를 인터랙티브 타임라인/플로우로 시각화하고 Hashnode에 임베드하는 기능.
 > **보안**: SQL 직접 실행 절대 금지 — 순수 Java 가상 시뮬레이션만 사용
 
 **사용 흐름:** `/sqlviz` → 제목/SQL/시나리오/격리수준 입력 → 타임라인/실행흐름 미리보기 → `%%[sqlviz-{id}]` 복사 → Hashnode 붙여넣기
 
-**구현 항목 (전체 완료):**
+**구현 항목 (기본 구현 완료):**
 
 - [x] 백엔드: `POST/GET/DELETE /api/sqlviz`, `GET /api/embed/sqlviz/{id}` (공개, 인증 불필요)
 - [x] 시뮬레이션 엔진 — 6개 시나리오(DEADLOCK/DIRTY_READ/NON_REPEATABLE_READ/PHANTOM_READ/LOST_UPDATE/MVCC), 격리 수준 분기
@@ -198,6 +203,52 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 - [x] Layout 네비게이션 "SQL Viz" 링크
 
 > 상세 스펙(API, 엔티티, 시뮬레이션 엔진): `backend/claude.md`, `frontend/CLAUDE.md` 참고
+
+#### ExecutionFlow 시각화 스타일 개선 (미구현)
+
+> 목표: "가장 흔한 패턴: 락 획득 순서 불일치" 이미지 스타일처럼 직관적이고 인터랙티브한 시각화.
+> 현재 기본 구현에서 아래 스타일 가이드로 개선 필요.
+
+**레이아웃 구조:**
+```
+상단: Transaction 1 | Row A (Lock) | Row B (Lock) | Transaction 2  ← 4개 컬럼 헤더
+      세로 시간 흐름 (위 → 아래)
+      T1이 Row A Lock 획득 (초록 체크)
+      T2가 Row B Lock 획득 (초록 체크)
+      T1이 Row B 요청 → 대기 (모래시계)
+      T2가 Row A 요청 → 대기 (모래시계)
+      ──── DEADLOCK 발생 배너 ────
+하단: 동일 컬럼 반복
+```
+
+**React Flow 노드/엣지 명세:**
+
+| 종류 | 스타일 |
+|------|--------|
+| Transaction 노드 (T1, T2) | 파란 박스 |
+| Resource 노드 (Row A, Row B) | 회색 박스 |
+| Lock 획득 성공 엣지 | 초록 실선 + ✅ 체크 아이콘 |
+| Lock 대기 엣지 | 주황 점선 + ⌛ 모래시계 아이콘 |
+| Deadlock 엣지 | 빨간 실선 + 💀 skull 아이콘 |
+| Deadlock 배너 | 중앙 빨간 오버레이 배너 |
+
+**필수 인터랙션:**
+- Timeline 슬라이더 — 시간 순서대로 단계별 재생/정지/이동
+- 노드 클릭 → 해당 단계 상세 설명 툴팁 또는 사이드 패널
+- Isolation Level 토글 (READ_COMMITTED / REPEATABLE_READ / SERIALIZABLE 등) → 시뮬레이션 결과 실시간 변경
+
+**디자인 요구사항:**
+- 다크 모드 최적화 (프로젝트 기본 다크 테마)
+- Hashnode iframe 안에서도 responsive + 자동 height 조정
+- 교육용으로 직관적이고 전문적인 톤
+
+**확장성:**
+- DEADLOCK 패턴 먼저 완성 후 Lost Update / Dirty Read / Phantom Read / MVCC를 동일 컴포넌트 구조로 확장
+- 각 시나리오별 "해결 방법 제안" 텍스트 표시 (예: "락 획득 순서를 통일하세요")
+
+- [ ] `ExecutionFlow` 컴포넌트 스타일 가이드 기준으로 개선 — 노드/엣지 색상, 아이콘, Deadlock 배너 추가
+- [ ] Isolation Level 토글 UI → 시뮬레이션 결과 실시간 반영
+- [ ] 노드 클릭 툴팁/사이드 패널 (단계 상세 설명)
 
 ---
 
