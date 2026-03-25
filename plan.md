@@ -248,7 +248,7 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 | Hashnode INVALID_QUERY                    | GraphQL 쿼리에 변수 직접 인라인                          |
 | rollup 바이너리 누락 (반복)                       | CI에서 `rm -f package-lock.json` 후 install       |
 | `--no-daemon` 등 플래그가 태스크명으로 파싱됨           | gradlew `eval "$@"` 버그 → `$@` 로 수정 (157번 줄)    |
-| Hashnode 발행 400 Bad Request                   | `escapeGraphql()` 후 `objectMapper.writeValueAsString()` 이중 이스케이프 → GraphQL variables 방식으로 전환. `deletePost` 토큰 누락도 함께 수정 |
+| Hashnode 발행 400 Bad Request                   | `escapeGraphql()` 후 `objectMapper.writeValueAsString()` 이중 이스케이프 → GraphQL variables 방식으로 전환. `deletePost` 토큰 누락도 함께 수정. 발행 전 검증: 제목 6자↑, 본문 비어있음, Hashnode 토큰/publicationId null/blank 추가 |
 
 > 전체 이슈 기록 → `backend/claude.md`, `frontend/claude.md` 참고
 

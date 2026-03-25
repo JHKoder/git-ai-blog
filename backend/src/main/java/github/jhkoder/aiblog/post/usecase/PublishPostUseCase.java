@@ -49,6 +49,9 @@ public class PublishPostUseCase {
         if (!member.hasHashnodeConnection()) {
             throw new BusinessRuleException("Hashnode 연동이 필요합니다. 마이페이지에서 Hashnode Token과 Publication ID를 설정해 주세요.");
         }
+        if (member.getHashnodePublicationId() == null || member.getHashnodePublicationId().isBlank()) {
+            throw new BusinessRuleException("Hashnode Publication ID가 설정되지 않았습니다. 마이페이지에서 Publication ID를 입력해 주세요.");
+        }
 
         long aiImproveCount = aiSuggestionRepository.countByPostId(postId);
         String contentWithMeta = appendAiMeta(post.getContent(), post, aiImproveCount);

@@ -25,7 +25,8 @@ src/
 │   ├── postApi.ts
 │   ├── suggestionApi.ts
 │   ├── memberApi.ts
-│   └── repoApi.ts
+│   ├── repoApi.ts
+│   └── promptApi.ts
 ├── store/
 │   ├── authStore.ts          token (localStorage 'ai_blog_token'), setToken, logout
 │   ├── postStore.ts          posts, currentPost, pagination, fetchPosts, fetchPost
@@ -168,7 +169,8 @@ interface AiSuggestion {
 interface AiSuggestionRequest {
     model?: string;
     extraPrompt?: string;
-    tempContent?: string
+    tempContent?: string;
+    promptId?: number         // 커스텀 프롬프트 ID (선택)
 }
 ```
 
@@ -347,3 +349,8 @@ npm run build                  # 프로덕션 빌드
 | QEMU arm64 illegal instruction | `node:20-alpine` musl + QEMU 비호환 | `node:20-slim` (debian)으로 교체             |
 | GHA 캐시로 nginx.conf 누락          | 이전 빌드 캐시 재사용                     | frontend 빌드에 `--no-cache` 추가             |
 | 다크모드 텍스트 안 보임                  | 하드코딩 색상                          | CSS 변수 `var(--text)` 교체                  |
+| Hashnode 발행 버튼 위치             | ACCEPTED 상태 하단에만 있어 접근 불편         | PostDetailPage 상단 actions에 추가 (ACCEPTED/PUBLISHED 모두), PostEditPage "저장 후 발행" 추가 |
+
+**Hashnode 발행 전 프론트 검증:**
+- 제목 6자 미만 → `toast.error` (Hashnode API 최소 길이 요구사항)
+- 백엔드에서도 동일 검증 후 422 반환 (이중 방어)

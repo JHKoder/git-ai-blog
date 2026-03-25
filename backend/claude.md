@@ -70,6 +70,17 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - **prod 프로파일에서만 실제 발행 허용** — local/dev는 `BusinessRuleException` (422) 반환
   (`PublishPostUseCase`에서 `@Value("${spring.profiles.active:local}")` 체크)
 
+**발행 전 사전 검증 (PublishPostUseCase)**:
+- 제목 6자 미만 → 422 (Hashnode API 요구사항)
+- 본문 비어있음 → 422
+- Hashnode 미연동 (token null/blank) → 422
+- Hashnode Publication ID null/blank → 422
+
+**Hashnode API 통신 방식**:
+- GraphQL variables 분리 방식 사용 (`HashnodeGraphqlBuilder` → `GqlRequest(query, variables)`)
+- `escapeGraphql()` 사용 금지 — `objectMapper`가 단일 직렬화 담당 (이중 이스케이프 방지)
+- 4xx 응답 시 `onStatus`로 바디 읽어 GraphQL `errors[0].message` 추출 후 로깅
+
 ### AI 사용량 제한
 
 - Redis 기반. 한도 초과 시 즉시 429 반환. Redis TTL로 자정 자동 초기화
@@ -217,3 +228,4 @@ cd backend && ./gradlew serverRun
 | SyncHashnode Duplicate key                | DB에 동일 hashnodeId 중복       | `Collectors.toMap` mergeFunction 추가 |
 | 테스트 34개 실패 (ClientRegistrationRepository) | test yml에 OAuth2 설정 누락     | mock OAuth2 설정 추가                   |
 | `--no-daemon` 등 플래그가 태스크명으로 파싱됨           | gradlew eval `"$@"` 버그     | `"$@"` → `$@` 으로 수정 (gradlew 157번 줄) |
+| Hashnode 발행 400 Bad Request                   | `escapeGraphql()` 후 `objectMapper.writeValueAsString()` 이중 이스케이프 | GraphQL variables 방식으로 전환 (`HashnodeGraphqlBuilder` 전면 교체). `deletePost` 호출 시 token 누락도 수정 |
