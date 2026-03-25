@@ -32,7 +32,7 @@ public class HashnodeGraphqlBuilder {
                 """;
         ObjectNode input = objectMapper.createObjectNode();
         input.put("title", title);
-        input.put("contentMarkdown", content);
+        input.put("contentMarkdown", sanitizeForHashnode(content));
         input.put("publicationId", publicationId);
         input.set("tags", buildTagsNode(tags));
 
@@ -55,7 +55,7 @@ public class HashnodeGraphqlBuilder {
         ObjectNode input = objectMapper.createObjectNode();
         input.put("id", postId);
         input.put("title", title);
-        input.put("contentMarkdown", content);
+        input.put("contentMarkdown", sanitizeForHashnode(content));
         input.set("tags", buildTagsNode(tags));
 
         ObjectNode variables = objectMapper.createObjectNode();
@@ -103,6 +103,20 @@ public class HashnodeGraphqlBuilder {
         ObjectNode variables = objectMapper.createObjectNode();
         variables.put("id", publicationId);
         return new GqlRequest(query, variables);
+    }
+
+    /**
+     * Hashnode에 발행하기 전 우리 블로그 전용 마커를 제거한다.
+     * - ```sql visualize ... ``` 블록: Hashnode 파서가 인식 못해 깨져 보임 → 제거
+     * - [IMAGE: ...] 플레이스홀더: 이미지 미생성 시 노출됨 → 제거
+     */
+    private String sanitizeForHashnode(String content) {
+        if (content == null) return null;
+        // sql visualize 블록 제거 (플래그: DOTALL)
+        String result = content.replaceAll("(?s)```sql visualize[^\\n]*\\n.*?```", "");
+        // [IMAGE: ...] 마커 제거
+        result = result.replaceAll("\\[IMAGE:[^\\]]*]", "");
+        return result;
     }
 
     private ArrayNode buildTagsNode(List<String> tags) {

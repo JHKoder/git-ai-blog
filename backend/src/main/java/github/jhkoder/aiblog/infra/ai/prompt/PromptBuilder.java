@@ -15,9 +15,7 @@ public class PromptBuilder {
         if (extraPrompt != null && !extraPrompt.isBlank()) {
             sb.append("\n\n추가 요청: ").append(extraPrompt);
         }
-        sb.append("\n\n이미지가 필요한 위치에는 반드시 `[IMAGE: 이미지 설명 (영어로)]` 형식으로 표시해주세요. ")
-          .append("최대 3개까지 사용할 수 있습니다. 예: `[IMAGE: architecture diagram showing microservices]`\n")
-          .append("개선된 포스트 내용만 반환해주세요. 설명이나 메타 정보는 제외합니다.");
+        sb.append("\n\n개선된 포스트 내용만 반환해주세요. 설명이나 메타 정보는 제외합니다.");
         return sb.toString();
     }
 
