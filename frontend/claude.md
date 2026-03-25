@@ -378,6 +378,7 @@ npm run build                  # 프로덕션 빌드
 | Mermaid 코드블록 원문 출력             | 렌더링 컴포넌트 없음                       | `MermaidBlock` (동적 import + mermaid.render()) + `MarkdownRenderer` 통합 |
 | npm 캐시 권한 오류 (`EACCES`)        | npm cache 디렉터리 권한 문제              | `npm install --cache /tmp/npm-cache` 로 우회 |
 | `import { api }` named import 오류 | `axiosInstance.ts`가 default export  | `import api from './axiosInstance'` 로 수정 |
+| ` ```sql mysql ` 코드블록 렌더링 오류 | remark가 `language-sql` 뒤 토큰(`mysql` 등)을 className에 그대로 주입 → 하이라이터 오류 | (1) MarkdownRenderer `code` 컴포넌트에서 className 첫 토큰만 추출해 안전하게 처리, (2) PromptBuilder에서 일반 SQL 코드블록에 DB 타입 지정 금지 규칙 추가 |
 
 **Hashnode 발행 전 프론트 검증:**
 - 제목 6자 미만 → `toast.error` (Hashnode API 최소 길이 요구사항)

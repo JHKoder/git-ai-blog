@@ -48,7 +48,10 @@ function removeAiAuthorLine(content: string): string {
 
 const components = (blocks: Map<string, SqlVizBlock>): Components => ({
   code({ className, children }) {
-    const language = /language-(\w+)/.exec(className ?? '')?.[1] ?? ''
+    // className이 "language-sql mysql" 처럼 오는 경우 첫 토큰만 추출
+    const rawLang = /language-(\S+)/.exec(className ?? '')?.[1] ?? ''
+    const language = rawLang.split(/\s+/)[0] ?? ''
+    const safeClassName = language ? `language-${language}` : undefined
     const code = String(children).replace(/\n$/, '')
 
     if (language === 'mermaid') {
@@ -56,7 +59,7 @@ const components = (blocks: Map<string, SqlVizBlock>): Components => ({
     }
 
     return (
-      <code className={className}>
+      <code className={safeClassName}>
         {children}
       </code>
     )

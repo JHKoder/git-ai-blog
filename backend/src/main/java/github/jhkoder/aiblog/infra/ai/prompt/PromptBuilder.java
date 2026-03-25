@@ -60,6 +60,11 @@ public class PromptBuilder {
                   * 단순 인과관계 / 한 방향 원인→결과 체인 / 프로세스 단계 나열 → `flowchart LR`
                   * 노드 6개 이상이고 단계 구분이 의미 있을 때만 `subgraph` 추가
 
+                ### SQL 코드블록 규칙
+                - 일반 SQL 코드블록은 반드시 ` ```sql ` 만 사용한다. dialect(mysql, postgresql 등)를 ` ```sql ` 뒤에 붙이지 않는다.
+                - dialect 지정이 필요한 경우는 아래 SQLViz 마커 형식만 허용한다.
+                - 올바른 예: ` ```sql `  /  잘못된 예: ` ```sql mysql `, ` ```sql postgresql `
+
                 ### SQL 시각화
                 - DB, 트랜잭션, 동시성, 격리 수준 관련 내용을 설명할 때는 반드시 아래 형식의 SQLViz 마커를 사용한다.
                 - 마커 형식: ```sql visualize [dialect] [옵션...]
