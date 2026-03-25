@@ -12,6 +12,8 @@
   --nav-text-hover: #ffffff;
   --input-bg: #ffffff;
   --input-placeholder: #9ca3af;
+  --surface: #ffffff;
+  --hover: rgba(0, 0, 0, 0.04);
 }
 
 [data-theme='dark'] {
@@ -28,6 +30,8 @@
   --nav-text-hover: #f3f4f6;
   --input-bg: #1f2937;
   --input-placeholder: #6b7280;
+  --surface: #1f2937;
+  --hover: rgba(255, 255, 255, 0.06);
 }
 
 *, *::before, *::after {

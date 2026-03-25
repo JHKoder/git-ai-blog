@@ -143,6 +143,7 @@
 .opNormal {
   background: var(--surface);
   border-color: var(--border);
+  color: var(--text);
 }
 
 .opDanger {

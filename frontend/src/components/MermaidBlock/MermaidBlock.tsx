@@ -15,7 +15,8 @@ export function MermaidBlock({ code }: Props) {
     async function render() {
       try {
         const mermaid = (await import('mermaid')).default
-        mermaid.initialize({ startOnLoad: false, theme: 'default' })
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+        mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' })
         const id = `mermaid-${Math.random().toString(36).slice(2)}`
         const { svg } = await mermaid.render(id, code)
         if (!cancelled && ref.current) {
