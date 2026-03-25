@@ -203,6 +203,20 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
         - 프롬프트 관리 페이지 또는 ProfilePage 내 섹션
         - AI 개선 요청 모달에서 프롬프트 선택 UI (내 프롬프트 + 인기 프롬프트)
 
+### 버그 수정
+
+- [ ] **이미지 생성 모델 라우팅 버그** — GPT가 아닌 모델(예: `claude-opus-4-5`)로 AI 개선 요청 후 이미지 생성 시도 시 "GPT 모델이 아님" 오류로 스킵됨.
+  원인: 이미지 생성 시 모델 선택 UI가 AI 개선에서 선택한 모델을 그대로 넘기거나, 백엔드 `ImageGenerationService`가 GPT 전용 체크에서 잘못된 모델값을 수신.
+  해결 방향: 이미지 생성은 GPT 모델 전용으로 고정. GPT API 키 보유 시 `gpt-4o-mini`(기본) 또는 `gpt-4o`로 자동 라우팅. GPT 키 없으면 생성 불가(현재 프론트 `hasGptApiKey` 체크 이미 있음).
+  백엔드 `ImageGenerationService`에서 들어온 model 값 무시하고 GPT 전용으로 강제하거나, 컨트롤러에서 model 파라미터 검증 추가.
+
+- [ ] **Broken pipe `HttpMessageNotWritableException`** — AI 개선 요청 등 응답이 긴 API 호출 시 클라이언트가 먼저 연결을 끊으면 `Broken pipe` 예외가 `GlobalExceptionHandler`까지 올라와 불필요한 `Unhandled exception` 로그 발생.
+  ```
+  HttpMessageNotWritableException: Could not write JSON: ServletOutputStream failed to flush: Broken pipe
+  Caused by: java.io.IOException: Broken pipe
+  ```
+  해결 방향: `GlobalExceptionHandler`에서 `IOException: Broken pipe` (또는 `HttpMessageNotWritableException` wrapping `IOException`) 감지 시 `WARN` 레벨로만 로깅하고 별도 응답 없이 무시. 실제 서버 오류가 아니므로 클라이언트 연결 종료 패턴으로 처리.
+
 ### API 문서화
 
 - [x] springdoc-openapi (Swagger UI) 적용 — `/swagger-ui/index.html` 에서 확인 가능
@@ -223,10 +237,10 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 - [x] **GFM(GitHub Flavored Markdown) 전체 지원** — `remark-gfm` 미설치로 아래 문법이 전혀 렌더링되지 않음.
   `npm install remark-gfm` 후 `PostDetailPage`와 `AiSuggestionPanel`의 `<ReactMarkdown remarkPlugins={[remarkGfm]}>` 적용.
   미지원 항목:
-  - 테이블 (`| col | col |`) — 텍스트로만 출력
-  - 체크박스 (`- [ ] 항목`, `- [x] 항목`) — 텍스트로만 출력
-  - 취소선 (`~~취소~~`) — 텍스트로만 출력
-  - autolinks (URL/이메일 자동 링크) — 텍스트로만 출력
+    - 테이블 (`| col | col |`) — 텍스트로만 출력
+    - 체크박스 (`- [ ] 항목`, `- [x] 항목`) — 텍스트로만 출력
+    - 취소선 (`~~취소~~`) — 텍스트로만 출력
+    - autolinks (URL/이메일 자동 링크) — 텍스트로만 출력
 - [ ] **Mermaid 다이어그램 렌더링** — AI가 생성하는 `graph LR` 등 Mermaid 코드블록이 코드 원문으로만 표시됨.
   구현 방식: `npm install mermaid` 후 `MermaidBlock` 컴포넌트(동적 import + `mermaid.render()`) 작성,
   `MarkdownRenderer` 공통 컴포넌트에서 ReactMarkdown `components.code` 커스터마이저로 mermaid 언어 감지 시 `MermaidBlock` 렌더링.
@@ -234,6 +248,45 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
   **차단 요인**: npm 캐시 권한 문제(`sudo chown -R 501:20 "/Users/kang/.npm"` 실행 후 설치 가능)
 - [x] **DRAFT 상태에서 발행 버튼 활성화** — 현재 발행 버튼은 `ACCEPTED` 상태에서만 표시됨. 게시글 작성 직후(DRAFT) 바로 발행 가능하도록 상태 조건 확대 또는 DRAFT → 직접 발행
   흐름 추가
+
+### SQL Visualization Widget (SQLViz Widget)
+
+> **한 줄 설명**: 개발자 블로그에서 SQL 코드를 작성하면 임베드/위젯 형태로 실행 계획(Execution Plan)을 인터랙티브하게 시각화해주는 신규 대형 기능.
+> **최종 목표**: "개발자들이 블로그에 SQL을 쓸 때, 단순 코드 블록이 아닌 인터랙티브한 시각화 위젯으로 자동 변환되게 만드는 플랫폼 기능"
+
+**확정 방향성:**
+- 본 프로젝트(기존 SaaS)에 신규 기능으로 통합
+- Hashnode 블로그 작성자 대상 — 임베드/위젯 중심 설계
+- JS SDK 방식 완전 배제
+- Markdown 확장 문법(` ```sql visualize `)은 UI 편의용으로 유지, 실제 동작은 임베드 코드로 제공
+- Chrome Extension은 MVP 이후 별도 검증
+
+**사용자 흐름 (Hashnode 작성자):**
+1. 본 SaaS에서 SQL 작성 → 옵션 선택 (index, mvcc, lock 등)
+2. 분석 버튼 클릭 → React Flow 기반 시각화 미리보기
+3. "Hashnode용 Embed 생성" 버튼 클릭
+4. SaaS가 `iframe embed 코드` 또는 `%%[sqlviz-123]` Hashnode Widget 코드 즉시 제공
+5. 작성자가 코드를 Hashnode 글에 붙여넣기만 하면 됨
+
+**기술 스택 (기존과 동일):**
+
+| 영역      | 기술                                    |
+|---------|---------------------------------------|
+| 프론트     | React 18 + TypeScript + Vite 5        |
+| 상태관리    | Zustand + immer                       |
+| HTTP    | Axios (JWT 인터셉터)                      |
+| 스타일     | CSS Modules + CSS 변수 (다크/라이트)         |
+| 라우팅     | React Router v7                       |
+| 시각화(메인) | React Flow                            |
+| 시각화(보조) | Recharts                              |
+| SQL 에디터 | Monaco Editor                         |
+
+**구현 범위 (미정 — 추후 상세 설계 필요):**
+- [ ] SQL Viz 페이지 (`/sqlviz`) — SQL 입력 + 옵션 + 시각화 미리보기
+- [ ] 임베드 코드 생성 API (`POST /api/sqlviz`) — 위젯 ID 발급, 공개 임베드 URL 생성
+- [ ] 공개 임베드 엔드포인트 (`GET /embed/sqlviz/{id}`) — 인증 불필요, iframe용
+- [ ] Hashnode Widget 코드 생성 (`%%[sqlviz-{id}]` 형태)
+- [ ] React Flow 기반 실행 계획 시각화 컴포넌트
 
 ### 운영 / 모니터링
 
