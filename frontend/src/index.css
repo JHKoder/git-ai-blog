@@ -154,3 +154,19 @@ input::placeholder, textarea::placeholder {
   border-top: 1px solid var(--border);
   margin: 1.5em 0;
 }
+
+/* GFM 추가 지원 */
+.markdown-body del {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.markdown-body input[type='checkbox'] {
+  margin-right: 6px;
+  accent-color: #3b82f6;
+}
+
+.markdown-body li:has(> input[type='checkbox']) {
+  list-style: none;
+  margin-left: -1.2em;
+}

@@ -349,8 +349,15 @@ npm run build                  # 프로덕션 빌드
 | QEMU arm64 illegal instruction | `node:20-alpine` musl + QEMU 비호환 | `node:20-slim` (debian)으로 교체             |
 | GHA 캐시로 nginx.conf 누락          | 이전 빌드 캐시 재사용                     | frontend 빌드에 `--no-cache` 추가             |
 | 다크모드 텍스트 안 보임                  | 하드코딩 색상                          | CSS 변수 `var(--text)` 교체                  |
-| Hashnode 발행 버튼 위치             | ACCEPTED 상태 하단에만 있어 접근 불편         | PostDetailPage 상단 actions에 추가 (ACCEPTED/PUBLISHED 모두), PostEditPage "저장 후 발행" 추가 |
+| Hashnode 발행 버튼 위치             | ACCEPTED 상태 하단에만 있어 접근 불편         | PostDetailPage 상단 actions에 추가 (모든 상태), PostEditPage "저장 후 발행" 추가 |
+| GFM 문법 미렌더링                   | `remark-gfm` 플러그인 미설치             | `remark-gfm` 설치, PostDetailPage + AiSuggestionPanel 양쪽 `remarkPlugins={[remarkGfm]}` 적용 |
 
 **Hashnode 발행 전 프론트 검증:**
 - 제목 6자 미만 → `toast.error` (Hashnode API 최소 길이 요구사항)
 - 백엔드에서도 동일 검증 후 422 반환 (이중 방어)
+
+**GFM 지원 항목** (`remark-gfm` 적용):
+- 테이블 (`| col | col |`)
+- 체크박스 (`- [ ]`, `- [x]`)
+- 취소선 (`~~text~~`)
+- autolinks (URL 자동 링크)

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import toast from 'react-hot-toast'
 import { usePostStore } from '../../store/postStore'
 import { useSuggestionStore } from '../../store/suggestionStore'
@@ -80,11 +81,9 @@ export function PostDetailPage() {
         <div className={styles.actions}>
           <button className={styles.pdfBtn} onClick={handleExportPdf}>PDF 내보내기</button>
           <button className={styles.editBtn} onClick={() => navigate(`/posts/${id}/edit`)}>수정</button>
-          {(currentPost.status === 'ACCEPTED' || currentPost.status === 'PUBLISHED') && (
-            <button className={styles.publishBtn} onClick={handlePublish} disabled={publishing}>
-              {publishing ? '발행 중...' : currentPost.status === 'PUBLISHED' ? '재발행' : 'Hashnode 발행'}
-            </button>
-          )}
+          <button className={styles.publishBtn} onClick={handlePublish} disabled={publishing}>
+            {publishing ? '발행 중...' : currentPost.status === 'PUBLISHED' ? '재발행' : 'Hashnode 발행'}
+          </button>
           <button className={styles.deleteBtn} onClick={() => setShowDeleteModal(true)}>삭제</button>
         </div>
       </div>
@@ -100,15 +99,10 @@ export function PostDetailPage() {
       )}
 
       <div className={`${styles.content} markdown-body`}>
-        <ReactMarkdown>{currentPost.content}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentPost.content}</ReactMarkdown>
       </div>
 
       <div className={styles.bottomActions}>
-        {currentPost.status === 'ACCEPTED' && (
-          <button className={styles.publishBtn} onClick={handlePublish} disabled={publishing}>
-            {publishing ? '발행 중...' : 'Hashnode 발행'}
-          </button>
-        )}
         {currentPost.status === 'PUBLISHED' && currentPost.hashnodeUrl && (
           <a href={currentPost.hashnodeUrl} target="_blank" rel="noopener noreferrer" className={styles.hashnodeLink}>
             Hashnode에서 보기 →

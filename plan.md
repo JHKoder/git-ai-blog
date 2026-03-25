@@ -220,16 +220,19 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 > 영향 범위: 테이블, 체크박스(`- [ ]`), 취소선(`~~text~~`), autolinks, 각주.
 > `PostDetailPage`와 `AiSuggestionPanel` 두 곳 모두 `<ReactMarkdown>` 사용 → 양쪽 동시 적용 필요.
 
-- [ ] **GFM(GitHub Flavored Markdown) 전체 지원** — `remark-gfm` 미설치로 아래 문법이 전혀 렌더링되지 않음.
+- [x] **GFM(GitHub Flavored Markdown) 전체 지원** — `remark-gfm` 미설치로 아래 문법이 전혀 렌더링되지 않음.
   `npm install remark-gfm` 후 `PostDetailPage`와 `AiSuggestionPanel`의 `<ReactMarkdown remarkPlugins={[remarkGfm]}>` 적용.
   미지원 항목:
   - 테이블 (`| col | col |`) — 텍스트로만 출력
   - 체크박스 (`- [ ] 항목`, `- [x] 항목`) — 텍스트로만 출력
   - 취소선 (`~~취소~~`) — 텍스트로만 출력
   - autolinks (URL/이메일 자동 링크) — 텍스트로만 출력
-- [ ] **Mermaid 다이어그램 렌더링** — AI가 생성하는 `graph LR` 등 Mermaid 코드블록이 코드 원문으로만 표시됨. `rehype-mermaid` 또는 `react-mermaid2` 등으로
-  다이어그램 렌더링 지원
-- [ ] **DRAFT 상태에서 발행 버튼 활성화** — 현재 발행 버튼은 `ACCEPTED` 상태에서만 표시됨. 게시글 작성 직후(DRAFT) 바로 발행 가능하도록 상태 조건 확대 또는 DRAFT → 직접 발행
+- [ ] **Mermaid 다이어그램 렌더링** — AI가 생성하는 `graph LR` 등 Mermaid 코드블록이 코드 원문으로만 표시됨.
+  구현 방식: `npm install mermaid` 후 `MermaidBlock` 컴포넌트(동적 import + `mermaid.render()`) 작성,
+  `MarkdownRenderer` 공통 컴포넌트에서 ReactMarkdown `components.code` 커스터마이저로 mermaid 언어 감지 시 `MermaidBlock` 렌더링.
+  `PostDetailPage`, `AiSuggestionPanel` 양쪽에서 `MarkdownRenderer`로 교체.
+  **차단 요인**: npm 캐시 권한 문제(`sudo chown -R 501:20 "/Users/kang/.npm"` 실행 후 설치 가능)
+- [x] **DRAFT 상태에서 발행 버튼 활성화** — 현재 발행 버튼은 `ACCEPTED` 상태에서만 표시됨. 게시글 작성 직후(DRAFT) 바로 발행 가능하도록 상태 조건 확대 또는 DRAFT → 직접 발행
   흐름 추가
 
 ### 운영 / 모니터링
