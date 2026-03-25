@@ -198,6 +198,50 @@
   background: var(--primary, #3b82f6);
 }
 
+.isolationToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-wrap: wrap;
+}
+
+.isolationLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.isolationBtn {
+  padding: 3px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.isolationBtn:hover {
+  border-color: var(--primary, #3b82f6);
+  color: var(--text);
+}
+
+.isolationBtnActive {
+  background: var(--primary, #3b82f6);
+  border-color: var(--primary, #3b82f6);
+  color: #fff;
+}
+
+.isolationBtnActive:hover {
+  background: var(--primary, #3b82f6);
+  color: #fff;
+}
+
 .tabContent {
   padding: 16px;
 }

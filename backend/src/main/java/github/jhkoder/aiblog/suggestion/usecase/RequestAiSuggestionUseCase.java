@@ -6,7 +6,6 @@ import github.jhkoder.aiblog.infra.ai.AiClientRouter;
 import github.jhkoder.aiblog.infra.ai.AiUsageLimiter;
 import github.jhkoder.aiblog.infra.ai.TokenUsageTracker;
 import github.jhkoder.aiblog.infra.ai.prompt.PromptBuilder;
-import github.jhkoder.aiblog.infra.image.ImageGenerationService;
 import github.jhkoder.aiblog.member.domain.Member;
 import github.jhkoder.aiblog.member.domain.MemberRepository;
 import github.jhkoder.aiblog.post.domain.Post;
@@ -31,7 +30,6 @@ public class RequestAiSuggestionUseCase {
     private final AiUsageLimiter aiUsageLimiter;
     private final AiClientRouter aiClientRouter;
     private final PromptBuilder promptBuilder;
-    private final ImageGenerationService imageGenerationService;
     private final TokenUsageTracker tokenUsageTracker;
     private final PromptRepository promptRepository;
 
@@ -68,9 +66,6 @@ public class RequestAiSuggestionUseCase {
 
         tokenUsageTracker.record(memberId, route.model(), aiResponse.inputTokens(), aiResponse.outputTokens());
         aiUsageLimiter.increment(memberId);
-
-        // AI가 [IMAGE: 설명] 자리표시자를 삽입하면 GPT 모델인 경우 DALL-E 3으로 이미지 생성 후 교체
-        suggestedContent = imageGenerationService.resolveImagePlaceholders(suggestedContent, route.model(), route.apiKey());
 
         AiSuggestion suggestion = AiSuggestion.create(
                 postId, memberId, suggestedContent, route.model(), effectiveExtraPrompt);

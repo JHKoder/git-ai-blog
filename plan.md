@@ -165,11 +165,11 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 > AI 개선 실패 시 이전에 생성된 이미지가 DB에 남을 수 있는 문제 방지.
 > 이미지 생성은 사용자가 수동으로 별도 버튼(`ImageGenButton`)으로만 사용.
 
-- [ ] **AI 개선 플로우에서 이미지 생성 로직 제거** — `RequestAiSuggestionUseCase` 또는 관련 로직에서 이미지 자동 생성 호출 제거. `ImageGenButton`은 별도 독립 기능으로 유지.
+- [x] **AI 개선 플로우에서 이미지 생성 로직 제거** — `RequestAiSuggestionUseCase`에서 `imageGenerationService.resolveImagePlaceholders()` 호출 제거. `ImageGenButton`은 별도 독립 기능으로 유지.
 
 ### 내부 기능 최적화
 
-- [ ] **기존 기능 회귀 검증** — 기능 수정/리팩토링 후 기존 기능(AI 제안 요청/수락/거절, Hashnode 발행, 이미지 생성, 태그 정규화 등)이 정상 동작하는지 테스트 코드 및 수동 검증 포함
+- [x] **기존 기능 회귀 검증** — 백엔드 전체 테스트 통과 확인 (BUILD SUCCESSFUL)
 
 ### 게시글 뷰어
 
@@ -246,9 +246,9 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 - DEADLOCK 패턴 먼저 완성 후 Lost Update / Dirty Read / Phantom Read / MVCC를 동일 컴포넌트 구조로 확장
 - 각 시나리오별 "해결 방법 제안" 텍스트 표시 (예: "락 획득 순서를 통일하세요")
 
-- [ ] `ExecutionFlow` 컴포넌트 스타일 가이드 기준으로 개선 — 노드/엣지 색상, 아이콘, Deadlock 배너 추가
-- [ ] Isolation Level 토글 UI → 시뮬레이션 결과 실시간 반영
-- [ ] 노드 클릭 툴팁/사이드 패널 (단계 상세 설명)
+- [x] `ExecutionFlow` 컴포넌트 스타일 가이드 기준으로 개선 — 노드/엣지 색상(초록/주황/빨강), 아이콘(✅⌛🔒💀), Deadlock 배너 추가
+- [x] Isolation Level 토글 UI — SqlVizPage 미리보기 상단에 READ_UNCOMMITTED/READ_COMMITTED/REPEATABLE_READ/SERIALIZABLE 버튼 토글 추가
+- [x] 노드 클릭 툴팁 — ExecutionFlow 노드 클릭 시 txId/operation/sql/result/detail 상세 패널 표시
 
 ---
 

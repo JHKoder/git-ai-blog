@@ -43,6 +43,7 @@ export function SqlVizPage() {
   const [creating, setCreating] = useState(false)
   const [selectedWidget, setSelectedWidget] = useState<SqlVizWidget | null>(null)
   const [activeTab, setActiveTab] = useState<'timeline' | 'flow' | 'embed'>('timeline')
+  const [previewIsolation, setPreviewIsolation] = useState<IsolationLevel | null>(null)
 
   useEffect(() => {
     fetchWidgets()
@@ -80,6 +81,7 @@ export function SqlVizPage() {
       const created = await createWidget(req)
       toast.success('위젯이 생성됐습니다.')
       setSelectedWidget(created)
+      setPreviewIsolation(null)
       setActiveTab('timeline')
     } catch {
       toast.error('위젯 생성에 실패했습니다.')
@@ -93,7 +95,7 @@ export function SqlVizPage() {
     try {
       await deleteWidget(id)
       toast.success('삭제됐습니다.')
-      if (selectedWidget?.id === id) setSelectedWidget(null)
+      if (selectedWidget?.id === id) { setSelectedWidget(null); setPreviewIsolation(null) }
     } catch {
       toast.error('삭제에 실패했습니다.')
     }
@@ -190,12 +192,29 @@ export function SqlVizPage() {
                 >임베드 코드</button>
               </div>
             </div>
+
+            {activeTab !== 'embed' && (
+              <div className={styles.isolationToggle}>
+                <span className={styles.isolationLabel}>격리 수준:</span>
+                {ISOLATION_LEVELS.map(l => (
+                  <button
+                    key={l}
+                    className={`${styles.isolationBtn} ${(previewIsolation ?? selectedWidget.isolationLevel) === l ? styles.isolationBtnActive : ''}`}
+                    onClick={() => setPreviewIsolation(l === selectedWidget.isolationLevel ? null : l)}
+                    title={ISOLATION_LEVEL_LABEL[l]}
+                  >
+                    {ISOLATION_LEVEL_LABEL[l]}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className={styles.tabContent}>
               {activeTab === 'timeline' && (
                 <ConcurrencyTimeline simulation={selectedWidget.simulation} />
               )}
               {activeTab === 'flow' && (
-                <ExecutionFlow steps={selectedWidget.simulation.steps} />
+                <ExecutionFlow simulation={selectedWidget.simulation} />
               )}
               {activeTab === 'embed' && (
                 <EmbedGenerator widget={selectedWidget} />
@@ -220,7 +239,7 @@ export function SqlVizPage() {
                 <li
                   key={w.id}
                   className={`${styles.listItem} ${selectedWidget?.id === w.id ? styles.selected : ''}`}
-                  onClick={() => { setSelectedWidget(w); setActiveTab('timeline') }}
+                  onClick={() => { setSelectedWidget(w); setPreviewIsolation(null); setActiveTab('timeline') }}
                 >
                   <div className={styles.listItemInfo}>
                     <span className={styles.listItemTitle}>{w.title}</span>

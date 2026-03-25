@@ -50,7 +50,7 @@ export function SqlVizEmbedPage() {
           <ConcurrencyTimeline simulation={widget.simulation} />
         )}
         {activeTab === 'flow' && (
-          <ExecutionFlow steps={widget.simulation.steps} />
+          <ExecutionFlow simulation={widget.simulation} />
         )}
       </div>
 
