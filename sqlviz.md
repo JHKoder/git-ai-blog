@@ -209,9 +209,9 @@ SELECT * FROM accounts WHERE balance > 500;
 
 ---
 
-## 미해결 이슈 (구현 예정)
+## 이슈 해결 기록
 
-### 마커 렌더링 미작동 (2026-03-25 확인)
+### 마커 렌더링 미작동 → 해결 완료 (2026-03-25)
 
 **현상**: AI가 생성한 `` ```sql visualize mysql deadlock `` 마커가 `PostDetailPage`에서 SQLViz 위젯으로 렌더링되지 않고 코드 블록 원문 출력.
 

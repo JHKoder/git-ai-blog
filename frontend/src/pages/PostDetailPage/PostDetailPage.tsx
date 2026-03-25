@@ -11,11 +11,20 @@ import { AiSuggestionPanel } from '../../components/AiSuggestionPanel/AiSuggesti
 import { ConfirmModal } from '../../components/Modal/ConfirmModal'
 import styles from './PostDetailPage.module.css'
 
+const MODEL_LABEL: Record<string, string> = {
+  'claude-sonnet-4-6': 'Claude Sonnet 4.6',
+  'claude-opus-4-5': 'Claude Opus 4.5',
+  'grok-3': 'Grok 3',
+  'gpt-4o-mini': 'GPT-4o mini',
+  'gpt-4o': 'GPT-4o',
+  'gemini-2.0-flash': 'Gemini 2.0 Flash',
+}
+
 export function PostDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { currentPost, fetchPost, clearCurrentPost } = usePostStore()
-  const { latestSuggestion, fetchLatest, clear } = useSuggestionStore()
+  const { latestSuggestion, history, fetchLatest, fetchHistory, clear } = useSuggestionStore()
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [publishing, setPublishing] = useState(false)
 
@@ -23,6 +32,7 @@ export function PostDetailPage() {
     if (id) {
       fetchPost(Number(id))
       fetchLatest(Number(id))
+      fetchHistory(Number(id))
     }
     return () => { clearCurrentPost(); clear() }
   }, [id])
@@ -40,7 +50,6 @@ export function PostDetailPage() {
 
   const handleExportPdf = () => {
     const content = currentPost?.content ?? ''
-    // 99MB 제한 체크 (UTF-8 기준 바이트)
     const bytes = new TextEncoder().encode(content).length
     if (bytes > 99 * 1024 * 1024) {
       toast.error('게시글 내용이 99MB를 초과하여 PDF로 내보낼 수 없습니다.')
@@ -68,6 +77,9 @@ export function PostDetailPage() {
   }
 
   if (!currentPost) return <p>로딩 중...</p>
+
+  const aiImprovedCount = history.length
+  const lastSuggestion = history[0] ?? latestSuggestion
 
   return (
     <div>
@@ -101,6 +113,21 @@ export function PostDetailPage() {
         <MarkdownRenderer content={currentPost.content} />
       </div>
 
+      {aiImprovedCount > 0 && lastSuggestion && (
+        <div className={styles.aiMeta}>
+          <span className={styles.aiMetaLabel}>🤖 AI 작성 정보</span>
+          <span className={styles.aiMetaItem}>
+            모델: {MODEL_LABEL[lastSuggestion.model] ?? lastSuggestion.model}
+          </span>
+          <span className={styles.aiMetaItem}>
+            최종 수정: {new Date(lastSuggestion.createdAt).toLocaleDateString('ko-KR')}
+          </span>
+          <span className={styles.aiMetaItem}>
+            AI 개선 {aiImprovedCount}회
+          </span>
+        </div>
+      )}
+
       <div className={styles.bottomActions}>
         {currentPost.status === 'PUBLISHED' && currentPost.hashnodeUrl && (
           <a href={currentPost.hashnodeUrl} target="_blank" rel="noopener noreferrer" className={styles.hashnodeLink}>
@@ -112,7 +139,7 @@ export function PostDetailPage() {
       <AiSuggestionPanel
         postId={Number(id)}
         suggestion={latestSuggestion}
-        onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)) }}
+        onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
       />
 
       {showDeleteModal && (

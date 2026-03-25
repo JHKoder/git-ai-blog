@@ -79,9 +79,9 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] 시뮬레이션 엔진 — 6개 시나리오, 격리 수준 분기, JSQLParser + RowKey + VirtualDB
 - [x] 프론트: `SqlVizPage`, `SqlVizEmbedPage`, `ConcurrencyTimeline`, `ExecutionFlow`, `EmbedGenerator`
 - [x] PromptBuilder SQLViz 마커 지시문 추가 (ContentType별 추천 포함)
-- [ ] `sql visualize` 마커 렌더링 — `MarkdownRenderer`에서 dialect/옵션 파싱 후 SQLViz 위젯 표시 (상세 → `sqlviz.md`)
-- [ ] `[IMAGE: ...]` 플레이스홀더 처리 — 이미지 없으면 블록 제거 또는 UI 표시 (상세 → `frontend/CLAUDE.md`)
-- [ ] AI 작성 메타 정보 통합 표시 — PostDetailPage 하단 카드 UI (상세 → `frontend/CLAUDE.md`)
+- [x] `sql visualize` 마커 렌더링 — `MarkdownRenderer` 전처리 + `SqlVizMarker` 컴포넌트
+- [x] `[IMAGE: ...]` 플레이스홀더 처리 — 이미지 없으면 본문에서 제거
+- [x] AI 작성 메타 정보 통합 표시 — PostDetailPage 하단 카드 (모델·날짜·개선횟수), 본문 인용 줄 제거
 
 ### 운영 / 모니터링
 

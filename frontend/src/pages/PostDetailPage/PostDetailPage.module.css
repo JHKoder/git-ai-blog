@@ -86,6 +86,34 @@
   color: var(--text);
 }
 
+.aiMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 10px 16px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.aiMetaLabel {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.aiMetaItem {
+  color: var(--text-secondary);
+}
+
+.aiMetaItem::before {
+  content: '·';
+  margin-right: 6px;
+}
+
 .bottomActions {
   display: flex;
   gap: 12px;

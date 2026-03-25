@@ -383,3 +383,19 @@ npm run build                  # 프로덕션 빌드
 - `PostDetailPage`, `AiSuggestionPanel` 양쪽 모두 `<MarkdownRenderer content={...} />` 사용
 - `ReactMarkdown` + `remark-gfm` 직접 사용 금지 (MarkdownRenderer로 통일)
 - Mermaid 언어 감지: ` ```mermaid ` 코드블록 → `MermaidBlock` 자동 분기
+
+---
+
+## 해결된 이슈 (2026-03-25)
+
+### 1. `sql visualize` 마커 렌더링 ✅
+- **해결**: `MarkdownRenderer` 전처리(`SQL_VIZ_RE` 정규식)로 마커를 플레이스홀더로 치환 후 `SqlVizMarker` 컴포넌트 렌더링
+- **파일**: `components/SqlVizMarker/SqlVizMarker.tsx` (신규), `MarkdownRenderer.tsx` (수정)
+- 코드블록 연속 파싱 충돌도 전처리 방식으로 함께 해결
+
+### 2. `[IMAGE: ...]` 플레이스홀더 그대로 노출 ✅
+- **해결**: `MarkdownRenderer`의 `removeImagePlaceholders()` 함수로 렌더링 전 제거
+
+### 3. AI 작성 정보 분리 표시 ✅
+- **해결**: `PostDetailPage` 하단 `aiMeta` 카드로 통합 (모델명·최종수정일·개선횟수), 본문 내 `> 이 글은 ...` 인용 줄은 `removeAiAuthorLine()`으로 제거
+- `fetchHistory` 추가 호출로 개선 횟수 집계
