@@ -1,17 +1,17 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-25
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-25 (SQLViz 렌더링 이슈, IMAGE 처리, AI 메타 UI 미구현 항목 추가)
 > 개발자: 1인 개인 프로젝트 / 목표 사용자: 최대 100명
 
 ## 문서 구조
 
-| 파일 | 역할 |
-|------|------|
-| [`backend/claude.md`](backend/claude.md) | 백엔드 코드 레벨 상세 (API, 도메인, 이슈 기록) |
+| 파일                                         | 역할                               |
+|--------------------------------------------|----------------------------------|
+| [`backend/claude.md`](backend/claude.md)   | 백엔드 코드 레벨 상세 (API, 도메인, 이슈 기록)   |
 | [`frontend/CLAUDE.md`](frontend/CLAUDE.md) | 프론트엔드 코드 레벨 상세 (컴포넌트, 타입, 이슈 기록) |
-| [`sqlviz.md`](sqlviz.md) | SQLViz 설계 / UX / AI 연동 가이드 |
-| [`infra.md`](infra.md) | 배포 / 인프라 셋업 절차 |
-| [`monitoring.md`](monitoring.md) | 운영 / 장애 대응 |
+| [`sqlviz.md`](sqlviz.md)                   | SQLViz 설계 / UX / AI 연동 가이드       |
+| [`infra.md`](infra.md)                     | 배포 / 인프라 셋업 절차                   |
+| [`monitoring.md`](monitoring.md)           | 운영 / 장애 대응                       |
 
 ---
 
@@ -25,23 +25,24 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 
 ## 2. 기술 스택
 
-| 영역 | 기술 |
-|------|------|
-| 백엔드 | Spring Boot 4.0.3, Java 25, Gradle 9.3.1 |
-| 프론트 | React 18 + TypeScript + Vite 5 |
-| DB | H2 (local) / Docker PostgreSQL (dev) / Supabase (prod) |
-| 캐시 | Redis (AI 사용량, Rate Limit, JWT blacklist) |
-| 암호화 | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼) |
-| 인증 | GitHub OAuth2 + JWT (Access 24h / Refresh 30일) |
-| 컨테이너 | Docker Compose (backend, frontend, redis, certbot) |
-| CI/CD | GitHub Actions → OCI 서버 롤링 배포 |
-| 인프라 | OCI 단일 서버 (2CPU/16GB), 도메인: `git-ai-blog.kr` |
+| 영역    | 기술                                                     |
+|-------|--------------------------------------------------------|
+| 백엔드   | Spring Boot 4.0.3, Java 25, Gradle 9.3.1               |
+| 프론트   | React 18 + TypeScript + Vite 5                         |
+| DB    | H2 (local) / Docker PostgreSQL (dev) / Supabase (prod) |
+| 캐시    | Redis (AI 사용량, Rate Limit, JWT blacklist)              |
+| 암호화   | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼)        |
+| 인증    | GitHub OAuth2 + JWT (Access 24h / Refresh 30일)         |
+| 컨테이너  | Docker Compose (backend, frontend, redis, certbot)     |
+| CI/CD | GitHub Actions → OCI 서버 롤링 배포                          |
+| 인프라   | OCI 단일 서버 (2CPU/16GB), 도메인: `git-ai-blog.kr`           |
 
 ---
 
 ## 3. 구현 현황
 
 ### 환경별 설정
+
 - [x] local — H2, `JASYPT_ENCRYPTOR_PASSWORD` 없이 기동
 - [x] dev — `./gradlew serverRun` (Redis + PostgreSQL Docker 자동 기동)
 - [x] GitHub Actions — local 프로파일, Redis 제외
@@ -49,12 +50,15 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] Hashnode 발행 — prod 프로파일에서만 실제 발행 허용
 
 ### 인프라 / 배포
+
 > 상세 → [`infra.md`](infra.md)
+
 - [x] CI 스마트 재빌드 정책 (`check-prev-result` job)
 - [x] backend Dockerfile 레이어 캐시 최적화
 - [x] PostgreSQL prepared statement 충돌 해결 (`prepareThreshold: 0`)
 
 ### 기능
+
 - [x] AI 사용량 제한 — 전체 + 모델별 일일 한도, Redis 기반, 초과 시 429
 - [x] AI 모델 선택 — Claude/Grok/GPT/Gemini 수동 또는 ContentType 자동 라우팅
 - [x] 커스텀 프롬프트 — 사용자당 최대 30개, 공개/비공개, 인기순 탐색 (제목 100자 / 내용 2000자 제한)
@@ -68,16 +72,23 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
 ### SQL Visualization Widget
+
 > 상세 → [`sqlviz.md`](sqlviz.md)
+
 - [x] 백엔드: `POST/GET/DELETE /api/sqlviz`, `GET /api/embed/sqlviz/{id}` (공개)
 - [x] 시뮬레이션 엔진 — 6개 시나리오, 격리 수준 분기, JSQLParser + RowKey + VirtualDB
 - [x] 프론트: `SqlVizPage`, `SqlVizEmbedPage`, `ConcurrencyTimeline`, `ExecutionFlow`, `EmbedGenerator`
 - [x] PromptBuilder SQLViz 마커 지시문 추가 (ContentType별 추천 포함)
+- [ ] `sql visualize` 마커 렌더링 — `MarkdownRenderer`에서 dialect/옵션 파싱 후 SQLViz 위젯 표시 (상세 → `sqlviz.md`)
+- [ ] `[IMAGE: ...]` 플레이스홀더 처리 — 이미지 없으면 블록 제거 또는 UI 표시 (상세 → `frontend/CLAUDE.md`)
+- [ ] AI 작성 메타 정보 통합 표시 — PostDetailPage 하단 카드 UI (상세 → `frontend/CLAUDE.md`)
 
 ### 운영 / 모니터링
+
 - [x] 모니터링 가이드 문서 작성 (`monitoring.md`)
 
 ### 테스트
+
 - [x] Controller 테스트 (`PostControllerTest`, `MemberControllerTest`)
 - [x] Repository 통합 테스트 (4개 — H2 기반)
 - [x] 도메인 단위 테스트 (`PostDomainTest`, `MemberDomainTest`, `WebhookSignatureVerifierTest`)

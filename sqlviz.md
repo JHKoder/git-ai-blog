@@ -206,3 +206,32 @@ SELECT * FROM accounts WHERE balance > 500;
 | TEST | NON_REPEATABLE_READ — 트랜잭션 테스트 케이스 설명 시 |
 | ALGORITHM | 해당 없음 |
 | 기타 | 판단에 따라 선택적 사용 |
+
+---
+
+## 미해결 이슈 (구현 예정)
+
+### 마커 렌더링 미작동 (2026-03-25 확인)
+
+**현상**: AI가 생성한 `` ```sql visualize mysql deadlock `` 마커가 `PostDetailPage`에서 SQLViz 위젯으로 렌더링되지 않고 코드 블록 원문 출력.
+
+**재현 케이스** (`https://jhkoder.hashnode.dev/ai-api-test-db-1` 기준):
+- `` ```sql visualize mysql deadlock `` → 원문 출력
+- `` ```sql visualize mysql lost-update `` → `` ``` `` 닫힘 태그 누락 + 다음 코드블록과 충돌
+
+**원인 분석**:
+
+1. `MarkdownRenderer.tsx`의 `code` 컴포넌트가 `className`에서 첫 단어만 추출
+   ```
+   language-sql visualize mysql deadlock
+         ↓ 정규식 /language-(\w+)/ 매칭
+   "sql"  ← dialect/옵션 전부 소실
+   ```
+2. `sql` 언어로만 처리되어 SQLViz 분기 로직이 없음 → 일반 코드블록 출력
+3. `` ```sql visualize ... ``` `` 뒤에 다른 코드블록이 이어지면 remark 파서가 닫힘 태그를 잘못 처리하여 블록 병합
+
+**해결 방향**:
+- `MarkdownRenderer`에서 `className` 전체 파싱: `language-sql` + 나머지 토큰에서 `visualize`, dialect, 옵션 추출
+- 추출된 dialect + 옵션으로 `SqlVizInlineWidget` 컴포넌트 렌더링 (시뮬레이션 API 호출 또는 직접 파싱)
+- 또는 remark 커스텀 플러그인으로 마커를 전처리 후 ReactMarkdown에 전달 → 블록 충돌 방지
+- 상세 → [`frontend/CLAUDE.md`](frontend/CLAUDE.md) 미해결 이슈 #1, #3
