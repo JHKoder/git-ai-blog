@@ -41,6 +41,7 @@ src/
 │   ├── post.ts
 │   ├── suggestion.ts
 │   ├── repo.ts
+│   ├── prompt.ts
 │   └── sqlviz.ts             SqlVizWidget, SimulationStep/Result, enum + label 상수
 ├── hooks/
 │   ├── useDraft.ts
@@ -55,6 +56,7 @@ src/
 │   ├── ImageGenButton/
 │   ├── MarkdownRenderer/     ReactMarkdown + remark-gfm 공통 래퍼 (MermaidBlock 통합)
 │   ├── MermaidBlock/         동적 import + mermaid.render() + error fallback
+│   ├── SqlVizMarker/         sql visualize 마커 → 시뮬레이션 API 호출 → ConcurrencyTimeline 렌더링
 │   └── Visualization/
 │       ├── SqlEditor/        Monaco Editor SQL 문법 강조, 다크/라이트 연동
 │       ├── ConcurrencyTimeline/ 트랜잭션 타임라인, 재생/정지/스크러빙
@@ -369,6 +371,8 @@ npm run build                  # 프로덕션 빌드
 | QEMU arm64 illegal instruction | `node:20-alpine` musl + QEMU 비호환 | `node:20-slim` (debian)으로 교체             |
 | GHA 캐시로 nginx.conf 누락          | 이전 빌드 캐시 재사용                     | frontend 빌드에 `--no-cache` 추가             |
 | 다크모드 텍스트 안 보임                  | 하드코딩 색상                          | CSS 변수 `var(--text)` 교체                  |
+| Mermaid 다크모드에서 흰 배경·검은 텍스트    | `theme: 'default'` 하드코딩           | 렌더 시점에 `data-theme` 감지 → `'dark'`/`'default'` 동적 적용 (`MermaidBlock.tsx`) |
+| Widget(ConcurrencyTimeline) 다크모드 텍스트 안 보임 | `--surface`, `--hover` CSS 변수 미정의 + `.opNormal` color 누락 | `index.css`에 `--surface`/`--hover` 라이트·다크 변수 추가, `.opNormal`에 `color: var(--text)` 추가 |
 | Hashnode 발행 버튼 위치             | ACCEPTED 상태 하단에만 있어 접근 불편         | PostDetailPage 상단 actions에 추가 (모든 상태), PostEditPage "저장 후 발행" 추가 |
 | GFM 문법 미렌더링                   | `remark-gfm` 플러그인 미설치             | `remark-gfm` 설치 + `MarkdownRenderer` 공통 컴포넌트로 통합 |
 | Mermaid 코드블록 원문 출력             | 렌더링 컴포넌트 없음                       | `MermaidBlock` (동적 import + mermaid.render()) + `MarkdownRenderer` 통합 |
