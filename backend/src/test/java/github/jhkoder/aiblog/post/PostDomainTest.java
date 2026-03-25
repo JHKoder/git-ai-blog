@@ -58,13 +58,14 @@ class PostDomainTest {
     }
 
     @Test
-    @DisplayName("DRAFT 상태에서 accept 호출하면 예외 발생")
-    void accept_fromDraft_throwsException() {
+    @DisplayName("DRAFT 상태에서 accept 호출 성공 — 거절 후 히스토리 제안 재수락 지원")
+    void accept_fromDraft_success() {
         Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
 
-        assertThatThrownBy(() -> post.accept("AI 내용"))
-                .isInstanceOf(InvalidStateException.class)
-                .hasMessageContaining("AI 제안 상태에서만");
+        post.accept("AI 내용");
+
+        assertThat(post.getStatus()).isEqualTo(PostStatus.ACCEPTED);
+        assertThat(post.getContent()).isEqualTo("AI 내용");
     }
 
     @Test

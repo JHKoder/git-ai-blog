@@ -118,9 +118,7 @@ public class Post {
     }
 
     public void accept(String suggestedContent) {
-        if (status != PostStatus.AI_SUGGESTED) {
-            throw new InvalidStateException("AI 제안 상태에서만 수락할 수 있습니다.");
-        }
+        // AI_SUGGESTED 외에 DRAFT/ACCEPTED/PUBLISHED에서도 허용 — 거절 후 히스토리 제안 재수락 지원
         this.content = suggestedContent;
         this.status = PostStatus.ACCEPTED;
     }

@@ -263,3 +263,4 @@ cd backend && ./gradlew serverRun
 | 테스트 21개 실패 (`NoSuchBeanDefinitionException`) | 1) `JpaSqlVizWidgetRepository` package-private → Spring Data JPA 빈 등록 실패. 2) Spring Boot 4 / Jackson 3.x에서 `com.fasterxml.jackson.databind.ObjectMapper`로 주입 불가 | 1) `public interface` 추가. 2) `tools.jackson.databind.ObjectMapper` 임포트로 교체 |
 | AI 응답이 글 중간에서 잘림 | `ClaudeClient.max_tokens: 4096` 고정 — Sonnet 4.6 최대 16,384 대비 부족 | `max_tokens` 를 `16000`으로 상향 (`ClaudeClient.java:46`) |
 | `Page<T>` 직렬화 경고 (`Serializing PageImpl instances as-is`) | `PostController.list()`가 `Page<PostListResponse>` 직접 반환 | `PostPageResponse` record DTO 도입, `GetPostListUseCase` 반환 타입 변경 |
+| 거절 후 수락 불가 | `Post.accept()`가 `AI_SUGGESTED` 상태만 허용 → 거절(`DRAFT` 복귀) 후 히스토리 제안 수락 시 `InvalidStateException` | `accept()` 상태 검사 제거 — 모든 상태에서 수락 허용 |
