@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import github.jhkoder.aiblog.post.dto.PostListResponse;
+import github.jhkoder.aiblog.post.dto.PostPageResponse;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
@@ -31,7 +33,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import github.jhkoder.aiblog.post.dto.PostListResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -178,7 +179,7 @@ class PostControllerTest {
                 .viewCount(0)
                 .createdAt(LocalDateTime.now())
                 .build();
-        PageImpl<PostListResponse> page = new PageImpl<>(List.of(post), PageRequest.of(0, 10), 1);
+        PostPageResponse page = PostPageResponse.from(new PageImpl<>(List.of(post), PageRequest.of(0, 10), 1));
 
         when(getPostListUseCase.execute(eq(memberId), eq(0), eq(10), eq(null))).thenReturn(page);
 

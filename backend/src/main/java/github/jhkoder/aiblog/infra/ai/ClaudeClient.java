@@ -43,7 +43,7 @@ public class ClaudeClient implements AiClient {
     @Override
     public AiResponse completeWithUsage(String prompt, String model, String apiKey, Long memberId) {
         String textModel = (model != null && !model.isBlank() && !model.equals(OPUS)) ? model : SONNET;
-        return callApi(prompt, textModel, apiKey, 4096, memberId);
+        return callApi(prompt, textModel, apiKey, 16000, memberId);
     }
 
     public AiResponse generateImagePromptContent(String imagePrompt, String apiKey, Long memberId) {

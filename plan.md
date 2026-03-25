@@ -63,6 +63,8 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] 이미지 생성 — AI 개선 플로우에서 분리, `ImageGenButton` 수동 전용
 - [x] GFM + Mermaid 렌더링 (`MarkdownRenderer` + `MermaidBlock`)
 - [x] Swagger UI (`/swagger-ui/index.html`)
+- [x] Claude `max_tokens` 4096 → 16000 상향 — 긴 글 중간 잘림 방지
+- [x] `Page<T>` 직렬화 경고 제거 — `PostPageResponse` DTO 도입
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
 ### SQL Visualization Widget

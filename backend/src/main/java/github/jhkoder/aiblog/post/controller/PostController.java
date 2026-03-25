@@ -11,7 +11,6 @@ import github.jhkoder.aiblog.post.dto.*;
 import github.jhkoder.aiblog.post.usecase.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -47,7 +46,7 @@ public class PostController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<PostListResponse>>> list(
+    public ResponseEntity<ApiResponse<PostPageResponse>> list(
             @AuthenticationPrincipal Long memberId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
