@@ -10,6 +10,75 @@
 - 운영/모니터링 → [`monitoring.md`](monitoring.md)
 
 ---
+/*
+[피드백 수신 - 2026-03-25]
+결론: “시각화 엔진으로는 충분히 좋은 수준인데, ‘사용자 SQL 기반으로 유연하게 동작하는 엔진’으로 보기엔 아직 한 단계 부족하다.”
+
+✅ 강점으로 인정받은 부분
+- 시나리오 분리 설계 (전략 패턴 + 시뮬레이션 DSL 느낌)
+- Timeline 기반 UX (step + delay + 상태값)
+- 격리 수준 분기 로직 (교육용으론 정확)
+
+❌ 유연성 부족 핵심 3가지
+
+1. SQL이 “문자열”로만 사용됨
+   → String t1Sql = sqls.get(0) 으로 그냥 텍스트 전달
+   → detail 설명이 입력 SQL과 무관하게 하드코딩 (“balance=500” 등)
+   // [내 의견] 동의. 지금은 사용자가 어떤 SQL을 넣어도 동일한 시나리오 흐름이 나옴.
+   // 단기적으로는 SQL 타입(SELECT/UPDATE/INSERT)만 파싱해도 detail 정확도가 크게 향상됨.
+   // 전체 AST 파싱은 오버엔지니어링일 수 있으니 단계적 접근이 현실적.
+
+2. Row 개념 하드코딩 (Row A / Row B)
+   → WHERE id=1 이든 WHERE id=999 이든 동일하게 Row A/B 처리
+   → 실제 락 충돌 대상이 누구인지 표현 불가
+   // [내 의견] 동의. RowKey = “table:id” 방식으로 WHERE 절 파싱하면
+   // “orders:1 vs orders:2” 처럼 실제 의미 있는 락 시각화가 가능.
+   // JSQLParser가 이 부분에 가장 효과적.
+
+3. 시나리오가 고정 스크립트
+   → steps.add() 하드코딩 → 사용자 SQL 내용과 흐름이 불일치
+   → SELECT * FROM orders 넣으면 LOCK 시나리오와 안 맞음
+   // [내 의견] 동의. 근본 원인은 시나리오 선택이 SQL 내용을 무시하기 때문.
+   // SQL 타입 기반 동적 생성으로 전환하면 해결되는데, 이게 가장 큰 리팩터링임.
+   // 시나리오는 “힌트 레벨”로 낮추고 실제 흐름은 SQL에서 도출하는 방향이 맞음.
+
+🚀 다음 단계 개선 아키텍처 (우선순위 순)
+
+1단계. SQL Parser Layer 도입 (JSQLParser 추천)
+   SQL → AST → ParsedSql { type, table, columns, where }
+   // JSQLParser: Maven Central에서 바로 사용 가능, Spring Boot와 잘 맞음
+   // Apache Calcite는 과도함 - 우리 목적에 JSQLParser가 충분
+
+2단계. RowKey 기반 Lock 시스템
+   RowKey = table + “:” + id (WHERE 절 파싱으로 추출)
+   Map<RowKey, LockInfo> lockManager
+   → 실제 SQL 기반 DEADLOCK 자동 탐지 가능
+
+3단계. Virtual DB (in-memory 가짜 실행 엔진)
+   VirtualRow { Map<String, Object> data; int version; }
+   TransactionContext { snapshotVersion; Set<RowKey> locks; }
+   → MVCC 실제 동작 시뮬레이션 가능 (스냅샷 격리 등)
+
+4단계. Scenario → “힌트”로만 사용
+   사용자가 시나리오를 선택하면 “이 SQL 조합에서 이런 문제가 발생할 수 있어” 수준으로
+   실제 충돌은 SQL 흐름에서 자연 발생하도록
+
+📊 피드백 평가표
+| 항목 | 현재 | 목표 |
+|------|------|------|
+| 교육용 | ✅ 매우 좋음 | ✅ 유지 |
+| 시각화 | ✅ 강력 | ✅ 유지 + 개선 |
+| 실제 SQL 반영 | ❌ 부족 | ✅ SQL 파싱 도입 후 |
+| 확장성 | ⚠️ 중간 | ✅ RowKey + Virtual DB 후 |
+| 상용 서비스 | ⚠️ 개선 필요 | 3단계 완료 후 가능 |
+
+// [종합 의견]
+// 피드백이 정확하다. 현재는 “DB 개념 시뮬레이터”인데
+// 목표가 “실제 SQL 기반 분석 도구”라면 SQL 파싱은 필수 선행 작업.
+// 1단계(JSQLParser) → 2단계(RowKey)만 해도 유연성이 크게 올라감.
+// 3단계(Virtual DB)는 MVCC 정확도를 높이지만 복잡도도 높아짐 - 시기 판단 필요.
+// 4단계(Scenario 제거)는 마지막에 하는 게 맞음 - 지금 Scenario는 UX 진입점으로 여전히 유용.
+*/
 
 ## 1. 프로젝트 개요
 
@@ -165,7 +234,8 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 > AI 개선 실패 시 이전에 생성된 이미지가 DB에 남을 수 있는 문제 방지.
 > 이미지 생성은 사용자가 수동으로 별도 버튼(`ImageGenButton`)으로만 사용.
 
-- [x] **AI 개선 플로우에서 이미지 생성 로직 제거** — `RequestAiSuggestionUseCase`에서 `imageGenerationService.resolveImagePlaceholders()` 호출 제거. `ImageGenButton`은 별도 독립 기능으로 유지.
+- [x] **AI 개선 플로우에서 이미지 생성 로직 제거** — `RequestAiSuggestionUseCase`에서 `imageGenerationService.resolveImagePlaceholders()`
+  호출 제거. `ImageGenButton`은 별도 독립 기능으로 유지.
 
 ### 내부 기능 최적화
 
@@ -210,6 +280,7 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 > 현재 기본 구현에서 아래 스타일 가이드로 개선 필요.
 
 **레이아웃 구조:**
+
 ```
 상단: Transaction 1 | Row A (Lock) | Row B (Lock) | Transaction 2  ← 4개 컬럼 헤더
       세로 시간 흐름 (위 → 아래)
@@ -223,26 +294,29 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 **React Flow 노드/엣지 명세:**
 
-| 종류 | 스타일 |
-|------|--------|
-| Transaction 노드 (T1, T2) | 파란 박스 |
-| Resource 노드 (Row A, Row B) | 회색 박스 |
-| Lock 획득 성공 엣지 | 초록 실선 + ✅ 체크 아이콘 |
-| Lock 대기 엣지 | 주황 점선 + ⌛ 모래시계 아이콘 |
-| Deadlock 엣지 | 빨간 실선 + 💀 skull 아이콘 |
-| Deadlock 배너 | 중앙 빨간 오버레이 배너 |
+| 종류                         | 스타일                  |
+|----------------------------|----------------------|
+| Transaction 노드 (T1, T2)    | 파란 박스                |
+| Resource 노드 (Row A, Row B) | 회색 박스                |
+| Lock 획득 성공 엣지              | 초록 실선 + ✅ 체크 아이콘     |
+| Lock 대기 엣지                 | 주황 점선 + ⌛ 모래시계 아이콘   |
+| Deadlock 엣지                | 빨간 실선 + 💀 skull 아이콘 |
+| Deadlock 배너                | 중앙 빨간 오버레이 배너        |
 
 **필수 인터랙션:**
+
 - Timeline 슬라이더 — 시간 순서대로 단계별 재생/정지/이동
 - 노드 클릭 → 해당 단계 상세 설명 툴팁 또는 사이드 패널
 - Isolation Level 토글 (READ_COMMITTED / REPEATABLE_READ / SERIALIZABLE 등) → 시뮬레이션 결과 실시간 변경
 
 **디자인 요구사항:**
+
 - 다크 모드 최적화 (프로젝트 기본 다크 테마)
 - Hashnode iframe 안에서도 responsive + 자동 height 조정
 - 교육용으로 직관적이고 전문적인 톤
 
 **확장성:**
+
 - DEADLOCK 패턴 먼저 완성 후 Lost Update / Dirty Read / Phantom Read / MVCC를 동일 컴포넌트 구조로 확장
 - 각 시나리오별 "해결 방법 제안" 텍스트 표시 (예: "락 획득 순서를 통일하세요")
 
