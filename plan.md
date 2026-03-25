@@ -17,8 +17,14 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 
 **두 가지 흐름:**
 
-1. GitHub 레포 → 데이터 수집 → 글 초안 → AI 개선 → Hashnode 발행
-2. 직접 글 작성 → AI 개선 → Hashnode 발행
+1. GitHub 레포
+→ 데이터 수집
+→ 글 초안
+→ AI 개선
+→ Hashnode 발행
+2. 직접 글 작성
+→ AI 개선
+→ Hashnode 발행
 
 ---
 
@@ -33,9 +39,11 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 | 암호화   | Jasypt `PBEWithMD5AndDES` + AES-256-GCM (DB 컬럼)        |
 | 인증    | GitHub OAuth2 + JWT (Access 24h / Refresh 30일)         |
 | 컨테이너  | Docker Compose (backend, frontend, redis, certbot)     |
-| CI/CD | GitHub Actions → OCI 서버 롤링 배포                          |
+| CI/CD | GitHub Actions
+→ OCI 서버 롤링 배포                          |
 | 인프라   | OCI 단일 서버 (2CPU/16GB), 도메인: `git-ai-blog.kr`           |
-| 웹서버   | Nginx — HTTPS (Let's Encrypt 자동 갱신) + reverse proxy    |
+| 웹서버   | Nginx
+— HTTPS (Let's Encrypt 자동 갱신) + reverse proxy    |
 
 ---
 
@@ -49,11 +57,13 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 ### Docker Compose 구성
 
 ```
-backend  — Spring Boot prod, JASYPT_ENCRYPTOR_PASSWORD, prepareThreshold=0
+
+backend — Spring Boot prod, JASYPT_ENCRYPTOR_PASSWORD, prepareThreshold=0
 frontend — Nginx + React, 80/443, certbot_data(ro) + certbot_www 마운트
-           docker-entrypoint.sh: 6시간마다 인증서 변경 감지 → nginx reload
-redis    — AOF 영속성, 헬스체크 포함
-certbot  — 12시간마다 certbot renew --webroot (frontend 무중단)
+docker-entrypoint.sh: 6시간마다 인증서 변경 감지 → nginx reload
+redis — AOF 영속성, 헬스체크 포함
+certbot — 12시간마다 certbot renew --webroot (frontend 무중단)
+
 ```
 
 **외부 볼륨 (external: true):** `certbot_data`, `certbot_www`
@@ -244,88 +254,273 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
     - 체크박스 (`- [ ] 항목`, `- [x] 항목`) — 텍스트로만 출력
     - 취소선 (`~~취소~~`) — 텍스트로만 출력
     - autolinks (URL/이메일 자동 링크) — 텍스트로만 출력
-- [ ] **Mermaid 다이어그램 렌더링** — AI가 생성하는 `graph LR` 등 Mermaid 코드블록이 코드 원문으로만 표시됨.
+- [x] **Mermaid 다이어그램 렌더링** — AI가 생성하는 `graph LR` 등 Mermaid 코드블록이 코드 원문으로만 표시됨.
   구현 방식: `npm install mermaid` 후 `MermaidBlock` 컴포넌트(동적 import + `mermaid.render()`) 작성,
   `MarkdownRenderer` 공통 컴포넌트에서 ReactMarkdown `components.code` 커스터마이저로 mermaid 언어 감지 시 `MermaidBlock` 렌더링.
-  `PostDetailPage`, `AiSuggestionPanel` 양쪽에서 `MarkdownRenderer`로 교체.
-  **차단 요인**: npm 캐시 권한 문제(`sudo chown -R 501:20 "/Users/kang/.npm"` 실행 후 설치 가능)
+  `PostDetailPage`, `AiSuggestionPanel` 양쪽에서 `MarkdownRenderer`로 교체 완료.
 - [x] **DRAFT 상태에서 발행 버튼 활성화** — 현재 발행 버튼은 `ACCEPTED` 상태에서만 표시됨. 게시글 작성 직후(DRAFT) 바로 발행 가능하도록 상태 조건 확대 또는 DRAFT → 직접 발행
   흐름 추가
 
 ### SQL Visualization Widget (SQLViz Widget)
 
-> **한 줄 설명**: 개발자 블로그에서 SQL 코드를 단순 코드 블록이 아닌, 인터랙티브 시각화 위젯으로 자동 변환해주는 신규 대형 기능.
-> **최종 목표**: "개발자들이 블로그에 SQL을 쓸 때, 데드락·동시성 문제·트랜잭션 흐름을 Timeline + React Flow로 눈으로 보게 만드는 플랫폼 기능"
-> **핵심 차별점**: 단순 Execution Plan이 아닌 — 가상 데드락 시나리오, Dirty Read / Non-Repeatable Read / Phantom Read / Lost Update 등 동시성 문제, MVCC vs Locking 충돌을 초급~중상급 수준으로 시각화
+> **한 줄 설명**: 개발자 블로그에서 SQL 코드를 단순 코드 블록이 아닌, 인터랙티브 시각화 위젯으로 자동 변환해주는 신규 기능.
+> **핵심 차별점**: 단순 Execution Plan이 아닌 — 가상 데드락 시나리오, Dirty Read / Non-Repeatable Read / Phantom Read / Lost Update / MVCC 동시성 문제를 Timeline + React Flow로 시각화
 
-**확정 방향성:**
-- 본 프로젝트(기존 SaaS)에 신규 기능으로 통합
-- JS SDK 방식 완전 배제 — 임베드/iframe 중심
-- Hashnode 삽입: Widgets 등록 후 `%%[sqlviz-deadlock-xxx]` 또는 iframe 코드 직접 사용
-- Chrome Extension은 MVP 이후 별도 검증
+**보안 원칙**: SQL 직접 실행 절대 금지 → 순수 Java 로직 가상 시뮬레이션만 사용
 
-**사용자 흐름 (Hashnode 작성자):**
+**사용자 흐름:**
 
-1. 본 SaaS에서 SQL 여러 개 + Isolation Level + 옵션 선택 → 시각화 미리보기
-2. "Hashnode Embed 생성" 버튼 클릭 → `iframe embed 코드` 또는 `%%[sqlviz-{id}]` Widget 코드 즉시 복사
-3. 작성자가 코드를 Hashnode 글에 붙여넣기만 하면 됨
-- **UX 목표**: 3클릭 이내에 embed 코드 획득
+1. `/sqlviz` 페이지에서 제목 + SQL(최대 10개) + 시나리오 + 격리 수준 선택
+2. "시뮬레이션 생성" → 타임라인/실행흐름 미리보기
+3. "임베드 코드" 탭에서 `%%[sqlviz-{id}]` 또는 iframe 코드 1-click 복사 → Hashnode 글에 붙여넣기
 
-**3자 시점 요구사항 (검토 완료):**
+---
 
-| 시점 | 목표 | 핵심 요구사항 |
-|------|------|-------------|
-| 개발자(작성자) | "이 쿼리들이 동시에 실행되면 데드락이 발생한다"를 눈으로 보여주기 | 샘플 시나리오 제공, 다크/라이트 모드, 모바일 responsive + 터치 지원 |
-| 운영자(SaaS 운영자) | 안전하고 유지보수 쉬운 서비스 운영 + 수익화 | SQL 직접 실행 금지(가상 시뮬레이션만), 백엔드 가벼운 JSON 반환 + 프론트 렌더링, Virtual Threads 활용 |
-| 방문자(블로그 독자) | "데드락이 이렇게 발생하는구나"를 직관적으로 이해 | Timeline 슬라이더 재생/정지, Isolation Level 토글, iframe lazy loading, 자동 height 조정 |
+#### 백엔드 구현
 
-**보안 원칙**: SQL 직접 실행 절대 금지 → 가상 시뮬레이션 또는 EXPLAIN만 사용 (read-only sandbox)
+**API 엔드포인트:**
 
-**수익화 방향 (초안):**
-- Free: 기본 Execution Plan + 간단 데드락 시나리오
-- Pro: 복잡한 중상급 시나리오, AI 설명, 커스텀 시뮬레이션, 무제한 생성
+| 메서드 | URL | 인증 | 설명 |
+|--------|-----|:----:|------|
+| `POST` | `/api/sqlviz` | ✅ | 위젯 생성 |
+| `GET` | `/api/sqlviz` | ✅ | 내 위젯 목록 |
+| `DELETE` | `/api/sqlviz/{id}` | ✅ | 위젯 삭제 (소유자 검증) |
+| `GET` | `/api/embed/sqlviz/{id}` | ❌ | 공개 임베드 조회 (iframe용) |
 
-**Hashnode 호환성 (2026년 확인):**
-- Widgets를 통해 iframe 제한 없이 등록 및 사용 가능
-- iframe 내부 JavaScript / React Flow / 애니메이션 모두 정상 동작
-- 주의: 무거운 iframe 다수 → 블로그 로딩 속도 저하 (Hashnode 공식 경고) → `iframe-resizer` + lazy loading + 가벼운 기본 모드 필수
+**요청 (`POST /api/sqlviz`):**
 
-**기술 스택 (기존 동일 + 신규):**
+```json
+{
+  "title": "데드락 시나리오 분석",
+  "sqls": ["SELECT * FROM orders WHERE id=1 FOR UPDATE", "SELECT * FROM orders WHERE id=2 FOR UPDATE"],
+  "scenario": "DEADLOCK",
+  "isolationLevel": "READ_COMMITTED"
+}
+```
 
-| 영역        | 기술                             |
-|-----------|--------------------------------|
-| 프론트       | React 18 + TypeScript + Vite 5 |
-| 상태관리      | Zustand + immer                |
-| HTTP      | Axios (JWT 인터셉터)               |
-| 스타일       | CSS Modules + CSS 변수 (다크/라이트)  |
-| 라우팅       | React Router v7                |
-| 시각화 (메인)  | React Flow                     |
-| 시각화 (보조)  | Recharts                       |
-| SQL 에디터   | Monaco Editor                  |
-| 백엔드       | Java 25 + Virtual Threads      |
+- `sqls`: 최소 1개, 최대 10개. **실질적으로 첫 2개(t1Sql, t2Sql)만 시뮬레이션에 사용됨**
 
-**프론트 폴더 구조 (신규 추가분):**
+**응답 (`SqlVizResponse`):**
+
+```json
+{
+  "id": 1,
+  "title": "...",
+  "sqls": [...],
+  "scenario": "DEADLOCK",
+  "isolationLevel": "READ_COMMITTED",
+  "simulationData": {
+    "steps": [...],
+    "summary": "...",
+    "hasConflict": true,
+    "conflictType": "DEADLOCK"
+  },
+  "embedUrl": "https://git-ai-blog.kr/embed/sqlviz/1",
+  "hashnodeWidgetCode": "%%[sqlviz-1]",
+  "createdAt": "..."
+}
+```
+
+**도메인 Enum:**
+
+```
+SqlVizScenario:  DEADLOCK | DIRTY_READ | NON_REPEATABLE_READ | PHANTOM_READ | LOST_UPDATE | MVCC
+IsolationLevel:  READ_UNCOMMITTED | READ_COMMITTED | REPEATABLE_READ | SERIALIZABLE
+```
+
+**엔티티 (`sqlviz_widgets` 테이블):**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `id` | Long | PK |
+| `memberId` | Long | 작성자 ID |
+| `title` | String(100) | 제목 |
+| `sqlsJson` | TEXT | SQL 배열 JSON 직렬화 |
+| `scenario` | ENUM | 시나리오 |
+| `isolationLevel` | ENUM | 격리 수준 |
+| `simulationJson` | TEXT | 시뮬레이션 결과 JSON 직렬화 |
+| `createdAt` | LocalDateTime | 생성 시각 |
+
+**시뮬레이션 엔진 (`SqlVizSimulationEngine`):**
+
+`SimulationStep` 필드: `step(번호)`, `txId(T1/T2/DB)`, `operation(BEGIN/LOCK/UPDATE/...)`, `sql`, `result(success/blocked/deadlock/...)`, `detail(설명)`, `durationMs`
+
+격리 수준 분기 동작:
+
+| 시나리오 | 격리 수준 반응 | 충돌 발생 조건 |
+|---------|--------------|--------------|
+| DEADLOCK | 무시 | 항상 충돌 |
+| DIRTY_READ | 반응 | READ_UNCOMMITTED만 충돌 |
+| NON_REPEATABLE_READ | 반응 | READ_UNCOMMITTED, READ_COMMITTED 충돌 |
+| PHANTOM_READ | 반응 | SERIALIZABLE만 방지 |
+| LOST_UPDATE | 무시 | 항상 충돌 (격리 수준으로 해결 불가) |
+| MVCC | 무시 | 항상 충돌 없음 |
+
+> 주의: `detail` 설명 문구는 "balance=500", "orders" 등 하드코딩 예시 — 실제 입력 SQL 값과 무관
+
+---
+
+#### 프론트엔드 구현
+
+**라우트:**
+
+| 경로 | 컴포넌트 | 인증 | 설명 |
+|------|----------|:----:|------|
+| `/sqlviz` | `SqlVizPage` | ✅ | 위젯 생성/관리/미리보기 |
+| `/embed/sqlviz/:id` | `SqlVizEmbedPage` | ❌ | 공개 임베드 단독 페이지 |
+
+**폴더 구조:**
+
 ```
 src/
-├── components/Visualization/
-│   ├── ExecutionFlow/       React Flow 기반 실행 계획 시각화
-│   ├── ConcurrencyTimeline/ Timeline 슬라이더 + 동시성 시뮬레이션
-│   ├── SqlEditor/           Monaco Editor 래퍼
-│   └── EmbedGenerator/      iframe/Widget 코드 생성 UI (최우선)
-├── pages/SqlVizPage.tsx
-├── api/analyzeApi.ts
-└── store/analyzeStore.ts
+├── types/sqlviz.ts                          SqlVizWidget, SimulationStep/Result, enum + label 상수
+├── api/sqlvizApi.ts                         create / getList / delete / getEmbed
+├── store/sqlvizStore.ts                     widgets[], loading, fetchWidgets/createWidget/deleteWidget
+├── pages/
+│   ├── SqlVizPage/                          생성 폼(좌) + 미리보기/목록(우) 2패널 레이아웃
+│   └── SqlVizEmbedPage/                     공개 임베드 단독 페이지
+└── components/Visualization/
+    ├── SqlEditor/                           Monaco Editor 래퍼 (SQL 문법 강조, 다크/라이트)
+    ├── ConcurrencyTimeline/                 트랜잭션별 열 분리 타임라인, 재생/정지/스크러빙
+    ├── ExecutionFlow/                       ReactFlow 노드-엣지 그래프 (충돌 스텝 빨간 배경)
+    └── EmbedGenerator/                     %%[sqlviz-id] + iframe 코드 클립보드 복사 UI
 ```
 
 **구현 범위:**
-- [x] SQL Viz 페이지 (`/sqlviz`) — SQL 입력 + Isolation Level + 옵션 + 시각화 미리보기
+
+- [x] SQL Viz 페이지 (`/sqlviz`) — 제목/SQL/시나리오/격리수준 입력 + 시각화 미리보기
 - [x] 임베드 코드 생성 API (`POST /api/sqlviz`) — 위젯 ID 발급, 공개 임베드 URL 생성
-- [x] 공개 임베드 엔드포인트 (`GET /embed/sqlviz/{id}`) — 인증 불필요, iframe용
+- [x] 공개 임베드 엔드포인트 (`GET /api/embed/sqlviz/{id}`) — 인증 불필요, iframe용
 - [x] Hashnode Widget 코드 생성 (`%%[sqlviz-{id}]` 형태)
-- [x] `EmbedGenerator` 컴포넌트 — iframe 코드 + Widget 코드 복사 UI
-- [x] `ConcurrencyTimeline` 컴포넌트 — 재생/정지 슬라이더, Isolation Level 토글
-- [x] 백엔드 가상 시뮬레이션 아키텍처 — 실제 DB 실행 없이 시나리오 JSON 반환
-- [x] 샘플 시나리오 내장 (데드락, Lost Update, Phantom Read 등)
+- [x] `EmbedGenerator` — iframe 코드 + Widget 코드 1-click 복사 UI
+- [x] `ConcurrencyTimeline` — 재생/정지/스크러빙 슬라이더, 충돌 스텝 색상 강조
+- [x] `ExecutionFlow` — ReactFlow 기반 트랜잭션 흐름 노드 그래프
+- [x] `SqlEditor` — Monaco Editor SQL 문법 강조, 다크/라이트 모드 연동
+- [x] 백엔드 가상 시뮬레이션 — DB 직접 실행 없이 6개 시나리오 Java 순수 로직
+- [x] Layout 네비게이션 "SQL Viz" 링크 추가
+
+---
+
+### SQLViz + AI 프롬프트 연동 가이드
+
+> AI가 게시글을 작성/개선할 때 SQL 흐름이 필요한 부분을 SQLViz 위젯으로 유도하는 방법 정리.
+> **기능 추가 없이 기존 시스템만으로 연동 가능.**
+
+#### 개념: AI가 직접 SQLViz를 만드는 게 아니다
+
+AI(Claude/Grok/GPT)는 텍스트만 반환한다. SQLViz 위젯 자체는 사용자가 `/sqlviz` 페이지에서 직접 생성하고 임베드 코드를 복사해서 게시글에 붙여넣는 흐름이다. AI의 역할은 **"여기에 SQLViz 위젯을 넣어라"는 마커(placeholder)를 본문에 심어주는 것**이다.
+
+#### 현재 이미지 마커 방식 (참고)
+
+`PromptBuilder.java`에 이미 이미지 마커 패턴이 적용되어 있다:
+
+```
+[IMAGE: architecture diagram showing microservices]
+```
+
+→ AI가 이 형식을 본문에 삽입하면 프론트에서 이미지 생성 버튼으로 전환.
+
+#### SQLViz 마커 형식 (코드 블록 방식)
+
+이미지 마커의 인라인 방식과 달리, SQLViz는 SQL 코드를 포함하므로 **코드 블록 방식**을 사용한다:
+
+````
+```sql visualize [dialect] [옵션...]
+-- SQL 코드
+```
+````
+
+**dialect (필수, 첫 번째 위치):**
+- `mysql`
+- `postgresql` 또는 `postgres`
+- `oracle`
+- `generic` (기본값)
+
+**옵션 (dialect 뒤에 공백으로 구분, 최대 2개):**
+- `deadlock`, `lost-update`, `dirty-read`, `non-repeatable`, `phantom-read`, `mvcc`, `locking`, `timeline`
+
+#### PromptBuilder에 추가할 지시문 (미구현 — `PromptBuilder.java` `base` 지시문 다이어그램 섹션 아래에 추가 예정)
+
+`PromptBuilder.java`의 `base` 지시문 **다이어그램 섹션** 바로 아래에 아래 내용을 추가한다:
+
+```
+### SQL 시각화
+- DB, 트랜잭션, 동시성, 격리 수준 관련 내용을 설명할 때는 반드시 아래 형식의 SQLViz 마커를 사용한다.
+- 마커 형식: ```sql visualize [dialect] [옵션...]
+- dialect는 항상 첫 번째 옵션으로 넣는다 (mysql / postgresql / oracle / generic).
+- SQL 코드는 선택한 dialect에 맞는 정확한 문법으로 작성한다.
+- 마커 블록 바로 아래에 1~2줄의 자연스러운 한국어 설명을 반드시 추가한다.
+- 한 응답당 SQLViz 마커는 최대 3개까지만 사용한다.
+- 실제 DB 실행이 아닌 교육용 가상 시나리오만 생성한다.
+```
+
+#### Few-shot 예시 (PromptBuilder 지시문에 포함)
+
+**예시 1 — PostgreSQL 데드락:**
+````
+```sql visualize postgresql deadlock
+-- T1
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+
+-- T2
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 2;
+```
+→ PostgreSQL에서 두 트랜잭션이 서로의 행을 Lock 잡고 발생하는 데드락 시나리오입니다.
+````
+
+**예시 2 — MySQL Lost Update:**
+````
+```sql visualize mysql lost-update
+UPDATE accounts SET balance = balance + 300 WHERE id = 1;
+```
+→ MySQL의 기본 READ COMMITTED 격리 수준에서 발생하는 Lost Update 현상입니다.
+````
+
+**예시 3 — Oracle Phantom Read:**
+````
+```sql visualize oracle phantom-read
+SELECT * FROM accounts WHERE balance > 500;
+```
+→ Oracle에서 REPEATABLE READ 격리 수준에서도 Phantom Read가 발생할 수 있는 예시입니다.
+````
+
+#### 사용자 흐름 (AI 마커 → 실제 위젯 삽입)
+
+```
+1. 사용자가 게시글 AI 개선 요청
+2. AI가 본문에 ```sql visualize [dialect] [옵션] 마커 삽입 + 한국어 설명 1~2줄
+3. 사용자가 PostDetailPage/PostEditPage에서 마커 확인
+4. 수동으로 /sqlviz 페이지 이동 (게시글 내 버튼 연동은 미구현)
+5. 마커의 dialect/옵션/SQL을 입력창에 채워서 위젯 생성
+6. 생성된 hashnodeWidgetCode(%%[sqlviz-{id}]) 또는 iframe 코드를 본문의 마커 위치에 교체
+```
+
+#### 지원 시나리오 × 격리 수준 매트릭스 (현재 구현 상태)
+
+| 시나리오                | READ_UNCOMMITTED | READ_COMMITTED | REPEATABLE_READ | SERIALIZABLE |
+|---------------------|:----------------:|:--------------:|:---------------:|:------------:|
+| DEADLOCK            |     ✅ 항상 충돌      |    ✅ 항상 충돌     |     ✅ 항상 충돌     |   ✅ 항상 충돌    |
+| DIRTY_READ          |     ✅ 충돌 발생      |     ✅ 방지됨      |      ✅ 방지됨      |    ✅ 방지됨     |
+| NON_REPEATABLE_READ |     ✅ 충돌 발생      |    ✅ 충돌 발생     |      ✅ 방지됨      |    ✅ 방지됨     |
+| PHANTOM_READ        |     ✅ 충돌 발생      |    ✅ 충돌 발생     |     ✅ 충돌 발생     |    ✅ 방지됨     |
+| LOST_UPDATE         |     ✅ 항상 충돌      |    ✅ 항상 충돌     |     ✅ 항상 충돌     |   ✅ 항상 충돌    |
+| MVCC                |     ✅ 충돌 없음      |    ✅ 충돌 없음     |     ✅ 충돌 없음     |   ✅ 충돌 없음    |
+
+> 시뮬레이션 로직: `SqlVizSimulationEngine.java` — 격리 수준 조합에 따라 충돌/방지 분기 처리
+
+#### ContentType별 프롬프트 추가 권장 (미구현 — PromptBuilder ContentType 분기에 추가 예정)
+
+| ContentType | SQLViz 추천 시나리오                          |
+|-------------|-----------------------------------------|
+| CS          | DEADLOCK, MVCC, PHANTOM_READ — 개념 설명 시  |
+| CODING      | LOST_UPDATE, DIRTY_READ — 코드 버그 분석 시    |
+| TEST        | NON_REPEATABLE_READ — 트랜잭션 테스트 케이스 설명 시 |
+| ALGORITHM   | 해당 없음                                   |
+| 기타          | 판단에 따라 선택적 사용                           |
+
+---
 
 ### 운영 / 모니터링
 

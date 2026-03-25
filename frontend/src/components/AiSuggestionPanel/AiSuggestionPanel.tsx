@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import toast from 'react-hot-toast'
+import { MarkdownRenderer } from '../MarkdownRenderer/MarkdownRenderer'
 import { AiSuggestion, AiSuggestionRequest } from '../../types/suggestion'
 import { suggestionApi } from '../../api/suggestionApi'
 import { promptApi } from '../../api/promptApi'
@@ -159,7 +158,7 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
               </span>
             </div>
             <div className={`${styles.content} markdown-body`}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{suggestion.suggestedContent}</ReactMarkdown>
+              <MarkdownRenderer content={suggestion.suggestedContent} />
             </div>
             <div className={styles.suggestionActions}>
               <button className={styles.acceptBtn} onClick={handleAccept}>✓ 수락 (내용 적용)</button>

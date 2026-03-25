@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { MarkdownRenderer } from '../../components/MarkdownRenderer/MarkdownRenderer'
 import toast from 'react-hot-toast'
 import { usePostStore } from '../../store/postStore'
 import { useSuggestionStore } from '../../store/suggestionStore'
@@ -99,7 +98,7 @@ export function PostDetailPage() {
       )}
 
       <div className={`${styles.content} markdown-body`}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentPost.content}</ReactMarkdown>
+        <MarkdownRenderer content={currentPost.content} />
       </div>
 
       <div className={styles.bottomActions}>
