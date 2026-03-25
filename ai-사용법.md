@@ -30,7 +30,9 @@ md 구조
 
 - research.md : 리서치 내용 작성
 - **/claude.md: 모듈화된 리서치 내용 바탕으로 계획 작성
-- plan.md : 리서치 내용을 바탕으로 계획 작성
+- plan.md : 현황 대시보드 (체크리스트 + 문서 링크)
+- sqlviz.md : SQLViz 설계 / UX / AI 연동
+- infra.md  : 배포 / 인프라 셋업 절차
 
 ## 목표
 
