@@ -31,4 +31,9 @@ export interface ApiKeyUpdateRequest {
   grokDailyLimit?: number
   gptDailyLimit?: number
   geminiDailyLimit?: number
+  clearClaudeApiKey?: boolean
+  clearGrokApiKey?: boolean
+  clearGptApiKey?: boolean
+  clearGeminiApiKey?: boolean
+  clearGithubToken?: boolean
 }

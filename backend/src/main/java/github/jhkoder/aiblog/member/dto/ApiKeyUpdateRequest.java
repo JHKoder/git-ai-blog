@@ -43,5 +43,9 @@ public class ApiKeyUpdateRequest {
     @Size(max = 500, message = "GitHub Token은 500자 이하여야 합니다.")
     private String githubToken;
 
-
+    private Boolean clearClaudeApiKey;
+    private Boolean clearGrokApiKey;
+    private Boolean clearGptApiKey;
+    private Boolean clearGeminiApiKey;
+    private Boolean clearGithubToken;
 }

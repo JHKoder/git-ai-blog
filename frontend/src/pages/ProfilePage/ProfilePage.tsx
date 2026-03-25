@@ -124,6 +124,16 @@ export function ProfilePage() {
     }
   }
 
+  const handleClearApiKey = async (field: 'clearClaudeApiKey' | 'clearGrokApiKey' | 'clearGptApiKey' | 'clearGeminiApiKey' | 'clearGithubToken') => {
+    try {
+      const res = await memberApi.updateApiKeys({ [field]: true })
+      setMember(res.data.data)
+      toast.success('연동이 해제됐습니다.')
+    } catch {
+      toast.error('해제 실패')
+    }
+  }
+
   const handleApiKeys = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
@@ -336,8 +346,13 @@ export function ProfilePage() {
             <p className={styles.groupLabel}>GitHub</p>
             <div className={styles.field}>
               <label>Personal Access Token (데이터 수집용) {member.hasGithubToken && <span className={styles.set}>✓ 설정됨</span>}</label>
-              <input type="password" value={githubToken} onChange={e => setGithubToken(e.target.value)}
-                placeholder="ghp_xxxxxxxxxxxx" className={styles.input} />
+              <div className={styles.keyInputRow}>
+                <input type="password" value={githubToken} onChange={e => setGithubToken(e.target.value)}
+                  placeholder="ghp_xxxxxxxxxxxx" className={styles.input} />
+                {member.hasGithubToken && (
+                  <button type="button" className={styles.clearBtn} onClick={() => handleClearApiKey('clearGithubToken')}>해제</button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -345,23 +360,43 @@ export function ProfilePage() {
             <p className={styles.groupLabel}>AI API 키 <span className={styles.optional}>(선택 — 미설정 시 서버 공통 키 사용)</span></p>
             <div className={styles.field}>
               <label>Claude API 키 {member.hasClaudeApiKey && <span className={styles.set}>✓ 설정됨</span>}</label>
-              <input type="password" value={claudeKey} onChange={e => setClaudeKey(e.target.value)}
-                placeholder="sk-ant-..." className={styles.input} />
+              <div className={styles.keyInputRow}>
+                <input type="password" value={claudeKey} onChange={e => setClaudeKey(e.target.value)}
+                  placeholder="sk-ant-..." className={styles.input} />
+                {member.hasClaudeApiKey && (
+                  <button type="button" className={styles.clearBtn} onClick={() => handleClearApiKey('clearClaudeApiKey')}>해제</button>
+                )}
+              </div>
             </div>
             <div className={styles.field}>
               <label>Grok API 키 {member.hasGrokApiKey && <span className={styles.set}>✓ 설정됨</span>}</label>
-              <input type="password" value={grokKey} onChange={e => setGrokKey(e.target.value)}
-                placeholder="xai-..." className={styles.input} />
+              <div className={styles.keyInputRow}>
+                <input type="password" value={grokKey} onChange={e => setGrokKey(e.target.value)}
+                  placeholder="xai-..." className={styles.input} />
+                {member.hasGrokApiKey && (
+                  <button type="button" className={styles.clearBtn} onClick={() => handleClearApiKey('clearGrokApiKey')}>해제</button>
+                )}
+              </div>
             </div>
             <div className={styles.field}>
               <label>GPT API 키 (OpenAI) {member.hasGptApiKey && <span className={styles.set}>✓ 설정됨</span>}</label>
-              <input type="password" value={gptKey} onChange={e => setGptKey(e.target.value)}
-                placeholder="sk-..." className={styles.input} />
+              <div className={styles.keyInputRow}>
+                <input type="password" value={gptKey} onChange={e => setGptKey(e.target.value)}
+                  placeholder="sk-..." className={styles.input} />
+                {member.hasGptApiKey && (
+                  <button type="button" className={styles.clearBtn} onClick={() => handleClearApiKey('clearGptApiKey')}>해제</button>
+                )}
+              </div>
             </div>
             <div className={styles.field}>
               <label>Gemini API 키 (Google) {member.hasGeminiApiKey && <span className={styles.set}>✓ 설정됨</span>}</label>
-              <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)}
-                placeholder="AIza..." className={styles.input} />
+              <div className={styles.keyInputRow}>
+                <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)}
+                  placeholder="AIza..." className={styles.input} />
+                {member.hasGeminiApiKey && (
+                  <button type="button" className={styles.clearBtn} onClick={() => handleClearApiKey('clearGeminiApiKey')}>해제</button>
+                )}
+              </div>
             </div>
           </div>
 

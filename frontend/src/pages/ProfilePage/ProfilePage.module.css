@@ -471,3 +471,34 @@
   text-align: right;
   margin-top: 2px;
 }
+
+.keyInputRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.keyInputRow .input {
+  flex: 1;
+}
+
+.clearBtn {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.clearBtn:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+[data-theme='dark'] .clearBtn {
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}

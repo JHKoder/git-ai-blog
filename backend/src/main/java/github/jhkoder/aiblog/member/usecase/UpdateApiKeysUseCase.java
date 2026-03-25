@@ -33,19 +33,29 @@ public class UpdateApiKeysUseCase {
 
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다."));
-        if (request.getClaudeApiKey() != null) {
+        if (Boolean.TRUE.equals(request.getClearClaudeApiKey())) {
+            member.updateClaudeApiKey(null);
+        } else if (request.getClaudeApiKey() != null) {
             member.updateClaudeApiKey(request.getClaudeApiKey());
         }
-        if (request.getGrokApiKey() != null) {
+        if (Boolean.TRUE.equals(request.getClearGrokApiKey())) {
+            member.updateGrokApiKey(null);
+        } else if (request.getGrokApiKey() != null) {
             member.updateGrokApiKey(request.getGrokApiKey());
         }
-        if (request.getGptApiKey() != null) {
+        if (Boolean.TRUE.equals(request.getClearGptApiKey())) {
+            member.updateGptApiKey(null);
+        } else if (request.getGptApiKey() != null) {
             member.updateGptApiKey(request.getGptApiKey());
         }
-        if (request.getGeminiApiKey() != null) {
+        if (Boolean.TRUE.equals(request.getClearGeminiApiKey())) {
+            member.updateGeminiApiKey(null);
+        } else if (request.getGeminiApiKey() != null) {
             member.updateGeminiApiKey(request.getGeminiApiKey());
         }
-        if (request.getGithubToken() != null) {
+        if (Boolean.TRUE.equals(request.getClearGithubToken())) {
+            member.updateGithubCredentials(null);
+        } else if (request.getGithubToken() != null) {
             member.updateGithubCredentials(request.getGithubToken());
         }
         if (request.getAiDailyLimit() != null) {
