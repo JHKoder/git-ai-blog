@@ -1,79 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SSE 스트리밍 + @Async 폴링 구현)
-> 개발자: 1인 개인 프로젝트 / 목표 사용자: 최대 100명
-
-<!--
-## AI 개선 요청 — 클라이언트 연결 끊김 문제
-
-### 현상
-- AI API 호출은 수십 초 소요 → 클라이언트가 타임아웃 또는 네트워크 단절로 먼저 연결을 끊음
-- 서버 측에서는 "클라이언트가 연결을 먼저 끊었습니다(Broken pipe / Connection reset)" 에러 발생
-- 하지만 AI 응답은 정상 완료되어 DB에 AiSuggestion이 저장됨
-- 클라이언트는 에러 화면 표시 → 사용자가 다시 요청 → AI 사용량 이중 차감
-
-### 근본 원인
-현재 `POST /api/ai-suggestions/{postId}` 가 동기(sync) 방식:
-클라이언트가 AI 응답이 올 때까지 HTTP 연결을 유지해야 함 (30~60초)
-→ 브라우저/프록시 타임아웃(보통 30초), 모바일 네트워크 단절 등으로 끊김
-
-### 개선 아이디어
-
-#### 방안 A — @Async 비동기 + 폴링 (구현 난이도: 낮음) ✅ 단기 추천
-1. `POST /api/ai-suggestions/{postId}` 즉시 `202 Accepted` 반환
-2. 백엔드는 `@Async`로 AI 처리를 별도 스레드에서 실행, 완료 시 DB 저장
-3. 클라이언트는 `GET /api/ai-suggestions/{postId}/latest` 를 3~5초 간격으로 폴링
-4. 새 `latestSuggestion` 감지 시 폴링 중단 → 정상 표시
-
-- 장점: 기존 API 구조 최소 변경, 추가 인프라 불필요, 구현 빠름
-- 단점: 폴링 주기만큼 지연 표시. 진행률 표시 불가 (스피너만)
-- 프론트: `AiSuggestionPanel`에 폴링 로직 + 로딩 UI 추가
-
-#### 방안 B — SSE 스트리밍 (구현 난이도: 높음) — "AI가 타이핑하는 것처럼" 실시간 표시
-> Q: 실시간으로 AI가 작업 중인 텍스트도 보여줄 수 있어?
-
-**가능하다.** 이게 SSE(Server-Sent Events) + AI 스트리밍 API 조합이다.
-
-**동작 원리:**
-1. AI API(Claude, Grok, GPT, Gemini) 모두 스트리밍 모드 지원 — 토큰이 생성될 때마다 청크 단위로 전송
-   - **토큰 비용**: 스트리밍 여부는 요금에 영향 없음. 입출력 토큰 수는 동일.
-2. 백엔드에서 AI 스트리밍 응답(`text/event-stream`)을 받아 그대로 클라이언트에 SSE로 중계
-3. 클라이언트는 SSE 연결을 유지하면서 토큰이 도착할 때마다 화면에 append
-
-**현재 상태 vs 변경 필요:**
-- 현재: `ClaudeClient`, `GrokClient` 등 모두 `bodyToMono(String.class)` — 전체 응답 한 번에 수신
-- 변경: `bodyToFlux(String.class)` + `text/event-stream` Accept 헤더로 교체 필요
-- 백엔드 컨트롤러: `SseEmitter` 또는 `Flux<ServerSentEvent>` 반환으로 교체
-- nginx: `proxy_buffering off` 설정 필요 (SSE가 버퍼링되면 실시간 안 됨)
-
-**동시성 성능 고려 (참고용 — 현재 목표 100명):**
-- SSE + Spring WebFlux(`Flux` 반환)는 비동기 논블로킹 → 100명 동시 스트리밍도 스레드 수십 개로 처리 가능
-- **실질 병목은 AI API rate limit**: Claude/GPT 등 분당 요청 한도에 먼저 막힘 (서버 CPU/메모리보다 먼저)
-
-**구현 범위:**
-- 백엔드: `AiClient` 인터페이스에 `streamComplete()` 메서드 추가, 4개 클라이언트 각각 스트리밍 구현
-- 백엔드: `AiSuggestionController`에 SSE 엔드포인트 추가 (`GET /api/ai-suggestions/{postId}/stream`)
-- 프론트: `EventSource` API로 SSE 연결, 토큰 도착마다 `MarkdownRenderer`에 누적 렌더링
-- 완료 이벤트 수신 시 SSE 닫고 DB 저장된 최종본 `fetchLatest`로 교체
-
-**주의사항:**
-- 스트리밍 중 클라이언트가 끊기면 백엔드는 계속 실행 → 완료 후 DB 저장은 정상 (연결 끊김 문제 근본 해결)
-- 4개 AI 모두 스트리밍 API 형식이 다름 (Claude: `data:`, GPT: `data:`, Grok: OpenAI 호환, Gemini: 별도 파싱 필요)
-- 토큰 카운팅은 스트리밍 완료 후 summary 이벤트에서 추출 (Claude: `message_delta` 이벤트)
-
-**완료 예상 시간 표시 (UX 개선):**
-- SSE 스트림 시작 시 첫 이벤트로 "예상 완료까지 약 N초" 전송 → 프론트에서 카운트다운/프로그레스 바
-- 구현 방법: `AiSuggestion` 테이블에 `durationMs` 컬럼 추가 → AI 응답 완료 시 소요 시간(ms) 저장
-  - 예상 시간 계산: `WHERE model = ? AND durationMs > 0` 조건으로 평균 산출 (0이거나 null이면 자동 제외)
-  - 이전 글들은 `durationMs` 미저장 → `durationMs > 0` 조건으로 평균에서 자동 배제
-  - 데이터가 없거나 평균 계산 불가 시 → 모델별 하드코딩 fallback (Claude 40초, Grok 20초, GPT-4o 30초)
-- 연결이 끊겨도 "처리 중입니다. 잠시 후 확인해보세요." 안내로 재요청 방지 가능
-
-### 결론 / 구현 우선순위
-- **단기**: 방안 A — `@Async` + 폴링. 연결 끊김 근본 해결, 구현 빠름
-- **중기**: 방안 B — SSE 스트리밍. 방안 A 위에 올리는 구조. AI 타이핑 UX + 예상 시간 표시
-
--->
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SecurityContext Async 전파 이슈 추가)
 
 ## 문서 구조
 
@@ -222,6 +149,9 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] AI SSE 스트리밍 — 토큰 단위 실시간 렌더링, `POST /api/ai-suggestions/{postId}/stream` (방안 B)
 - [x] `durationMs` 컬럼 — AI 응답 소요 시간 저장, 모델별 평균 조회
 - [x] nginx SSE 지원 — `/api/ai-suggestions/*/stream` 경로에 `proxy_buffering off`
+- [x] SSE 버그 수정 — `이미 AI 제안 상태` 오류, `Access Denied` + response committed 오류, 에러 이벤트 미처리
+- [ ] AI SSE 예상 완료 시간 표시 — `durationMs` 평균으로 카운트다운 UI (스트리밍 시작 시 첫 이벤트로 예상 시간 전달)
+- [ ] `@Async` SecurityContext 전파 — `SimpleAsyncTaskExecutor` 경고, `DelegatingSecurityContextAsyncTaskExecutor` + `WebMvcConfigurer.configureAsyncSupport` 적용 필요
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
 ### SQL Visualization Widget
