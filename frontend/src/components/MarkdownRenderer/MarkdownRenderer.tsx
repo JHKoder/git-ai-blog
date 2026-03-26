@@ -41,9 +41,10 @@ function removeImagePlaceholders(content: string): string {
   return content.replace(/\[IMAGE:[^\]]*\]/g, '')
 }
 
-// AI 저자 인용 줄 제거 — PostDetailPage AI 메타 카드로 통합 표시
+// AI 저자 줄 제거 — PostDetailPage AI 메타 카드로 통합 표시
+// 인용(>) 형식과 일반 텍스트 형식 모두 제거
 function removeAiAuthorLine(content: string): string {
-  return content.replace(/^>\s*이 글은 .+이 작성을 도왔습니다\.?\s*$/gm, '')
+  return content.replace(/^>?\s*이 글은 .+이 작성을 도왔습니다\.?\s*$/gm, '')
 }
 
 const components = (blocks: Map<string, SqlVizBlock>): Components => ({
