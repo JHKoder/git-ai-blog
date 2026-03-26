@@ -115,6 +115,7 @@ public class GrokClient implements AiClient {
             return Flux.error(new ExternalApiException("Grok 요청 직렬화 실패: " + e.getMessage(), e));
         }
 
+        log.info("[Grok] streamComplete 호출 model={} promptLen={}", resolvedModel, prompt.length());
         return webClientBuilder.build()
                 .post()
                 .uri(baseUrl + "/v1/chat/completions")
@@ -124,6 +125,7 @@ public class GrokClient implements AiClient {
                 .bodyValue(jsonBody)
                 .retrieve()
                 .bodyToFlux(String.class)
+                .doOnSubscribe(s -> log.info("[Grok] HTTP 연결 수립, SSE 수신 대기 중"))
                 .flatMap(line -> {
                     if (!line.startsWith("data: ")) return Flux.empty();
                     String json = line.substring(6).trim();
@@ -132,10 +134,16 @@ public class GrokClient implements AiClient {
                         JsonNode node = objectMapper.readTree(json);
                         String delta = node.path("choices").path(0).path("delta").path("content").asText("");
                         if (!delta.isEmpty()) return Flux.just(delta);
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        log.warn("[Grok] SSE 라인 파싱 실패: {} line=[{}]", e.getMessage(), line);
+                    }
                     return Flux.empty();
                 })
-                .onErrorMap(e -> new ExternalApiException("Grok 스트리밍 실패: " + e.getMessage(), e));
+                .doOnComplete(() -> log.info("[Grok] SSE 스트림 종료"))
+                .onErrorMap(e -> {
+                    log.error("[Grok] 스트리밍 오류: {}", e.getMessage(), e);
+                    return new ExternalApiException("Grok 스트리밍 실패: " + e.getMessage(), e);
+                });
     }
 
     /** Grok API 키 유효성 검증 — /v1/models 호출 */

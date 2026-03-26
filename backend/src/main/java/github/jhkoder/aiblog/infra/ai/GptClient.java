@@ -124,6 +124,7 @@ public class GptClient implements AiClient {
             return Flux.error(new ExternalApiException("GPT 요청 직렬화 실패: " + e.getMessage(), e));
         }
 
+        log.info("[GPT] streamComplete 호출 model={} promptLen={}", resolvedModel, prompt.length());
         return webClientBuilder.build()
                 .post()
                 .uri(BASE_URL + "/v1/chat/completions")
@@ -133,6 +134,7 @@ public class GptClient implements AiClient {
                 .bodyValue(jsonBody)
                 .retrieve()
                 .bodyToFlux(String.class)
+                .doOnSubscribe(s -> log.info("[GPT] HTTP 연결 수립, SSE 수신 대기 중"))
                 .flatMap(line -> {
                     if (!line.startsWith("data: ")) return Flux.empty();
                     String json = line.substring(6).trim();
@@ -141,10 +143,16 @@ public class GptClient implements AiClient {
                         JsonNode node = objectMapper.readTree(json);
                         String delta = node.path("choices").path(0).path("delta").path("content").asText("");
                         if (!delta.isEmpty()) return Flux.just(delta);
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        log.warn("[GPT] SSE 라인 파싱 실패: {} line=[{}]", e.getMessage(), line);
+                    }
                     return Flux.empty();
                 })
-                .onErrorMap(e -> new ExternalApiException("GPT 스트리밍 실패: " + e.getMessage(), e));
+                .doOnComplete(() -> log.info("[GPT] SSE 스트림 종료"))
+                .onErrorMap(e -> {
+                    log.error("[GPT] 스트리밍 오류: {}", e.getMessage(), e);
+                    return new ExternalApiException("GPT 스트리밍 실패: " + e.getMessage(), e);
+                });
     }
 
     /** GPT API 키 유효성 검증 — /v1/models 호출 */

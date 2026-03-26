@@ -107,6 +107,7 @@ public class GeminiClient implements AiClient {
             return Flux.error(new ExternalApiException("Gemini 요청 직렬화 실패: " + e.getMessage(), e));
         }
 
+        log.info("[Gemini] streamComplete 호출 model={} promptLen={}", resolvedModel, prompt.length());
         return webClientBuilder.build()
                 .post()
                 .uri(BASE_URL + "/v1beta/models/" + resolvedModel + ":streamGenerateContent?key=" + apiKey + "&alt=sse")
@@ -115,6 +116,7 @@ public class GeminiClient implements AiClient {
                 .bodyValue(jsonBody)
                 .retrieve()
                 .bodyToFlux(String.class)
+                .doOnSubscribe(s -> log.info("[Gemini] HTTP 연결 수립, SSE 수신 대기 중"))
                 .flatMap(line -> {
                     if (!line.startsWith("data: ")) return Flux.empty();
                     String json = line.substring(6).trim();
@@ -124,10 +126,16 @@ public class GeminiClient implements AiClient {
                                 .path("content").path("parts").path(0)
                                 .path("text").asText("");
                         if (!text.isEmpty()) return Flux.just(text);
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        log.warn("[Gemini] SSE 라인 파싱 실패: {} line=[{}]", e.getMessage(), line);
+                    }
                     return Flux.empty();
                 })
-                .onErrorMap(e -> new ExternalApiException("Gemini 스트리밍 실패: " + e.getMessage(), e));
+                .doOnComplete(() -> log.info("[Gemini] SSE 스트림 종료"))
+                .onErrorMap(e -> {
+                    log.error("[Gemini] 스트리밍 오류: {}", e.getMessage(), e);
+                    return new ExternalApiException("Gemini 스트리밍 실패: " + e.getMessage(), e);
+                });
     }
 
     /** Gemini API 키 유효성 검증 — /v1beta/models 호출 */

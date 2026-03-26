@@ -63,6 +63,7 @@ public class StreamAiSuggestionUseCase {
      */
     @Transactional(readOnly = true)
     public Flux<String> stream(Long postId, Long memberId, AiSuggestionRequest request) {
+        log.info("[StreamAI][1] 요청 수신 postId={} memberId={} model={}", postId, memberId, request.getModel());
         aiUsageLimiter.check(memberId);
 
         Post post = postRepository.findByIdAndMemberId(postId, memberId)
@@ -78,27 +79,39 @@ public class StreamAiSuggestionUseCase {
 
         String prompt = promptBuilder.build(post.getContentType(), contentToImprove, effectiveExtraPrompt);
         AiClientRouter.RouteResult route = aiClientRouter.route(post.getContentType(), request.getModel(), member);
+        log.info("[StreamAI][2] 라우팅 완료 model={} promptLen={}", route.model(), prompt.length());
 
         // 예상 시간 계산: DB 평균 → 없으면 모델별 fallback
         long estimatedSec = resolveEstimatedSeconds(route.model());
+        log.info("[StreamAI][3] estimatedSec={}", estimatedSec);
 
         StringBuilder accumulated = new StringBuilder();
         AtomicLong startMs = new AtomicLong(System.currentTimeMillis());
+        AtomicLong tokenCount = new AtomicLong(0);
 
         String finalEffectiveExtraPrompt = effectiveExtraPrompt;
         Flux<String> estimatedEvent = Flux.just("__estimated__:" + estimatedSec);
         Flux<String> tokenStream = route.client().streamComplete(prompt, route.model(), route.apiKey())
-                .doOnNext(accumulated::append)
-                .doOnError(e -> log.error("[StreamAI] 스트리밍 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e));
+                .doOnSubscribe(s -> log.info("[StreamAI][4] AI API 구독 시작 (streamComplete 호출)"))
+                .doOnNext(token -> {
+                    accumulated.append(token);
+                    long cnt = tokenCount.incrementAndGet();
+                    if (cnt == 1) log.info("[StreamAI][5] 첫 토큰 수신: [{}]", token.replace("\n", "\\n"));
+                    if (cnt % 50 == 0) log.info("[StreamAI][5] 토큰 {}개 수신, 누적 {}자", cnt, accumulated.length());
+                })
+                .doOnComplete(() -> log.info("[StreamAI][6] 토큰 스트림 완료 총 {}개, {}자", tokenCount.get(), accumulated.length()))
+                .doOnError(e -> log.error("[StreamAI][ERR] 스트리밍 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e));
 
         // DB 저장 완료 후 __done__ 신호 emit — 프론트가 done을 받는 시점에 DB에 데이터가 존재함을 보장
         Flux<String> saveAndDone = Flux.defer(() -> {
             long durationMs = System.currentTimeMillis() - startMs.get();
+            log.info("[StreamAI][7] DB 저장 시작 durationMs={} textLen={}", durationMs, accumulated.length());
             try {
                 saveResult(postId, memberId, accumulated.toString(),
                         route.model(), finalEffectiveExtraPrompt, durationMs, prompt.length());
+                log.info("[StreamAI][8] DB 저장 완료 → __done__ emit");
             } catch (Exception e) {
-                log.error("[StreamAI] 완료 후 저장 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e);
+                log.error("[StreamAI][ERR] 완료 후 저장 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e);
             }
             return Flux.just("__done__");
         });

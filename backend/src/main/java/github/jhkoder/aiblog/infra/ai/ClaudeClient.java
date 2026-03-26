@@ -135,6 +135,7 @@ public class ClaudeClient implements AiClient {
             return Flux.error(new ExternalApiException("Claude 요청 직렬화 실패: " + e.getMessage(), e));
         }
 
+        log.info("[Claude] streamComplete 호출 model={} promptLen={}", textModel, prompt.length());
         return webClientBuilder.build()
                 .post()
                 .uri(baseUrl + "/v1/messages")
@@ -145,6 +146,7 @@ public class ClaudeClient implements AiClient {
                 .bodyValue(jsonBody)
                 .retrieve()
                 .bodyToFlux(String.class)
+                .doOnSubscribe(s -> log.info("[Claude] HTTP 연결 수립, SSE 수신 대기 중"))
                 .flatMap(line -> {
                     // SSE line: "data: {...}"
                     if (!line.startsWith("data: ")) return Flux.empty();
@@ -157,10 +159,16 @@ public class ClaudeClient implements AiClient {
                             String delta = node.path("delta").path("text").asText("");
                             if (!delta.isEmpty()) return Flux.just(delta);
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        log.warn("[Claude] SSE 라인 파싱 실패: {} line=[{}]", e.getMessage(), line);
+                    }
                     return Flux.empty();
                 })
-                .onErrorMap(e -> new ExternalApiException("Claude 스트리밍 실패: " + e.getMessage(), e));
+                .doOnComplete(() -> log.info("[Claude] SSE 스트림 종료"))
+                .onErrorMap(e -> {
+                    log.error("[Claude] 스트리밍 오류: {}", e.getMessage(), e);
+                    return new ExternalApiException("Claude 스트리밍 실패: " + e.getMessage(), e);
+                });
     }
 
     /** Claude API 키 유효성 검증 — /v1/models 호출 */
