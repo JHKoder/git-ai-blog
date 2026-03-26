@@ -30,6 +30,7 @@ export function PostDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [suggestionExtraPrompt, setSuggestionExtraPrompt] = useState('')
+  const [evalText, setEvalText] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -139,6 +140,16 @@ export function PostDetailPage() {
             </div>
           )}
 
+          {/* AI 평가 결과 — 본문 하단 */}
+          {evalText && (
+            <div id="eval-result" className={styles.resultBlock}>
+              <h3 className={styles.resultBlockTitle}>AI 평가 결과</h3>
+              <div className={`${styles.evalContent} markdown-body`}>
+                <MarkdownRenderer content={evalText} />
+              </div>
+            </div>
+          )}
+
           {/* AI 제안 결과 — 본문 하단 */}
           {latestSuggestion && (
             <div id="suggestion-result" className={styles.resultBlock}>
@@ -151,13 +162,20 @@ export function PostDetailPage() {
           )}
         </div>
 
-        {/* 우측 사이드바 */}
+        {/* 우측 사이드바: 폼만 */}
         <div className={styles.sidebar}>
-          {/* 평가 패널 (폼 + 결과) */}
+          {/* 평가 폼 (결과는 본문 하단에 표시) */}
           <AiEvaluationPanel
             postId={Number(id)}
             onApplyToImprovement={(prompt) => setSuggestionExtraPrompt(prompt)}
+            hideResult
+            onEvalComplete={(text) => setEvalText(text)}
           />
+          {evalText && (
+            <a href="#eval-result" className={styles.resultViewBtn}>
+              평가 결과 보기 ↓
+            </a>
+          )}
 
           {/* 개선 폼 */}
           <AiSuggestionPanel

@@ -7,6 +7,7 @@ import styles from './AiEvaluationPanel.module.css'
 interface Props {
   postId: number
   onApplyToImprovement?: (extraPrompt: string) => void
+  hideResult?: boolean
   onEvalComplete?: (text: string) => void
 }
 
@@ -55,7 +56,7 @@ function clearStored(postId: number) {
   localStorage.removeItem(storageKey(postId))
 }
 
-export function AiEvaluationPanel({ postId, onApplyToImprovement, onEvalComplete }: Props) {
+export function AiEvaluationPanel({ postId, onApplyToImprovement, hideResult, onEvalComplete }: Props) {
   const [model, setModel] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [streamingText, setStreamingText] = useState('')
@@ -233,7 +234,7 @@ export function AiEvaluationPanel({ postId, onApplyToImprovement, onEvalComplete
         </button>
       </div>
 
-      {streaming && streamingText && (
+      {streaming && streamingText && !hideResult && (
         <div className={styles.resultSection}>
           <h3 className={styles.sectionTitle}>
             <span className={styles.loadingRow}>
@@ -246,7 +247,7 @@ export function AiEvaluationPanel({ postId, onApplyToImprovement, onEvalComplete
         </div>
       )}
 
-      {!streaming && evalResult && (
+      {!hideResult && !streaming && evalResult && (
         <div className={styles.resultSection}>
           <div className={styles.resultHeader}>
             <h3 className={styles.sectionTitle}>평가 결과</h3>
