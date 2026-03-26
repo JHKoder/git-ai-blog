@@ -63,15 +63,17 @@ public class AiSuggestionController {
                                 .data(token.substring("__estimated__:".length()))
                                 .build();
                     }
+                    if (token.equals("__done__")) {
+                        return ServerSentEvent.<String>builder()
+                                .event("done")
+                                .data("[DONE]")
+                                .build();
+                    }
                     return ServerSentEvent.<String>builder()
                             .event("token")
                             .data(token)
                             .build();
                 })
-                .concatWith(Flux.just(ServerSentEvent.<String>builder()
-                        .event("done")
-                        .data("[DONE]")
-                        .build()))
                 .onErrorResume(e -> {
                     log.error("[SSE] 스트리밍 오류 postId={} memberId={}: {}", postId, memberId, e.getMessage());
                     return Flux.just(ServerSentEvent.<String>builder()

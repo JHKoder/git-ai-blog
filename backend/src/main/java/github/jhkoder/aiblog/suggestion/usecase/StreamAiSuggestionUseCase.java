@@ -89,18 +89,21 @@ public class StreamAiSuggestionUseCase {
         Flux<String> estimatedEvent = Flux.just("__estimated__:" + estimatedSec);
         Flux<String> tokenStream = route.client().streamComplete(prompt, route.model(), route.apiKey())
                 .doOnNext(accumulated::append)
-                .doOnComplete(() -> {
-                    long durationMs = System.currentTimeMillis() - startMs.get();
-                    try {
-                        saveResult(postId, memberId, accumulated.toString(),
-                                route.model(), finalEffectiveExtraPrompt, durationMs, prompt.length());
-                    } catch (Exception e) {
-                        log.error("[StreamAI] 완료 후 저장 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e);
-                    }
-                })
                 .doOnError(e -> log.error("[StreamAI] 스트리밍 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e));
 
-        return estimatedEvent.concatWith(tokenStream);
+        // DB 저장 완료 후 __done__ 신호 emit — 프론트가 done을 받는 시점에 DB에 데이터가 존재함을 보장
+        Flux<String> saveAndDone = Flux.defer(() -> {
+            long durationMs = System.currentTimeMillis() - startMs.get();
+            try {
+                saveResult(postId, memberId, accumulated.toString(),
+                        route.model(), finalEffectiveExtraPrompt, durationMs, prompt.length());
+            } catch (Exception e) {
+                log.error("[StreamAI] 완료 후 저장 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e);
+            }
+            return Flux.just("__done__");
+        });
+
+        return estimatedEvent.concatWith(tokenStream).concatWith(saveAndDone);
     }
 
     private long resolveEstimatedSeconds(String model) {

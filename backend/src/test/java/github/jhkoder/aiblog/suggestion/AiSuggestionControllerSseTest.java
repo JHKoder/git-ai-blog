@@ -72,7 +72,8 @@ class AiSuggestionControllerSseTest {
         given(streamAiSuggestionUseCase.stream(anyLong(), anyLong(), any(AiSuggestionRequest.class)))
                 .willReturn(Flux.concat(
                         Flux.just("__estimated__:10"),
-                        Flux.just("청크1", "청크2", "청크3")
+                        Flux.just("청크1", "청크2", "청크3"),
+                        Flux.just("__done__")
                 ));
 
         MvcResult result = mockMvc.perform(
