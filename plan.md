@@ -183,6 +183,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] AI 평가 결과 마크다운 렌더링 — `AiEvaluationPanel` 내부 + `PostDetailPage` `evalText` 모두 `MarkdownRenderer` 적용 완료
 - [x] AI 평가 결과 레이아웃 리뉴얼 — 평가 결과를 본문 하단(`#eval-result`)으로 이동, 사이드바는 폼 + "평가 결과 보기 ↓" 앵커 버튼만 유지. `evalContent` overflow-x:
   auto로 테이블 가로 스크롤 보장
+- [x] 사이드바 상단에 발행 버튼 이동 — "Hashnode 발행/재발행" + "Hashnode에서 보기" 링크를 사이드바 최상단 카드로 이동, 상단 actions에서 제거
 - [x] AI 평가 결과 `#` 헤더 렌더링 안됨 — 빈 `data:` 라인(AI `\n` 토큰)을 `\n`으로 처리하도록 수정. AiEvaluationPanel·AiSuggestionPanel 동일 적용
 - [x] `PromptBuilder.buildEvaluation()` 출력 형식 리뉴얼 — 섹션 순서 재구성(🔥총평→📊점수표→🚨TOP3→🧠개선→✂️제거→🏗구조→💎전문가한줄), 강조·가독성·Java 코드블록 언어태그 규칙 적용
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정

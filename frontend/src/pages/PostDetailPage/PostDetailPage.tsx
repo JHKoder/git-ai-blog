@@ -95,15 +95,7 @@ export function PostDetailPage() {
         </div>
         <div className={styles.actions}>
           <button className={styles.pdfBtn} onClick={handleExportPdf}>PDF 내보내기</button>
-          {currentPost.status === 'PUBLISHED' && currentPost.hashnodeUrl && (
-            <a href={currentPost.hashnodeUrl} target="_blank" rel="noopener noreferrer" className={styles.hashnodeLinkBtn}>
-              Hashnode에서 보기 →
-            </a>
-          )}
           <button className={styles.editBtn} onClick={() => navigate(`/posts/${id}/edit`)}>수정</button>
-          <button className={styles.publishBtn} onClick={handlePublish} disabled={publishing}>
-            {publishing ? '발행 중...' : currentPost.status === 'PUBLISHED' ? '재발행' : 'Hashnode 발행'}
-          </button>
           <button className={styles.deleteBtn} onClick={() => setShowDeleteModal(true)}>삭제</button>
         </div>
       </div>
@@ -164,6 +156,18 @@ export function PostDetailPage() {
 
         {/* 우측 사이드바: 폼만 */}
         <div className={styles.sidebar}>
+          {/* 발행 버튼 영역 */}
+          <div className={styles.sidebarPublish}>
+            <button className={styles.publishBtn} onClick={handlePublish} disabled={publishing}>
+              {publishing ? '발행 중...' : currentPost.status === 'PUBLISHED' ? '재발행' : 'Hashnode 발행'}
+            </button>
+            {currentPost.status === 'PUBLISHED' && currentPost.hashnodeUrl && (
+              <a href={currentPost.hashnodeUrl} target="_blank" rel="noopener noreferrer" className={styles.hashnodeLinkBtn}>
+                Hashnode에서 보기 →
+              </a>
+            )}
+          </div>
+
           {/* 평가 폼 (결과는 본문 하단에 표시) */}
           <AiEvaluationPanel
             postId={Number(id)}

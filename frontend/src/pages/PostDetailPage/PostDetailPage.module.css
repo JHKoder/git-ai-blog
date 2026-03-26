@@ -30,6 +30,25 @@
   margin-top: 0 !important;
 }
 
+.sidebarPublish {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 사이드바 발행 영역 안의 버튼/링크는 전체 너비 */
+.sidebarPublish .publishBtn,
+.sidebarPublish .hashnodeLinkBtn {
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+  white-space: normal;
+}
+
 .resultBlock {
   margin-top: 32px;
 }
