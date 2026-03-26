@@ -9,6 +9,7 @@ import github.jhkoder.aiblog.member.domain.Member;
 import github.jhkoder.aiblog.member.domain.MemberRepository;
 import github.jhkoder.aiblog.post.domain.Post;
 import github.jhkoder.aiblog.post.domain.PostRepository;
+import github.jhkoder.aiblog.post.domain.PostStatus;
 import github.jhkoder.aiblog.prompt.domain.Prompt;
 import github.jhkoder.aiblog.prompt.domain.PromptRepository;
 import github.jhkoder.aiblog.suggestion.domain.AiSuggestion;
@@ -45,8 +46,11 @@ public class StreamAiSuggestionUseCase {
     /**
      * SSE 스트리밍 Flux를 반환한다. 구독 시 AI API를 호출하고 토큰을 순서대로 emit한다.
      * 스트리밍 완료 시 DB 저장 + 토큰 사용량 기록을 수행한다 (cold publisher).
+     *
+     * 주의: doOnComplete 는 리액터 스레드에서 실행되므로 @Transactional 이 적용되지 않는다.
+     * 완료 콜백은 별도 @Transactional 메서드(saveResult)로 위임한다.
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public Flux<String> stream(Long postId, Long memberId, AiSuggestionRequest request) {
         aiUsageLimiter.check(memberId);
 
@@ -73,20 +77,37 @@ public class StreamAiSuggestionUseCase {
                 .doOnComplete(() -> {
                     long durationMs = System.currentTimeMillis() - startMs.get();
                     try {
-                        aiUsageLimiter.increment(memberId);
-                        tokenUsageTracker.record(memberId, route.model(),
-                                (long) (prompt.length() / 4), (long) (accumulated.length() / 4));
-
-                        AiSuggestion suggestion = AiSuggestion.createWithDuration(
-                                postId, memberId, accumulated.toString(),
-                                route.model(), finalEffectiveExtraPrompt, durationMs);
-                        aiSuggestionRepository.save(suggestion);
-                        post.markAiSuggested();
+                        saveResult(postId, memberId, accumulated.toString(),
+                                route.model(), finalEffectiveExtraPrompt, durationMs, prompt.length());
                     } catch (Exception e) {
                         log.error("[StreamAI] 완료 후 저장 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e);
                     }
                 })
                 .doOnError(e -> log.error("[StreamAI] 스트리밍 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e));
+    }
+
+    /**
+     * 스트리밍 완료 후 DB 저장 + 사용량 기록.
+     * 별도 @Transactional 메서드로 분리하여 리액터 스레드에서도 트랜잭션이 적용된다.
+     * post.markAiSuggested() 는 이미 AI_SUGGESTED 상태면 멱등 처리한다.
+     */
+    @Transactional
+    public void saveResult(Long postId, Long memberId, String text, String model,
+                           String extraPrompt, long durationMs, int promptLength) {
+        aiUsageLimiter.increment(memberId);
+        tokenUsageTracker.record(memberId, model,
+                (long) (promptLength / 4), (long) (text.length() / 4));
+
+        AiSuggestion suggestion = AiSuggestion.createWithDuration(
+                postId, memberId, text, model, extraPrompt, durationMs);
+        aiSuggestionRepository.save(suggestion);
+
+        // 이미 AI_SUGGESTED 상태인 경우 상태 전이 생략 (멱등)
+        postRepository.findByIdAndMemberId(postId, memberId).ifPresent(post -> {
+            if (post.getStatus() != PostStatus.AI_SUGGESTED) {
+                post.markAiSuggested();
+            }
+        });
     }
 
     private String resolveExtraPrompt(AiSuggestionRequest request) {

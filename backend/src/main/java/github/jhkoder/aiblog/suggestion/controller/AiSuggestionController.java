@@ -6,6 +6,7 @@ import github.jhkoder.aiblog.suggestion.dto.AiSuggestionResponse;
 import github.jhkoder.aiblog.suggestion.usecase.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/ai-suggestions")
 @RequiredArgsConstructor
@@ -42,6 +44,9 @@ public class AiSuggestionController {
      * SSE 스트리밍 AI 개선 요청.
      * 토큰을 실시간으로 emit하며, 완료 후 DB에 저장한다.
      * nginx: proxy_buffering off 설정 필요.
+     *
+     * 에러는 SSE error 이벤트로 클라이언트에 전달하고 스트림을 종료한다.
+     * (예외를 컨테이너로 전파하면 응답이 이미 커밋된 상태에서 처리 불가 문제 발생)
      */
     @PostMapping(value = "/{postId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> stream(
@@ -58,7 +63,14 @@ public class AiSuggestionController {
                 .concatWith(Flux.just(ServerSentEvent.<String>builder()
                         .event("done")
                         .data("[DONE]")
-                        .build()));
+                        .build()))
+                .onErrorResume(e -> {
+                    log.error("[SSE] 스트리밍 오류 postId={} memberId={}: {}", postId, memberId, e.getMessage());
+                    return Flux.just(ServerSentEvent.<String>builder()
+                            .event("error")
+                            .data(e.getMessage())
+                            .build());
+                });
     }
 
     @GetMapping("/{postId}/latest")

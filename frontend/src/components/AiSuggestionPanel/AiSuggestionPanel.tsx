@@ -155,13 +155,18 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
         buffer = lines.pop() ?? ''
 
         for (const line of lines) {
-          if (line.startsWith('event: done')) {
+          if (line.startsWith('event: error')) {
+            // 서버에서 에러 이벤트 수신
+            const dataLine = lines[lines.indexOf(line) + 1] ?? ''
+            const errMsg = dataLine.startsWith('data: ') ? dataLine.slice(6) : 'AI 스트리밍 오류'
+            throw new Error(errMsg)
+          }
+          if (line.startsWith('event: done') || (line.startsWith('data: ') && line.slice(6) === '[DONE]')) {
             // 스트리밍 완료
             break
           }
           if (line.startsWith('data: ')) {
             const data = line.slice(6)
-            if (data === '[DONE]') break
             setStreamingText(prev => prev + data)
           }
         }
