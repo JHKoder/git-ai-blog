@@ -136,22 +136,22 @@ class StreamAiSuggestionSaveTest {
     }
 
     @Test
-    @DisplayName("이미 AI_SUGGESTED 상태인 포스트도 중복 저장 없이 멱등 처리된다")
+    @DisplayName("동일 내용으로 두 번 스트리밍하면 중복 저장 없이 1개만 유지된다")
     void stream_idempotent_whenAlreadyAiSuggested() {
         // 첫 번째 스트리밍
         useCase.stream(savedPost.getId(), savedMember.getId(), new AiSuggestionRequest())
                 .collectList()
                 .block();
 
-        // 두 번째 스트리밍 (이미 AI_SUGGESTED 상태 — 예외 없이 완료되어야 함)
+        // 두 번째 스트리밍 — 동일 내용이므로 중복 저장 생략, 예외 없이 완료되어야 함
         useCase.stream(savedPost.getId(), savedMember.getId(), new AiSuggestionRequest())
                 .collectList()
                 .block();
 
-        // 두 번 모두 저장되어야 함 (제안은 히스토리로 누적)
+        // 내용이 동일하면 중복 저장 생략 → 1개만 유지
         List<AiSuggestion> suggestions = aiSuggestionRepository
                 .findByPostIdOrderByCreatedAtDesc(savedPost.getId());
 
-        assertThat(suggestions).hasSize(2);
+        assertThat(suggestions).hasSize(1);
     }
 }

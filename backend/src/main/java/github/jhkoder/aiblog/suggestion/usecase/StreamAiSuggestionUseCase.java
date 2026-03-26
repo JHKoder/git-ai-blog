@@ -146,6 +146,16 @@ public class StreamAiSuggestionUseCase {
         tokenUsageTracker.record(memberId, model,
                 (long) (promptLength / 4), (long) (text.length() / 4));
 
+        // 이전 제안과 내용이 동일하면 중복 저장 생략
+        boolean isDuplicate = aiSuggestionRepository
+                .findTopByPostIdOrderByCreatedAtDesc(postId)
+                .map(prev -> prev.getSuggestedContent().equals(text))
+                .orElse(false);
+        if (isDuplicate) {
+            log.info("[StreamAI] 이전 제안과 동일한 내용 — 중복 저장 생략 postId={}", postId);
+            return;
+        }
+
         AiSuggestion suggestion = AiSuggestion.createWithDuration(
                 postId, memberId, text, model, extraPrompt, durationMs, suggestedTitle, suggestedTags);
         aiSuggestionRepository.save(suggestion);
