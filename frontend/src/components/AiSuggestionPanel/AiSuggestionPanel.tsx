@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { MarkdownRenderer } from '../MarkdownRenderer/MarkdownRenderer'
 import { AiSuggestion, AiSuggestionRequest } from '../../types/suggestion'
@@ -6,6 +6,7 @@ import { suggestionApi } from '../../api/suggestionApi'
 import { promptApi } from '../../api/promptApi'
 import { Prompt } from '../../types/prompt'
 import { useSuggestionStore } from '../../store/suggestionStore'
+import { useAuthStore } from '../../store/authStore'
 import styles from './AiSuggestionPanel.module.css'
 
 interface Props {
@@ -33,38 +34,164 @@ const MODEL_LABEL: Record<string, string> = {
   'gemini-2.0-flash': 'Gemini 2.0 Flash',
 }
 
+const POLL_INTERVAL_MS = 3000
+const POLL_MAX_ATTEMPTS = 40 // 최대 2분 폴링
+
 function getModelLabel(model: string) {
   return MODEL_LABEL[model] ?? model
 }
 
 export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Props) {
-  const [requesting, setRequesting] = useState(false)
+  const [polling, setPolling] = useState(false)
+  const [streaming, setStreaming] = useState(false)
+  const [streamingText, setStreamingText] = useState('')
   const [model, setModel] = useState('')
   const [extraPrompt, setExtraPrompt] = useState('')
   const [myPrompts, setMyPrompts] = useState<Prompt[]>([])
   const [selectedPromptId, setSelectedPromptId] = useState<number | ''>('')
   const { accept, reject } = useSuggestionStore()
 
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollAttemptsRef = useRef(0)
+  const latestSuggestionIdRef = useRef<number | null>(suggestion?.id ?? null)
+  const streamAbortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    latestSuggestionIdRef.current = suggestion?.id ?? null
+  }, [suggestion?.id])
+
   useEffect(() => {
     promptApi.getMyPrompts().then(res => setMyPrompts(res.data.data)).catch(() => {})
   }, [])
 
+  // 컴포넌트 언마운트 시 정리
+  useEffect(() => {
+    return () => {
+      stopPolling()
+      stopStreaming()
+    }
+  }, [])
+
+  function stopPolling() {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+    setPolling(false)
+    pollAttemptsRef.current = 0
+  }
+
+  function stopStreaming() {
+    if (streamAbortRef.current) {
+      streamAbortRef.current.abort()
+      streamAbortRef.current = null
+    }
+    setStreaming(false)
+  }
+
+  function startPolling() {
+    setPolling(true)
+    pollAttemptsRef.current = 0
+
+    pollTimerRef.current = setInterval(async () => {
+      pollAttemptsRef.current += 1
+      if (pollAttemptsRef.current > POLL_MAX_ATTEMPTS) {
+        stopPolling()
+        toast.error('AI 처리 시간이 초과됐습니다. 잠시 후 다시 시도해주세요.')
+        return
+      }
+
+      try {
+        const res = await suggestionApi.getLatest(postId)
+        const latest = res.data.data
+        if (latest && latest.id !== latestSuggestionIdRef.current) {
+          // 새 제안 감지
+          stopPolling()
+          toast.success('AI 제안이 생성됐습니다.')
+          onSuggestionUpdate?.()
+        }
+      } catch {
+        // 폴링 중 에러는 무시하고 계속
+      }
+    }, POLL_INTERVAL_MS)
+  }
+
+  async function startStreaming(req: AiSuggestionRequest) {
+    setStreaming(true)
+    setStreamingText('')
+
+    const token = useAuthStore.getState().token
+    const controller = new AbortController()
+    streamAbortRef.current = controller
+
+    try {
+      const response = await fetch(`/api/ai-suggestions/${postId}/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(req),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        const errorData = (await response.json()) as { message?: string }
+        throw new Error(errorData.message || `HTTP ${response.status}`)
+      }
+
+      if (!response.body) throw new Error('스트리밍 응답 없음')
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (line.startsWith('event: done')) {
+            // 스트리밍 완료
+            break
+          }
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+            if (data === '[DONE]') break
+            setStreamingText(prev => prev + data)
+          }
+        }
+      }
+
+      // 완료 후 최신 제안 조회
+      stopStreaming()
+      toast.success('AI 제안이 생성됐습니다.')
+      onSuggestionUpdate?.()
+    } catch (e: unknown) {
+      if ((e as { name?: string }).name === 'AbortError') return
+      const err = e as Error
+      toast.error(err.message || 'AI 스트리밍 실패')
+      stopStreaming()
+    }
+  }
+
   const handleRequest = async () => {
-    setRequesting(true)
     try {
       const req: AiSuggestionRequest = {}
       if (model) req.model = model
       if (extraPrompt) req.extraPrompt = extraPrompt
       if (selectedPromptId !== '') req.promptId = selectedPromptId
-      await suggestionApi.request(postId, req)
-      toast.success('AI 제안이 생성됐습니다.')
       setExtraPrompt('')
-      onSuggestionUpdate?.()
+
+      // 스트리밍 방식으로 요청
+      await startStreaming(req)
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } } }
       toast.error(err.response?.data?.message || 'AI 요청 실패')
-    } finally {
-      setRequesting(false)
     }
   }
 
@@ -89,6 +216,8 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
       toast.error('거절 실패')
     }
   }
+
+  const requesting = polling || streaming
 
   return (
     <div className={styles.panel}>
@@ -136,11 +265,30 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
               </span>
             ) : 'AI 개선 요청'}
           </button>
+          {polling && (
+            <p className={styles.pollingNote}>
+              AI가 글을 개선하고 있습니다. 연결이 끊겨도 완료 후 자동으로 표시됩니다.
+            </p>
+          )}
         </div>
       </div>
 
+      {/* 스트리밍 중 실시간 출력 */}
+      {streaming && streamingText && (
+        <div className={styles.suggestionSection}>
+          <h3 className={styles.sectionTitle}>
+            <span className={styles.loadingRow}>
+              <span className={styles.spinnerDark} /> AI 생성 중...
+            </span>
+          </h3>
+          <div className={`${styles.content} ${styles.streamingContent} markdown-body`}>
+            <MarkdownRenderer content={streamingText} />
+          </div>
+        </div>
+      )}
+
       {/* AI 제안 결과 */}
-      {suggestion && (
+      {!streaming && suggestion && (
         <div className={styles.suggestionSection}>
           <h3 className={styles.sectionTitle}>AI 제안 결과</h3>
           <div className={styles.suggestion}>

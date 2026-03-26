@@ -8,10 +8,12 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -82,6 +84,50 @@ public class GeminiClient implements AiClient {
             log.error("[Gemini] API 오류 — response: {}", responseBody);
             throw new ExternalApiException("Gemini API 호출 실패: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Gemini Streaming API.
+     * streamGenerateContent 엔드포인트로 Server-Sent Events를 수신한다.
+     * 각 이벤트는 완전한 JSON 객체이며 candidates[0].content.parts[0].text에서 텍스트를 추출한다.
+     */
+    @Override
+    public Flux<String> streamComplete(String prompt, String model, String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return Flux.error(new ExternalApiException("Gemini API 키가 설정되지 않았습니다."));
+        }
+        String resolvedModel = (model != null && !model.isBlank()) ? model : GEMINI_2_FLASH;
+
+        String jsonBody;
+        try {
+            jsonBody = objectMapper.writeValueAsString(Map.of(
+                    "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt))))
+            ));
+        } catch (Exception e) {
+            return Flux.error(new ExternalApiException("Gemini 요청 직렬화 실패: " + e.getMessage(), e));
+        }
+
+        return webClientBuilder.build()
+                .post()
+                .uri(BASE_URL + "/v1beta/models/" + resolvedModel + ":streamGenerateContent?key=" + apiKey + "&alt=sse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.ACCEPT, MediaType.TEXT_EVENT_STREAM_VALUE)
+                .bodyValue(jsonBody)
+                .retrieve()
+                .bodyToFlux(String.class)
+                .flatMap(line -> {
+                    if (!line.startsWith("data: ")) return Flux.empty();
+                    String json = line.substring(6).trim();
+                    try {
+                        JsonNode node = objectMapper.readTree(json);
+                        String text = node.path("candidates").path(0)
+                                .path("content").path("parts").path(0)
+                                .path("text").asText("");
+                        if (!text.isEmpty()) return Flux.just(text);
+                    } catch (Exception ignored) {}
+                    return Flux.empty();
+                })
+                .onErrorMap(e -> new ExternalApiException("Gemini 스트리밍 실패: " + e.getMessage(), e));
     }
 
     /** Gemini API 키 유효성 검증 — /v1beta/models 호출 */

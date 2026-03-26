@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -102,6 +103,64 @@ public class ClaudeClient implements AiClient {
             log.error("[Claude] API 오류 — response: {}", responseBody);
             throw new ExternalApiException("Claude API 호출 실패: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Claude Streaming API.
+     * Claude는 text/event-stream으로 content_block_delta 이벤트에서 delta.text를 emit한다.
+     */
+    @Override
+    public Flux<String> streamComplete(String prompt, String model, String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return Flux.error(new ExternalApiException("Claude API 키가 설정되지 않았습니다."));
+        }
+        String textModel = (model != null && !model.isBlank()) ? model : SONNET;
+
+        Map<String, Object> body;
+        try {
+            body = Map.of(
+                    "model", textModel,
+                    "max_tokens", 16000,
+                    "stream", true,
+                    "messages", List.of(Map.of("role", "user", "content", prompt))
+            );
+        } catch (Exception e) {
+            return Flux.error(new ExternalApiException("Claude 요청 직렬화 실패: " + e.getMessage(), e));
+        }
+
+        String jsonBody;
+        try {
+            jsonBody = objectMapper.writeValueAsString(body);
+        } catch (Exception e) {
+            return Flux.error(new ExternalApiException("Claude 요청 직렬화 실패: " + e.getMessage(), e));
+        }
+
+        return webClientBuilder.build()
+                .post()
+                .uri(baseUrl + "/v1/messages")
+                .header("x-api-key", apiKey)
+                .header("anthropic-version", "2023-06-01")
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .header(HttpHeaders.ACCEPT, MediaType.TEXT_EVENT_STREAM_VALUE)
+                .bodyValue(jsonBody)
+                .retrieve()
+                .bodyToFlux(String.class)
+                .flatMap(line -> {
+                    // SSE line: "data: {...}"
+                    if (!line.startsWith("data: ")) return Flux.empty();
+                    String json = line.substring(6).trim();
+                    if ("[DONE]".equals(json)) return Flux.empty();
+                    try {
+                        JsonNode node = objectMapper.readTree(json);
+                        String type = node.path("type").asText();
+                        if ("content_block_delta".equals(type)) {
+                            String delta = node.path("delta").path("text").asText("");
+                            if (!delta.isEmpty()) return Flux.just(delta);
+                        }
+                    } catch (Exception ignored) {}
+                    return Flux.empty();
+                })
+                .onErrorMap(e -> new ExternalApiException("Claude 스트리밍 실패: " + e.getMessage(), e));
     }
 
     /** Claude API 키 유효성 검증 — /v1/models 호출 */

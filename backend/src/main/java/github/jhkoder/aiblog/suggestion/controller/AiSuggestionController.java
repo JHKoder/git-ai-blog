@@ -6,9 +6,13 @@ import github.jhkoder.aiblog.suggestion.dto.AiSuggestionResponse;
 import github.jhkoder.aiblog.suggestion.usecase.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 
@@ -18,18 +22,43 @@ import java.util.List;
 public class AiSuggestionController {
 
     private final RequestAiSuggestionUseCase requestAiSuggestionUseCase;
+    private final StreamAiSuggestionUseCase streamAiSuggestionUseCase;
     private final GetLatestSuggestionUseCase getLatestSuggestionUseCase;
     private final GetSuggestionHistoryUseCase getSuggestionHistoryUseCase;
     private final AcceptSuggestionUseCase acceptSuggestionUseCase;
     private final RejectSuggestionUseCase rejectSuggestionUseCase;
 
     @PostMapping("/{postId}")
-    public ResponseEntity<ApiResponse<AiSuggestionResponse>> request(
+    public ResponseEntity<ApiResponse<Void>> request(
             @AuthenticationPrincipal Long memberId,
             @PathVariable Long postId,
             @Valid @RequestBody(required = false) AiSuggestionRequest request) {
         if (request == null) request = new AiSuggestionRequest();
-        return ResponseEntity.ok(ApiResponse.ok(requestAiSuggestionUseCase.execute(postId, memberId, request)));
+        requestAiSuggestionUseCase.execute(postId, memberId, request);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.ok());
+    }
+
+    /**
+     * SSE 스트리밍 AI 개선 요청.
+     * 토큰을 실시간으로 emit하며, 완료 후 DB에 저장한다.
+     * nginx: proxy_buffering off 설정 필요.
+     */
+    @PostMapping(value = "/{postId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> stream(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long postId,
+            @Valid @RequestBody(required = false) AiSuggestionRequest request) {
+        if (request == null) request = new AiSuggestionRequest();
+        AiSuggestionRequest finalRequest = request;
+        return streamAiSuggestionUseCase.stream(postId, memberId, finalRequest)
+                .map(token -> ServerSentEvent.<String>builder()
+                        .event("token")
+                        .data(token)
+                        .build())
+                .concatWith(Flux.just(ServerSentEvent.<String>builder()
+                        .event("done")
+                        .data("[DONE]")
+                        .build()));
     }
 
     @GetMapping("/{postId}/latest")

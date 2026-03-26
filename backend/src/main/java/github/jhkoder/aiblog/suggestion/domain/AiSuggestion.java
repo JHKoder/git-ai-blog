@@ -32,6 +32,10 @@ public class AiSuggestion {
     @Column(columnDefinition = "TEXT")
     private String extraPrompt;
 
+    /** AI 응답 소요 시간(ms). 스트리밍 완료 시점에 기록. 이전 데이터는 null. */
+    @Column
+    private Long durationMs;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -48,6 +52,13 @@ public class AiSuggestion {
         suggestion.suggestedContent = suggestedContent;
         suggestion.model = model;
         suggestion.extraPrompt = extraPrompt;
+        return suggestion;
+    }
+
+    public static AiSuggestion createWithDuration(Long postId, Long memberId, String suggestedContent,
+                                                   String model, String extraPrompt, Long durationMs) {
+        AiSuggestion suggestion = create(postId, memberId, suggestedContent, model, extraPrompt);
+        suggestion.durationMs = durationMs;
         return suggestion;
     }
 }

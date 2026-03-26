@@ -10,4 +10,6 @@ public interface AiSuggestionRepository {
     List<AiSuggestion> findByPostIdOrderByCreatedAtDesc(Long postId);
     void deleteByPostId(Long postId);
     long countByPostId(Long postId);
+    /** 모델별 평균 응답 시간(ms). durationMs > 0 인 row만 포함. 데이터 없으면 null. */
+    Double findAvgDurationMsByModel(String model);
 }

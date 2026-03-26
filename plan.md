@@ -1,6 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-25 (Mermaid 다이어그램 개선 가이드 추가)
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SSE 스트리밍 + @Async 폴링 구현)
 > 개발자: 1인 개인 프로젝트 / 목표 사용자: 최대 100명
 
 <!--
@@ -49,13 +49,6 @@
 **동시성 성능 고려 (참고용 — 현재 목표 100명):**
 - SSE + Spring WebFlux(`Flux` 반환)는 비동기 논블로킹 → 100명 동시 스트리밍도 스레드 수십 개로 처리 가능
 - **실질 병목은 AI API rate limit**: Claude/GPT 등 분당 요청 한도에 먼저 막힘 (서버 CPU/메모리보다 먼저)
-
-| 규모 | 주요 병목 | 추가로 필요한 것 |
-|------|----------|----------------|
-| 100명 | 없음 | SSE + WebFlux로 충분 |
-| 1,000명 | AI API rate limit | Redis Queue + 대기열 UI("N번째 대기 중") |
-| 1만명 | 단일 서버 한계 | 수평 확장 + sticky session 또는 Redis Pub/Sub 중계 |
-| 100만명 | DB/Redis 자체 | DB 샤딩, Redis Cluster, Kafka, AI API key 다중화 |
 
 **구현 범위:**
 - 백엔드: `AiClient` 인터페이스에 `streamComplete()` 메서드 추가, 4개 클라이언트 각각 스트리밍 구현
@@ -225,6 +218,10 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] Swagger UI (`/swagger-ui/index.html`)
 - [x] Claude `max_tokens` 4096 → 16000 상향 — 긴 글 중간 잘림 방지
 - [x] `Page<T>` 직렬화 경고 제거 — `PostPageResponse` DTO 도입
+- [x] AI 요청 연결 끊김 해결 — `@Async` + 202 Accepted + 3s 폴링 (방안 A)
+- [x] AI SSE 스트리밍 — 토큰 단위 실시간 렌더링, `POST /api/ai-suggestions/{postId}/stream` (방안 B)
+- [x] `durationMs` 컬럼 — AI 응답 소요 시간 저장, 모델별 평균 조회
+- [x] nginx SSE 지원 — `/api/ai-suggestions/*/stream` 경로에 `proxy_buffering off`
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
 ### SQL Visualization Widget

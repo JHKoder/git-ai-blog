@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -99,6 +100,51 @@ public class GptClient implements AiClient {
             log.error("[GPT] API 오류 — response: {}", responseBody);
             throw new ExternalApiException("GPT API 호출 실패: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * GPT Streaming API (OpenAI 호환).
+     * choices[0].delta.content 에서 텍스트를 emit한다.
+     */
+    @Override
+    public Flux<String> streamComplete(String prompt, String model, String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return Flux.error(new ExternalApiException("GPT API 키가 설정되지 않았습니다."));
+        }
+        String resolvedModel = (model != null && !model.isBlank()) ? model : GPT_4O_MINI;
+
+        String jsonBody;
+        try {
+            jsonBody = objectMapper.writeValueAsString(Map.of(
+                    "model", resolvedModel,
+                    "stream", true,
+                    "messages", List.of(Map.of("role", "user", "content", prompt))
+            ));
+        } catch (Exception e) {
+            return Flux.error(new ExternalApiException("GPT 요청 직렬화 실패: " + e.getMessage(), e));
+        }
+
+        return webClientBuilder.build()
+                .post()
+                .uri(BASE_URL + "/v1/chat/completions")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .header(HttpHeaders.ACCEPT, MediaType.TEXT_EVENT_STREAM_VALUE)
+                .bodyValue(jsonBody)
+                .retrieve()
+                .bodyToFlux(String.class)
+                .flatMap(line -> {
+                    if (!line.startsWith("data: ")) return Flux.empty();
+                    String json = line.substring(6).trim();
+                    if ("[DONE]".equals(json)) return Flux.empty();
+                    try {
+                        JsonNode node = objectMapper.readTree(json);
+                        String delta = node.path("choices").path(0).path("delta").path("content").asText("");
+                        if (!delta.isEmpty()) return Flux.just(delta);
+                    } catch (Exception ignored) {}
+                    return Flux.empty();
+                })
+                .onErrorMap(e -> new ExternalApiException("GPT 스트리밍 실패: " + e.getMessage(), e));
     }
 
     /** GPT API 키 유효성 검증 — /v1/models 호출 */
