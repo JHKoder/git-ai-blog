@@ -1,19 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (AI 태그 자동 추출, AI 평가 GFM 렌더링, 반응형 레이아웃, 2컬럼 레이아웃, 본문 폭 유지, AI 개선 중복 제거)
-
-
-/*
-
-# ai 실시간 기능 안먹힘
-
-ai 제안 결과가 이미 있고 ai 개선 요청시 실시간 기능이 안보여 왜냐하면 이전에 ai 제안 결과가 있으니 뭔가 엇갈리는 것같아
-
-# 마이페이지에서 태그 등록 ?
-
-no 게시글에서 ai에게 받은 태그를 자동등록해서 사용할수 있게 만들어줘
-
-*/
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (AI 태그 자동 추출, AI 평가 GFM 렌더링, 반응형 레이아웃, 2컬럼 레이아웃, 본문 폭 유지, AI 개선 중복 제거, 스트리밍 버그, 태그 자동등록)
 
 ## 문서 구조
 
@@ -201,6 +188,8 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] AI 평가 결과 `#` 헤더 렌더링 안됨 — 빈 `data:` 라인(AI `\n` 토큰)을 `\n`으로 처리하도록 수정. AiEvaluationPanel·AiSuggestionPanel 동일 적용
 - [x] `PromptBuilder.buildEvaluation()` 출력 형식 리뉴얼 — 섹션 순서 재구성(🔥총평→📊점수표→🚨TOP3→🧠개선→✂️제거→🏗구조→💎전문가한줄), 강조·가독성·Java 코드블록 언어태그
   규칙 적용
+- [x] AI 제안 결과 존재 시 실시간 스트리밍 미표시 버그 — `hideResult=true`여도 스트리밍 진행 UI 표시하도록 조건 수정 (`streaming && !hideResult` → `streaming`)
+- [x] AI 태그 자동등록 UI — `AiSuggestionResult`에 "+ 프로필에 추가" 버튼 추가, 기존 hashnodeTags에 중복 없이 merge 후 `PATCH /members/api-keys` 저장 (마이페이지 직접 등록 X)
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
 ### SQL Visualization Widget

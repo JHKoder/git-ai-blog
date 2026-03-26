@@ -328,8 +328,8 @@ export function AiSuggestionPanel({ postId, suggestion, initialExtraPrompt, onEx
         </div>
       </div>
 
-      {/* 스트리밍 중 실시간 출력 — hideResult=true여도 진행 상태는 표시 */}
-      {streaming && !hideResult && (
+      {/* 스트리밍 중 실시간 출력 — hideResult여도 진행 상태는 표시 */}
+      {streaming && (
         <div className={styles.suggestionSection}>
           <h3 className={styles.sectionTitle}>
             <span className={styles.loadingRow}>
