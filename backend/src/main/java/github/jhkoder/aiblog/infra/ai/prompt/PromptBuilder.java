@@ -96,6 +96,59 @@ public class PromptBuilder {
         return sb.toString();
     }
 
+    /**
+     * AI 평가 프롬프트를 빌드한다.
+     * 개선이 아닌 분석/평가 목적 — 6가지 기준 점수 + 필수 피드백 + 추천 개선 요청사항 출력.
+     */
+    public String buildEvaluation(ContentType contentType, String content) {
+        return """
+                당신은 기술 블로그 품질 평가 전문가입니다.
+                아래 블로그 글을 6가지 기준으로 평가하고, 개선 요청사항을 제안하세요.
+
+                ## 출력 형식 (반드시 준수)
+                순수 Markdown으로만 출력합니다.
+
+                ## 1. 종합 점수
+                | 기준 | 점수 (10점 만점) | 이유 | 개선안 |
+                |------|--------------|------|-------|
+                | Structure (구조 설계) | | | |
+                | Practicality (실무 적합성) | | | |
+                | Depth (깊이) | | | |
+                | Evidence (데이터 기반) | | | |
+                | Readability (가독성) | | | |
+                | Originality (차별성) | | | |
+
+                ## 2. 필수 피드백
+                ### 가장 치명적인 문제 TOP 3
+                (실무에서 위험할 수 있는 부분)
+
+                ### 반드시 추가해야 할 내용
+                (빠져있는 핵심)
+
+                ### 삭제하거나 줄여야 할 부분
+                (가치 대비 길이가 긴 구간)
+
+                ### 전문가 느낌을 만드는 핵심 한 줄
+                (글의 급을 올리는 문장 1개)
+
+                ### 구조 개선안
+                (목차 재구성 제안)
+
+                ## 3. 추천 AI 개선 요청사항
+                아래 내용을 "추가 요청사항"에 그대로 입력하면 AI 개선 품질이 높아집니다:
+
+                ```
+                (여기에 구체적인 개선 지시 2~3줄 작성 — 위 평가 결과 기반)
+                ```
+
+                ---
+
+                ## 평가할 글
+
+                """
+                + content;
+    }
+
     private String getBaseInstruction(ContentType contentType) {
         String base = """
                 ## 공통 규칙

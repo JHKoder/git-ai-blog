@@ -194,6 +194,37 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - `CS`: Depth(내부 동작 설명) 가중
 - `CODING`/`CODE_REVIEW`: Practicality 가중
 
+---
+
+### AI 평가 패널 설계 (미구현)
+
+> 발행 전 게시글 우측에 AI 평가 결과를 표시한다. Hashnode에 전달하지 않음.
+
+**흐름:**
+1. 사용자가 모델 선택 → `POST /api/ai-suggestions/{postId}/evaluate` 호출
+2. SSE 스트리밍으로 평가 결과 실시간 표시 (기존 스트리밍 인프라 재사용)
+3. 평가 완료 후 핵심 개선 요청사항이 `extraPrompt`에 자동 채워짐
+4. "이 내용으로 AI 개선 요청" 버튼 → 기존 `/stream` 엔드포인트 호출
+
+**엔드포인트 설계:**
+```
+POST /api/ai-suggestions/{postId}/evaluate   text/event-stream
+  - 기존 /stream 과 동일한 SSE 구조 (estimated / token / done)
+  - 평가 결과는 DB 저장 안 함 (프론트에만 전달)
+  - 완료 후 __done__ 내부에 추출된 extraPrompt 텍스트 포함 여부 결정 필요
+```
+
+**PromptBuilder 분리:**
+- `buildEvaluation(ContentType, String content, String model)` 메서드 추가
+- 평가 프롬프트는 개선 프롬프트와 목적이 다름 — 6가지 기준 점수 + 추천 extraPrompt 텍스트 출력
+
+**DB 저장 방침:** 저장하지 않음 — 평가는 발행 전 확인용. 재평가는 재호출.
+
+**자가성장 구상 (개발 X):**
+- 각 `Prompt` 엔티티가 200~300자 `metaPrompt`(자기 설명) 컬럼을 가지는 구조
+- 향후 배치 또는 수동 큐레이션으로 피드백 반영 업데이트 예정
+- 지금은 `Prompt` 테이블에 `metaPrompt TEXT` 컬럼 예약만 고려
+
 ### JWT 인증
 
 - Access Token: 24h, 응답 바디 / Refresh Token: 30일, HttpOnly 쿠키
@@ -514,4 +545,5 @@ src/test/java/.../infra/ai/
 | Gemini `streamComplete()` 컴파일 오류 | `HttpHeaders` import 누락 | `import org.springframework.http.HttpHeaders` 추가 (`GeminiClient.java`) |
 | `[StreamAI] 완료 후 저장 실패: 이미 AI 제안 상태입니다.` | `doOnComplete`는 리액터 스레드에서 실행 → `@Transactional` 미적용. `post.markAiSuggested()` 가 이미 `AI_SUGGESTED` 상태에서 예외 | `saveResult()` 메서드로 분리해 별도 `@Transactional` 적용. `markAiSuggested()` 호출 전 현재 상태 체크 — 멱등 처리 |
 | `AuthorizationDeniedException` + `response has already been committed` | SSE 응답 flush 후 예외가 컨테이너로 전파 → Spring이 error page 렌더링 시도하지만 응답이 이미 커밋됨 | `onErrorResume`으로 에러를 `event: error` SSE 이벤트로 클라이언트에 전달 후 스트림 종료 |
+| Hashnode 태그 연동 안 됨 (미해결) | `buildTagsNode()`에서 로컬 태그 문자열로 slug를 임의 생성 — Hashnode API는 자체 DB에 등록된 slug와 정확히 일치해야 연동됨, 임의 slug는 무시 | 단기: `tags: []` 빈 배열 전송 / 장기: 사용자 ProfilePage에서 Hashnode 태그 ID 사전 등록 후 발행 시 매핑 |
 

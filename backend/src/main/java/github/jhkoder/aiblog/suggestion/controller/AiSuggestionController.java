@@ -29,6 +29,7 @@ public class AiSuggestionController {
     private final GetSuggestionHistoryUseCase getSuggestionHistoryUseCase;
     private final AcceptSuggestionUseCase acceptSuggestionUseCase;
     private final RejectSuggestionUseCase rejectSuggestionUseCase;
+    private final EvaluateAiSuggestionUseCase evaluateAiSuggestionUseCase;
 
     @PostMapping("/{postId}")
     public ResponseEntity<ApiResponse<Void>> request(
@@ -76,6 +77,41 @@ public class AiSuggestionController {
                 })
                 .onErrorResume(e -> {
                     log.error("[SSE] 스트리밍 오류 postId={} memberId={}: {}", postId, memberId, e.getMessage());
+                    return Flux.just(ServerSentEvent.<String>builder()
+                            .event("error")
+                            .data(e.getMessage())
+                            .build());
+                });
+    }
+
+    @PostMapping(value = "/{postId}/evaluate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> evaluate(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long postId,
+            @Valid @RequestBody(required = false) AiSuggestionRequest request) {
+        if (request == null) request = new AiSuggestionRequest();
+        AiSuggestionRequest finalRequest = request;
+        return evaluateAiSuggestionUseCase.evaluate(postId, memberId, finalRequest)
+                .map(token -> {
+                    if (token.startsWith("__estimated__:")) {
+                        return ServerSentEvent.<String>builder()
+                                .event("estimated")
+                                .data(token.substring("__estimated__:".length()))
+                                .build();
+                    }
+                    if (token.equals("__done__")) {
+                        return ServerSentEvent.<String>builder()
+                                .event("done")
+                                .data("[DONE]")
+                                .build();
+                    }
+                    return ServerSentEvent.<String>builder()
+                            .event("token")
+                            .data(token)
+                            .build();
+                })
+                .onErrorResume(e -> {
+                    log.error("[SSE] 평가 스트리밍 오류 postId={} memberId={}: {}", postId, memberId, e.getMessage());
                     return Flux.just(ServerSentEvent.<String>builder()
                             .event("error")
                             .data(e.getMessage())

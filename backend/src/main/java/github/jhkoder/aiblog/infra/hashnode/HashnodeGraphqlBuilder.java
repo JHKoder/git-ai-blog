@@ -120,19 +120,8 @@ public class HashnodeGraphqlBuilder {
     }
 
     private ArrayNode buildTagsNode(List<String> tags) {
-        ArrayNode arr = objectMapper.createArrayNode();
-        if (tags == null) return arr;
-        for (String tag : tags) {
-            if (tag == null || tag.isBlank()) continue;
-            String slug = tag.toLowerCase()
-                    .replaceAll("[^a-z0-9가-힣]+", "-")
-                    .replaceAll("^-|-$", "");
-            if (slug.isEmpty()) continue;
-            ObjectNode tagNode = objectMapper.createObjectNode();
-            tagNode.put("slug", slug);
-            tagNode.put("name", tag);
-            arr.add(tagNode);
-        }
-        return arr;
+        // Hashnode API는 자체 DB에 등록된 slug와 정확히 일치해야 태그 연동됨.
+        // 임의 생성 slug는 무시되므로 빈 배열 전송. (장기: 사용자 Hashnode 태그 ID 사전 등록 방식)
+        return objectMapper.createArrayNode();
     }
 }

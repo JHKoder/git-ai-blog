@@ -12,6 +12,8 @@ import styles from './AiSuggestionPanel.module.css'
 interface Props {
   postId: number
   suggestion: AiSuggestion | null
+  initialExtraPrompt?: string
+  onExtraPromptApplied?: () => void
   onSuggestionUpdate?: () => void
 }
 
@@ -41,7 +43,7 @@ function getModelLabel(model: string) {
   return MODEL_LABEL[model] ?? model
 }
 
-export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Props) {
+export function AiSuggestionPanel({ postId, suggestion, initialExtraPrompt, onExtraPromptApplied, onSuggestionUpdate }: Props) {
   const [polling, setPolling] = useState(false)
   const [streaming, setStreaming] = useState(false)
   const [streamingText, setStreamingText] = useState('')
@@ -72,6 +74,15 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
       stopStreaming()
     }
   }, [])
+
+  useEffect(() => {
+    if (initialExtraPrompt) {
+      setExtraPrompt(initialExtraPrompt)
+      onExtraPromptApplied?.()
+      // 화면에서 AiSuggestionPanel 위치로 스크롤
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+    }
+  }, [initialExtraPrompt])
 
   function stopPolling() {
     if (pollTimerRef.current) {

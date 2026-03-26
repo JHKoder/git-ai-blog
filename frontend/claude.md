@@ -386,6 +386,30 @@ npm run build                  # 프로덕션 빌드
 
 ---
 
+## AI 평가 패널 설계 (미구현)
+
+> `PostDetailPage` 우측에 발행 전 AI 평가 결과를 표시한다. Hashnode에 전달하지 않음.
+
+**UX 흐름:**
+1. 우측 패널에 모델 선택 드롭다운 (기존 `AiSuggestionPanel`과 동일)
+2. "AI 평가 요청" 버튼 → `POST /api/ai-suggestions/{postId}/evaluate` SSE 스트리밍
+3. 평가 결과를 `<pre>` → `MarkdownRenderer` 전환 방식으로 표시 (기존 스트리밍 렌더링 패턴 재사용)
+4. 완료 후 "이 내용으로 AI 개선 요청" 버튼 → 평가 결과에서 추출한 개선 요청사항을 `AiSuggestionPanel`의 `extraPrompt`에 자동 주입
+
+**컴포넌트 설계:**
+- `AiEvaluationPanel` 신규 컴포넌트 — `AiSuggestionPanel`과 분리
+- `PostDetailPage`를 2컬럼 레이아웃으로 변경: 좌측 본문 + 우측 사이드바
+- 우측 사이드바에 `AiSuggestionPanel` + `AiEvaluationPanel` 배치
+- 사이드바는 `position: sticky; top: <header높이>` — 스크롤 시에도 우측 고정
+- SSE 파싱 로직은 `AiSuggestionPanel`과 동일한 패턴 사용
+
+**상태:**
+- 평가 결과는 DB 저장 없음 — `useState`로 컴포넌트 내부에만 보관
+- `evaluationText: string` — 스트리밍 중 누적
+- `suggestedExtraPrompt: string | null` — 평가 완료 후 추출된 개선 요청사항
+
+---
+
 ## 해결된 이슈 (2026-03-26)
 
 ### 7. 스트리밍 중 실시간 텍스트 미표시 / 마크다운 깨짐 ✅

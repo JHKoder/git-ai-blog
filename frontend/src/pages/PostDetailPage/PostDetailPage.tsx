@@ -8,6 +8,7 @@ import { postApi } from '../../api/postApi'
 import { CONTENT_TYPE_LABEL } from '../../types/post'
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge'
 import { AiSuggestionPanel } from '../../components/AiSuggestionPanel/AiSuggestionPanel'
+import { AiEvaluationPanel } from '../../components/AiEvaluationPanel/AiEvaluationPanel'
 import { ConfirmModal } from '../../components/Modal/ConfirmModal'
 import styles from './PostDetailPage.module.css'
 
@@ -27,6 +28,7 @@ export function PostDetailPage() {
   const { latestSuggestion, history, fetchLatest, fetchHistory, clear } = useSuggestionStore()
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [suggestionExtraPrompt, setSuggestionExtraPrompt] = useState('')
 
   useEffect(() => {
     if (id) {
@@ -99,48 +101,62 @@ export function PostDetailPage() {
         </div>
       </div>
 
-      <h1 className={styles.title}>{currentPost.title}</h1>
+      <div className={styles.layout}>
+        {/* 좌측: 본문 */}
+        <div className={styles.main}>
+          <h1 className={styles.title}>{currentPost.title}</h1>
 
-      {currentPost.tags && currentPost.tags.length > 0 && (
-        <div className={styles.tags}>
-          {currentPost.tags.map(tag => (
-            <span key={tag} className={styles.tag}>#{tag}</span>
-          ))}
+          {currentPost.tags && currentPost.tags.length > 0 && (
+            <div className={styles.tags}>
+              {currentPost.tags.map(tag => (
+                <span key={tag} className={styles.tag}>#{tag}</span>
+              ))}
+            </div>
+          )}
+
+          <div className={`${styles.content} markdown-body`}>
+            <MarkdownRenderer content={currentPost.content} />
+          </div>
+
+          {aiImprovedCount > 0 && lastSuggestion && (
+            <div className={styles.aiMeta}>
+              <span className={styles.aiMetaLabel}>🤖 AI 작성 정보</span>
+              <span className={styles.aiMetaItem}>
+                모델: {MODEL_LABEL[lastSuggestion.model] ?? lastSuggestion.model}
+              </span>
+              <span className={styles.aiMetaItem}>
+                최종 수정: {new Date(lastSuggestion.createdAt).toLocaleDateString('ko-KR')}
+              </span>
+              <span className={styles.aiMetaItem}>
+                AI 개선 {aiImprovedCount}회
+              </span>
+            </div>
+          )}
+
+          <div className={styles.bottomActions}>
+            {currentPost.status === 'PUBLISHED' && currentPost.hashnodeUrl && (
+              <a href={currentPost.hashnodeUrl} target="_blank" rel="noopener noreferrer" className={styles.hashnodeLink}>
+                Hashnode에서 보기 →
+              </a>
+            )}
+          </div>
         </div>
-      )}
 
-      <div className={`${styles.content} markdown-body`}>
-        <MarkdownRenderer content={currentPost.content} />
+        {/* 우측: sticky 사이드바 */}
+        <aside className={styles.sidebar}>
+          <AiEvaluationPanel
+            postId={Number(id)}
+            onApplyToImprovement={(prompt) => setSuggestionExtraPrompt(prompt)}
+          />
+          <AiSuggestionPanel
+            postId={Number(id)}
+            suggestion={latestSuggestion}
+            initialExtraPrompt={suggestionExtraPrompt}
+            onExtraPromptApplied={() => setSuggestionExtraPrompt('')}
+            onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
+          />
+        </aside>
       </div>
-
-      {aiImprovedCount > 0 && lastSuggestion && (
-        <div className={styles.aiMeta}>
-          <span className={styles.aiMetaLabel}>🤖 AI 작성 정보</span>
-          <span className={styles.aiMetaItem}>
-            모델: {MODEL_LABEL[lastSuggestion.model] ?? lastSuggestion.model}
-          </span>
-          <span className={styles.aiMetaItem}>
-            최종 수정: {new Date(lastSuggestion.createdAt).toLocaleDateString('ko-KR')}
-          </span>
-          <span className={styles.aiMetaItem}>
-            AI 개선 {aiImprovedCount}회
-          </span>
-        </div>
-      )}
-
-      <div className={styles.bottomActions}>
-        {currentPost.status === 'PUBLISHED' && currentPost.hashnodeUrl && (
-          <a href={currentPost.hashnodeUrl} target="_blank" rel="noopener noreferrer" className={styles.hashnodeLink}>
-            Hashnode에서 보기 →
-          </a>
-        )}
-      </div>
-
-      <AiSuggestionPanel
-        postId={Number(id)}
-        suggestion={latestSuggestion}
-        onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
-      />
 
       {showDeleteModal && (
         <ConfirmModal
