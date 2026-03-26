@@ -175,13 +175,15 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
         const lines = buffer.split('\n')
         buffer = lines.pop() ?? ''
 
-        for (const line of lines) {
+        for (const rawLine of lines) {
+          const line = rawLine.replace(/\r$/, '') // \r\n 대응
           if (line.startsWith('event:')) {
             currentEvent = line.slice(6).trim()
             continue
           }
           if (line.startsWith('data:')) {
-            const data = line.slice(5)
+            // SSE 스펙: 콜론 뒤 공백 하나는 제거
+            const data = line.slice(5).replace(/^ /, '')
             if (currentEvent === 'estimated') {
               const secs = parseInt(data, 10)
               if (!isNaN(secs) && secs > 0) startCountdown(secs)
