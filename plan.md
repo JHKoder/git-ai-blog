@@ -1,6 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SecurityContext 전파, SSE 예상 시간 카운트다운 구현, SSE 스트리밍 테스트 설계, nginx Authorization 헤더 누락 수정)
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SecurityContext 전파, SSE 예상 시간 카운트다운 구현, SSE 스트리밍 테스트 설계, nginx Authorization 헤더 누락 수정, Tomcat async dispatch JWT 필터 스킵)
 
 ## 문서 구조
 
@@ -151,6 +151,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] nginx SSE 지원 — `/api/ai-suggestions/*/stream` 경로에 `proxy_buffering off`
 - [x] SSE 버그 수정 — `이미 AI 제안 상태` 오류, `Access Denied` + response committed 오류, 에러 이벤트 미처리
 - [x] nginx `Authorization` 헤더 누락 수정 — SSE location에 `proxy_set_header` 지정 시 기본 헤더 상속 끊김 → JWT 인증 실패 → `Access Denied` prod 버그 해결
+- [x] `JwtAuthenticationFilter.shouldNotFilterAsyncDispatch() = true` — Tomcat async dispatch 재진입 시 JWT 필터 스킵 → `Access Denied` + `response committed` 근본 원인 해결
 - [x] AI SSE 예상 완료 시간 표시 — `estimated` 첫 이벤트로 전달, 프론트 카운트다운 UI
 - [x] `@Async` SecurityContext 전파 — `DelegatingSecurityContextAsyncTaskExecutor` 래핑,
   `WebMvcConfigurer.configureAsyncSupport` 등록
