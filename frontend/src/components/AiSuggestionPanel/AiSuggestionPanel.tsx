@@ -165,8 +165,9 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
       const decoder = new TextDecoder()
       let buffer = ''
       let currentEvent = ''
+      let finished = false
 
-      while (true) {
+      while (!finished) {
         const { done, value } = await reader.read()
         if (done) break
 
@@ -175,23 +176,28 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
         buffer = lines.pop() ?? ''
 
         for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            currentEvent = line.slice(7).trim()
+          if (line.startsWith('event:')) {
+            currentEvent = line.slice(6).trim()
             continue
           }
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
+          if (line.startsWith('data:')) {
+            const data = line.slice(5)
             if (currentEvent === 'estimated') {
               const secs = parseInt(data, 10)
               if (!isNaN(secs) && secs > 0) startCountdown(secs)
             } else if (currentEvent === 'error') {
               throw new Error(data || 'AI 스트리밍 오류')
             } else if (currentEvent === 'done' || data === '[DONE]') {
-              // 완료
+              finished = true
+              break
             } else {
               // token 이벤트
               setStreamingText(prev => prev + data)
             }
+            continue
+          }
+          // 빈 줄 = SSE 이벤트 구분자 → currentEvent 초기화
+          if (line === '') {
             currentEvent = ''
           }
         }
