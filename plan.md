@@ -1,6 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SecurityContext 전파, SSE 예상 시간 카운트다운 구현, SSE 스트리밍 테스트 설계, nginx Authorization 헤더 누락 수정, ASYNC dispatch Security Filter Chain 인가 체크 제외)
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SSE 스트리밍 전체 파이프라인 버그 해결 — ObjectMapper, done race condition, bodyToFlux data 접두사, 실시간 pre 렌더링)
 
 ## 문서 구조
 
@@ -152,6 +152,10 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] SSE 버그 수정 — `이미 AI 제안 상태` 오류, `Access Denied` + response committed 오류, 에러 이벤트 미처리
 - [x] nginx `Authorization` 헤더 누락 수정 — SSE location에 `proxy_set_header` 지정 시 기본 헤더 상속 끊김 → JWT 인증 실패 → `Access Denied` prod 버그 해결
 - [x] `SecurityConfig.dispatcherTypeMatchers(ASYNC).permitAll()` — Tomcat async dispatch 시 Security Filter Chain 전체 인가 체크 제외 → `Access Denied` 근본 원인 해결
+- [x] AI 클라이언트 `ObjectMapper` `com.fasterxml` → `tools.jackson` 교체 — Spring Boot 4 Jackson 3.x 환경에서 파싱 실패로 토큰 0개 문제 해결
+- [x] SSE `done` race condition 해결 — `concatWith(done)` 방식에서 `Flux.defer(saveResult → __done__)` 방식으로 변경, DB 저장 완료 후 프론트에 done 전달
+- [x] `bodyToFlux(String.class)` `data:` 접두사 자동 제거 대응 — Claude/Grok/GPT/Gemini 파싱 수정
+- [x] 스트리밍 중 실시간 텍스트 `<pre>` 렌더링 — 불완전 마크다운 파싱 오류 방지, 완료 후 `MarkdownRenderer` 전환
 - [x] AI SSE 예상 완료 시간 표시 — `estimated` 첫 이벤트로 전달, 프론트 카운트다운 UI
 - [x] `@Async` SecurityContext 전파 — `DelegatingSecurityContextAsyncTaskExecutor` 래핑,
   `WebMvcConfigurer.configureAsyncSupport` 등록

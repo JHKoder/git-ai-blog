@@ -96,7 +96,8 @@ public class StreamAiSuggestionUseCase {
                 .doOnNext(token -> {
                     accumulated.append(token);
                     long cnt = tokenCount.incrementAndGet();
-                    log.info("[StreamAI][5] 토큰#{} [{}]", cnt, token.replace("\n", "\\n"));
+                    if (cnt == 1) log.info("[StreamAI][5] 첫 토큰 수신");
+                    if (cnt % 100 == 0) log.info("[StreamAI][5] 토큰 {}개 수신, 누적 {}자", cnt, accumulated.length());
                 })
                 .doOnComplete(() -> log.info("[StreamAI][6] 토큰 스트림 완료 총 {}개, {}자", tokenCount.get(), accumulated.length()))
                 .doOnError(e -> log.error("[StreamAI][ERR] 스트리밍 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e));

@@ -388,6 +388,11 @@ npm run build                  # 프로덕션 빌드
 
 ## 해결된 이슈 (2026-03-26)
 
+### 7. 스트리밍 중 실시간 텍스트 미표시 / 마크다운 깨짐 ✅
+- **원인 1**: SSE 파싱 — `currentEvent`를 `data:` 처리 후 초기화해 네트워크 청크 분리 시 event 유실, `done` 수신 후 루프 즉시 탈출 안 함
+- **원인 2**: 스트리밍 중 `MarkdownRenderer` 사용 — 불완전한 마크다운(코드블록 미닫힘 등)이 엉뚱하게 파싱됨
+- **해결**: `currentEvent`는 빈 줄(SSE 이벤트 구분자)에서만 초기화, `done` 수신 시 `finished = true` 즉시 루프 탈출, 스트리밍 중에는 `<pre className={styles.streamingPre}>` 로 원문 표시, 완료 후 `MarkdownRenderer` 로 전환
+
 ### 6. SSE event: error 미처리 ✅
 - **원인**: 서버에서 `event: error` 이벤트를 전송했지만 프론트에서 파싱하지 않아 무시됨
 - **해결**: `event: error` 감지 시 다음 줄 `data:` 에서 메시지 추출 → `toast.error` + 스트리밍 종료

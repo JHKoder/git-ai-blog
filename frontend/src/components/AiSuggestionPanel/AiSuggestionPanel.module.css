@@ -242,6 +242,16 @@
   overflow-y: auto;
 }
 
+.streamingPre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
 .countdown {
   font-size: 12px;
   font-weight: 400;
