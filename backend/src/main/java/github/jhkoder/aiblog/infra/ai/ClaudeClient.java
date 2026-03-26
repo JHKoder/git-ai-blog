@@ -2,8 +2,8 @@ package github.jhkoder.aiblog.infra.ai;
 
 import github.jhkoder.aiblog.common.exception.BusinessRuleException;
 import github.jhkoder.aiblog.common.exception.ExternalApiException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ClaudeClient implements AiClient {
 
     private final WebClient.Builder webClientBuilder;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final RateLimitCache rateLimitCache;
 
     @Value("${ai.claude.base-url}")
