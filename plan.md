@@ -41,6 +41,17 @@
 - 100명(현재 목표): SSE + WebFlux 조합으로 충분
 - 1000명 이상: AI API 요청을 Redis Queue로 순차 처리 + 대기열 UI("N번째 대기 중") 도입 필요
 
+**규모별 변화 (참고용 — 현재 프로젝트는 100명 목표라 도입 불필요):**
+| 규모 | 주요 병목 | 추가로 필요한 것 |
+|------|----------|----------------|
+| 100명 | 없음 | SSE + WebFlux로 충분 |
+| 1,000명 | AI API rate limit | Redis Queue + 대기열 UI |
+| 1만명 | 단일 서버 한계 | 서버 수평 확장(로드밸런서 + 다중 인스턴스). SSE는 같은 서버로 고정(sticky session) 또는 Redis Pub/Sub 중계 필요 |
+| 100만명 | DB/Redis 자체 | DB 샤딩, Redis Cluster, Kafka 등 분산 메시지 브로커, AI API key 다중화(라운드로빈) |
+
+- 1만명부터 SSE 자체가 문제: 로드밸런서 환경에서 연결 유지가 특정 서버에 묶여야 하므로 sticky session 필수 → 없으면 Redis Pub/Sub으로 인스턴스 간 이벤트 브로드캐스트 구조 필요
+- 100만명은 Kafka 없이는 불가능한 영역
+
 **구현 범위:**
 - 백엔드: `AiClient` 인터페이스에 `streamComplete()` 메서드 추가, 4개 클라이언트 각각 스트리밍 구현
 - 백엔드: `AiSuggestionController`에 SSE 엔드포인트 추가 (`GET /api/ai-suggestions/{postId}/stream`)
@@ -54,13 +65,12 @@
 
 **완료 예상 시간 표시 (UX 개선):**
 - SSE 스트림 시작 시 첫 이벤트로 "예상 완료까지 약 N초" 전송 → 프론트에서 카운트다운/프로그레스 바
-- 구현 방법: 모델별 평균 응답 시간을 Redis에 누적 측정 후 전송 (단순하게는 고정값 하드코딩도 효과 있음)
-  예: Claude 40초, Grok 20초, GPT-4o 30초
+- 구현 방법: `AiSuggestion` 테이블에 `durationMs` 컬럼 추가 → AI 응답 완료 시 소요 시간(ms) 저장
+  - 예상 시간 계산: `WHERE model = ? AND durationMs > 0` 조건으로 평균 산출 (0이거나 null이면 자동 제외)
+  - 이전 글들은 `durationMs` 미저장 → `durationMs > 0` 조건으로 평균에서 자동 배제
+  - 데이터가 없거나 평균 계산 불가 시 → 모델별 하드코딩 fallback (Claude 40초, Grok 20초, GPT-4o 30초)
 - 연결이 끊겨도 "처리 중입니다. 잠시 후 확인해보세요." 안내로 재요청 방지 가능
 
-### 결론 / 우선순위
-- **중기**: 방안 B — SSE 스트리밍으로 "AI 타이핑" UX 추가 (방안 A 위에 올리는 구조)
-  → 방안 A 완료 후 B를 선택적으로 추가 가능
 -->
 
 ## 문서 구조
