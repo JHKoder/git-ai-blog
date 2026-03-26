@@ -149,10 +149,9 @@ public class ClaudeClient implements AiClient {
                 .doOnSubscribe(s -> log.info("[Claude] HTTP 연결 수립, SSE 수신 대기 중"))
                 .doOnNext(line -> log.info("[Claude] RAW line=[{}]", line.replace("\n", "\\n").replace("\r", "\\r")))
                 .flatMap(line -> {
-                    // SSE line: "data: {...}"
-                    if (!line.startsWith("data: ")) return Flux.empty();
-                    String json = line.substring(6).trim();
-                    if ("[DONE]".equals(json)) return Flux.empty();
+                    // bodyToFlux(String.class)는 "data: " 접두사를 제거한 JSON만 전달
+                    String json = line.startsWith("data: ") ? line.substring(6).trim() : line.trim();
+                    if (json.isEmpty() || "[DONE]".equals(json)) return Flux.empty();
                     try {
                         JsonNode node = objectMapper.readTree(json);
                         String type = node.path("type").asText();

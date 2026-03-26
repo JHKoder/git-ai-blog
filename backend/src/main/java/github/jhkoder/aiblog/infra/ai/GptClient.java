@@ -136,9 +136,8 @@ public class GptClient implements AiClient {
                 .bodyToFlux(String.class)
                 .doOnSubscribe(s -> log.info("[GPT] HTTP 연결 수립, SSE 수신 대기 중"))
                 .flatMap(line -> {
-                    if (!line.startsWith("data: ")) return Flux.empty();
-                    String json = line.substring(6).trim();
-                    if ("[DONE]".equals(json)) return Flux.empty();
+                    String json = line.startsWith("data: ") ? line.substring(6).trim() : line.trim();
+                    if (json.isEmpty() || "[DONE]".equals(json)) return Flux.empty();
                     try {
                         JsonNode node = objectMapper.readTree(json);
                         String delta = node.path("choices").path(0).path("delta").path("content").asText("");
