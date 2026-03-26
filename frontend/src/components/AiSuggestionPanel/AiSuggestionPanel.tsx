@@ -177,13 +177,16 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
 
         for (const rawLine of lines) {
           const line = rawLine.replace(/\r$/, '') // \r\n 대응
+          console.debug('[SSE] line:', JSON.stringify(line))
           if (line.startsWith('event:')) {
             currentEvent = line.slice(6).trim()
+            console.debug('[SSE] event:', currentEvent)
             continue
           }
           if (line.startsWith('data:')) {
             // SSE 스펙: 콜론 뒤 공백 하나는 제거
             const data = line.slice(5).replace(/^ /, '')
+            console.debug('[SSE] data:', JSON.stringify(data), 'currentEvent:', currentEvent)
             if (currentEvent === 'estimated') {
               const secs = parseInt(data, 10)
               if (!isNaN(secs) && secs > 0) startCountdown(secs)
