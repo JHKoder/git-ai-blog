@@ -450,6 +450,7 @@ src/test/java/.../infra/ai/
 | Hashnode 발행 400 Bad Request                   | `escapeGraphql()` 후 `objectMapper.writeValueAsString()` 이중 이스케이프 | GraphQL variables 방식으로 전환 (`HashnodeGraphqlBuilder` 전면 교체). `deletePost` 호출 시 token 누락도 수정 |
 | 테스트 21개 실패 (`NoSuchBeanDefinitionException`) | 1) `JpaSqlVizWidgetRepository` package-private → Spring Data JPA 빈 등록 실패. 2) Spring Boot 4 / Jackson 3.x에서 `com.fasterxml.jackson.databind.ObjectMapper`로 주입 불가 | 1) `public interface` 추가. 2) `tools.jackson.databind.ObjectMapper` 임포트로 교체 |
 | AI 응답이 글 중간에서 잘림 | `ClaudeClient.max_tokens: 4096` 고정 — Sonnet 4.6 최대 16,384 대비 부족 | `max_tokens` 를 `16000`으로 상향 (`ClaudeClient.java:46`) |
+| prod SSE `Access Denied` + `response already committed` 반복 | nginx SSE location에 `proxy_set_header` 지정 시 **기본 헤더 상속 끊김** — `Authorization` 헤더가 백엔드에 미전달 → JWT 인증 실패 | `nginx.conf` SSE·`/api/` location에 `proxy_set_header Authorization $http_authorization` 추가 |
 | `Page<T>` 직렬화 경고 (`Serializing PageImpl instances as-is`) | `PostController.list()`가 `Page<PostListResponse>` 직접 반환 | `PostPageResponse` record DTO 도입, `GetPostListUseCase` 반환 타입 변경 |
 | 거절 후 수락 불가 | `Post.accept()`가 `AI_SUGGESTED` 상태만 허용 → 거절(`DRAFT` 복귀) 후 히스토리 제안 수락 시 `InvalidStateException` | `accept()` 상태 검사 제거 — 모든 상태에서 수락 허용 |
 | AI 요청 클라이언트 연결 끊김 | `POST /api/ai-suggestions/{postId}` 동기 처리 — 30~60초 HTTP 연결 유지 필요 → 브라우저/프록시 타임아웃으로 끊김 | 방안 A: `@Async` + 202 즉시 반환 + 폴링 / 방안 B: SSE 스트리밍 (`Flux<ServerSentEvent>`) |
@@ -457,6 +458,3 @@ src/test/java/.../infra/ai/
 | `[StreamAI] 완료 후 저장 실패: 이미 AI 제안 상태입니다.` | `doOnComplete`는 리액터 스레드에서 실행 → `@Transactional` 미적용. `post.markAiSuggested()` 가 이미 `AI_SUGGESTED` 상태에서 예외 | `saveResult()` 메서드로 분리해 별도 `@Transactional` 적용. `markAiSuggested()` 호출 전 현재 상태 체크 — 멱등 처리 |
 | `AuthorizationDeniedException` + `response has already been committed` | SSE 응답 flush 후 예외가 컨테이너로 전파 → Spring이 error page 렌더링 시도하지만 응답이 이미 커밋됨 | `onErrorResume`으로 에러를 `event: error` SSE 이벤트로 클라이언트에 전달 후 스트림 종료 |
 
-> **미해결 이슈:**
-> - `SimpleAsyncTaskExecutor` 경고: `@Async("aiTaskExecutor")` 지정에도 기본 executor 사용 경고 발생 가능. `DelegatingSecurityContextAsyncTaskExecutor`로 래핑 + `WebMvcConfigurer.configureAsyncSupport` 등록 필요
-> - `@Async` 처리 중 SecurityContext 미전달: Async 스레드에서 `SecurityContextHolder`가 비어있을 수 있음. `SecurityContextHolder.MODE_INHERITABLETHREADLOCAL` 또는 `DelegatingSecurityContextAsyncTaskExecutor` 적용으로 해결 가능
