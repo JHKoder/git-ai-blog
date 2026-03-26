@@ -1,0 +1,346 @@
+## 제목 후보
+
+1. 백엔드 개발자가 꼭 알아야 할 DB 동시성 제어 완전 가이드
+2. 트랜잭션 동시성 문제(Dirty Read·Phantom Read·Deadlock) 실무 해결법
+3. 격리 수준부터 Deadlock까지: DB 동시성 핵심 개념과 코드 예시
+
+---
+
+## 이 글에서 얻을 수 있는 것
+
+- Dirty Read, Non-Repeatable Read, Phantom Read, Deadlock이 왜 발생하는지 원인을 이해할 수 있습니다.
+- 격리 수준(Isolation Level) 선택 기준과 실무에서의 트레이드오프를 파악할 수 있습니다.
+- 실제 장애 사례와 함께 Deadlock 예방·해결 패턴을 코드로 확인할 수 있습니다.
+
+---
+
+## 동시성 문제, 왜 갑자기 터질까?
+
+트래픽이 적을 때는 아무 문제 없던 시스템이, 사용자가 몰리는 순간 갑자기 데이터가 꼬이거나 서버가 멈추는 경험, 해보신 적 있으신가요?
+
+대부분의 원인은 **동시성(Concurrency)** 문제입니다. 여러 트랜잭션이 동시에 같은 데이터를 읽고 쓸 때 발생하는 충돌이죠. 이 글에서는 원인부터 실무 해결책까지 단계별로 풀어드립니다.
+
+---
+
+## 동시성 문제의 원인
+
+### 트랜잭션이란?
+
+**트랜잭션(Transaction)** 은 하나의 논리적 작업 단위로, ACID(Atomicity·Consistency·Isolation·Durability) 속성을 보장해야 합니다.
+
+문제는 **Isolation(격리성)** 을 완벽히 보장할수록 성능이 낮아진다는 점입니다. 그래서 DB는 격리 수준을 단계별로 제공하고, 개발자가 선택하게 합니다.
+
+### 발생하는 대표적인 이상 현상
+
+| 이상 현상 | 설명 | 발생 격리 수준 |
+|---|---|---|
+| **Dirty Read** | 커밋되지 않은 데이터를 읽음 | READ UNCOMMITTED |
+| **Non-Repeatable Read** | 같은 쿼리 결과가 트랜잭션 내에서 달라짐 | READ COMMITTED 이하 |
+| **Phantom Read** | 같은 조건의 SELECT 결과 행 수가 달라짐 | REPEATABLE READ 이하 |
+| **Deadlock** | 두 트랜잭션이 서로의 Lock을 기다리며 영구 대기 | 모든 격리 수준 |
+
+---
+
+## 이상 현상 원인과 해결
+
+### Dirty Read
+
+아직 커밋되지 않은 변경 데이터를 다른 트랜잭션이 읽는 현상입니다.
+
+```sql visualize postgresql deadlock
+-- T1: 잔액을 차감하고 아직 커밋하지 않음
+BEGIN;
+UPDATE accounts SET balance = balance - 500 WHERE id = 1;
+-- T2: T1이 커밋하기 전에 읽음 → Dirty Read 발생 (READ UNCOMMITTED)
+SELECT balance FROM accounts WHERE id = 1;
+```
+T1이 롤백되면 T2가 읽은 값은 존재하지 않는 데이터가 됩니다. READ COMMITTED 이상을 사용하면 방지할 수 있습니다.
+
+---
+
+### Phantom Read
+
+REPEATABLE READ 격리 수준에서도 발생할 수 있는 현상으로, **같은 WHERE 조건으로 SELECT했을 때 트랜잭션 도중 행(Row) 수가 달라지는 문제**입니다.
+
+```sql visualize postgresql
+-- T1: 잔액 100 이상인 계좌를 조회
+BEGIN;
+SELECT * FROM accounts WHERE balance >= 100;
+-- T2: 새 계좌 삽입 후 커밋
+BEGIN;
+INSERT INTO accounts (id, balance) VALUES (99, 200);
+COMMIT;
+-- T1: 같은 조건 재조회 → 결과 행 수 증가 (Phantom Read)
+SELECT * FROM accounts WHERE balance >= 100;
+COMMIT;
+```
+PostgreSQL의 REPEATABLE READ는 MVCC(다중 버전 동시성 제어)로 Phantom Read를 방지합니다. MySQL InnoDB는 Gap Lock으로 방지합니다.
+
+---
+
+### Deadlock
+
+**Deadlock**은 두 트랜잭션이 서로 상대방이 보유한 Lock이 해제되기를 기다리며 영구적으로 멈추는 상태입니다.
+
+TPS 급증 → 두 트랜잭션 교차 Lock → Deadlock 발생 → 한 트랜잭션 강제 롤백
+
+```mermaid
+sequenceDiagram
+    participant T1 as 트랜잭션 T1
+    participant DB as DB (Accounts)
+    participant T2 as 트랜잭션 T2
+
+    T1->>DB: LOCK accounts(id=1)
+    T2->>DB: LOCK accounts(id=2)
+    T1->>DB: LOCK 요청 accounts(id=2) ← T2 보유
+    T2->>DB: LOCK 요청 accounts(id=1) ← T1 보유
+    DB-->>T1: Deadlock 감지 → T1 롤백
+    DB-->>T2: Lock 획득 → 정상 처리
+```
+
+```sql visualize postgresql deadlock
+-- T1: id=1 먼저 잠금
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+UPDATE accounts SET balance = balance + 100 WHERE id = 2;
+
+-- T2: id=2 먼저 잠금 (T1과 반대 순서)
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 2;
+UPDATE accounts SET balance = balance + 100 WHERE id = 1;
+```
+T1과 T2가 서로 반대 순서로 행을 잠그면서 교착 상태가 발생합니다. **항상 동일한 순서로 자원을 잠그는 것**이 핵심 예방책입니다.
+
+---
+
+## 격리 수준 선택: 트레이드오프
+
+격리 수준이 높을수록 데이터 정합성은 올라가지만 Lock 경합이 늘어 처리량(TPS)이 감소합니다.
+
+격리 수준 상승 → 이상 현상 방지 → Lock 경합 증가 → TPS 감소
+
+```mermaid
+flowchart LR
+    A[READ UNCOMMITTED\n성능 최고·정합성 최저] --> B[READ COMMITTED\nDirty Read 방지]
+    B --> C[REPEATABLE READ\nNon-Repeatable Read 방지]
+    C --> D[SERIALIZABLE\n모든 이상 현상 방지·성능 최저]
+```
+
+| 격리 수준 | Dirty Read | Non-Repeatable Read | Phantom Read | 권장 사용 |
+|---|---|---|---|---|
+| READ UNCOMMITTED | 발생 | 발생 | 발생 | 거의 사용 안 함 |
+| READ COMMITTED | 방지 | 발생 | 발생 | 일반 OLTP (PostgreSQL 기본) |
+| REPEATABLE READ | 방지 | 방지 | 발생 | 금융·재고 (MySQL 기본) |
+| SERIALIZABLE | 방지 | 방지 | 방지 | 정합성 최우선 배치 작업 |
+
+---
+
+## 코드로 보는 Before / After
+
+### ❌ 잘못된 예시: 역방향 Lock으로 Deadlock 유발
+
+```python
+# pip install sqlalchemy psycopg2-binary
+
+from sqlalchemy import create_engine, text
+
+engine = create_engine("postgresql://user:pass@localhost/mydb")
+
+def transfer_wrong(from_id: int, to_id: int, amount: int):
+    with engine.begin() as conn:
+        # 순서가 호출마다 달라져 Deadlock 유발
+        conn.execute(text("UPDATE accounts SET balance = balance - :amt WHERE id = :id"),
+                     {"amt": amount, "id": from_id})
+        conn.execute(text("UPDATE accounts SET balance = balance + :amt WHERE id = :id"),
+                     {"amt": amount, "id": to_id})
+```
+
+### ✅ 개선 예시: 항상 작은 id 순서로 Lock 획득
+
+```python
+# pip install sqlalchemy psycopg2-binary
+
+from sqlalchemy import create_engine, text
+
+engine = create_engine("postgresql://user:pass@localhost/mydb")
+
+def transfer_safe(from_id: int, to_id: int, amount: int):
+    # 항상 작은 id를 먼저 잠가 Lock 순서를 고정
+    first_id, second_id = sorted([from_id, to_id])
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("SELECT id FROM accounts WHERE id IN (:a, :b) FOR UPDATE"),
+            {"a": first_id, "b": second_id}
+        )
+        conn.execute(
+            text("UPDATE accounts SET balance = balance - :amt WHERE id = :from_id"),
+            {"amt": amount, "from_id": from_id}
+        )
+        conn.execute(
+            text("UPDATE accounts SET balance = balance + :amt WHERE id = :to_id"),
+            {"amt": amount, "to_id": to_id}
+        )
+```
+
+### Before / After 수치 비교
+
+| 지표 | Before (랜덤 순서) | After (정렬 순서) |
+|---|---|---|
+| Deadlock 발생 횟수 / 분 | 12회 | 0회 |
+| 평균 트랜잭션 지연 | 340ms | 41ms (↓88%) |
+| TPS | 210 | 580 (↑2.8배) |
+
+> 수치는 PostgreSQL 14, 동시 접속 200 커넥션 부하 테스트 기준 예시입니다.
+
+---
+
+## 운영 시나리오: 결제 서비스 Deadlock 장애
+
+### 상황
+
+커머스 플랫폼에서 블랙프라이데이 행사 당일, 결제 API 에러율이 갑자기 5%를 넘어섰습니다. CloudWatch 알람이 울렸고, RDS 콘솔에서 아래 로그가 확인됐습니다.
+
+```
+ERROR: deadlock detected
+DETAIL: Process 1234 waits for ShareLock on transaction 5678
+        Process 5678 waits for ShareLock on transaction 1234
+HINT:  See server log for query details.
+```
+
+### 원인 분석
+
+`orders` 테이블 UPDATE와 `inventory` 테이블 UPDATE가 서로 다른 순서로 실행되는 두 개의 코드 경로(결제 API, 재고 롤백 API)가 동시에 호출되면서 교차 Lock이 발생했습니다.
+
+```mermaid
+sequenceDiagram
+    participant Pay as 결제 API
+    participant Inv as 재고 롤백 API
+    participant DB as RDS (PostgreSQL)
+
+    Pay->>DB: LOCK orders(id=100)
+    Inv->>DB: LOCK inventory(item=A)
+    Pay->>DB: LOCK 요청 inventory(item=A) ← Inv 보유
+    Inv->>DB: LOCK 요청 orders(id=100) ← Pay 보유
+    DB-->>Pay: Deadlock → 롤백
+    DB-->>Inv: Lock 획득 성공
+```
+
+### 해결 방법
+
+1. **Lock 획득 순서 통일**: `orders` → `inventory` 순서로 고정
+2. **`SELECT ... FOR UPDATE NOWAIT`** 사용: Lock 대기 대신 즉시 실패 처리 후 재시도
+3. **재시도 로직 추가**: Deadlock 예외 감지 시 최대 3회 지수 백오프(Exponential Backoff) 재시도
+
+```python
+# pip install sqlalchemy tenacity psycopg2-binary
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+engine = create_engine("postgresql://user:pass@localhost/mydb")
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=0.1, min=0.1, max=1),
+    reraise=True
+)
+def process_payment(order_id: int, item_id: int):
+    with engine.begin() as conn:
+        # 순서 고정: orders → inventory
+        conn.execute(
+            text("SELECT id FROM orders WHERE id = :oid FOR UPDATE NOWAIT"),
+            {"oid": order_id}
+        )
+        conn.execute(
+            text("SELECT id FROM inventory WHERE item_id = :iid FOR UPDATE NOWAIT"),
+            {"iid": item_id}
+        )
+        conn.execute(
+            text("UPDATE orders SET status = 'PAID' WHERE id = :oid"),
+            {"oid": order_id}
+        )
+        conn.execute(
+            text("UPDATE inventory SET stock = stock - 1 WHERE item_id = :iid"),
+            {"iid": item_id}
+        )
+```
+
+> 💡 팁: `FOR UPDATE NOWAIT`는 Lock을 즉시 획득하지 못하면 에러를 반환합니다. 긴 대기 대신 빠른 실패 후 재시도 전략이 전체 처리량 유지에 유리합니다.
+
+---
+
+## 자주 하는 실수
+
+### 실수 1: 격리 수준을 무조건 SERIALIZABLE로 설정
+
+"안전하니까 가장 높은 격리 수준을 쓰자"는 생각은 위험합니다. SERIALIZABLE은 Lock 경합이 극도로 늘어 대부분의 OLTP 서비스에서 TPS가 50~80% 감소할 수 있습니다.
+
+> 💡 팁: 대부분의 OLTP 서비스는 READ COMMITTED 또는 REPEATABLE READ로 충분합니다. 정합성이 특히 중요한 배치 작업이나 금융 정산 잡에서만 SERIALIZABLE을 제한적으로 사용하세요.
+
+### 실수 2: 트랜잭션 내에서 외부 API 호출
+
+```python
+# ❌ 트랜잭션 안에서 외부 API를 호출하면 Lock이 오래 유지됨
+with engine.begin() as conn:
+    conn.execute(text("UPDATE orders SET status = 'PROCESSING' WHERE id = :id"), {"id": order_id})
+    response = requests.post("https://payment-gateway.example.com/pay", json=payload)  # 수백 ms~수 초
+    conn.execute(text("UPDATE orders SET status = 'PAID' WHERE id = :id"), {"id": order_id})
+```
+
+```python
+# ✅ 외부 API 호출을 트랜잭션 밖으로 분리
+response = requests.post("https://payment-gateway.example.com/pay", json=payload)
+
+with engine.begin() as conn:
+    conn.execute(text("UPDATE orders SET status = :status WHERE id = :id"),
+                 {"status": "PAID" if response.ok else "FAILED", "id": order_id})
+```
+
+> 💡 팁: 트랜잭션 안에 외부 I/O가 있으면 Lock 보유 시간이 늘어 다른 트랜잭션의 대기가 길어집니다. 외부 호출은 반드시 트랜잭션 바깥에서 처리하세요.
+
+### 실수 3: Deadlock 예외를 그냥 500으로 반환
+
+Deadlock은 DB가 자동으로 한쪽 트랜잭션을 롤백해주므로, **재시도(Retry)가 가능한 예외**입니다. 에러를 그냥 올리면 사용자 경험이 불필요하게 나빠집니다. `tenacity` 같은 재시도 라이브러리로 처리하거나, 애플리케이션 레벨에서 감지 후 재시도 로직을 구현하세요.
+
+---
+
+## 3줄 정리
+
+1. **동시성 이상 현상(Dirty Read, Phantom Read, Deadlock)은 격리 수준과 Lock 순서 설계로 대부분 예방**할 수 있습니다.
+2. **격리 수준은 높을수록 안전하지만 TPS가 줄어드므로**, 서비스 특성에 맞게 READ COMMITTED / REPEATABLE READ를 기본으로 사용하세요.
+3. **Deadlock은 Lock 획득 순서 통일 + NOWAIT + 재시도 전략** 세 가지를 조합하면 운영 환경에서 거의 제거할 수 있습니다.
+
+---
+
+## 체크리스트
+
+- [ ] 현재 서비스의 DB 격리 수준을 확인했다 (`SHOW transaction_isolation;`)
+- [ ] 여러 테이블을 수정하는 트랜잭션에서 Lock 획득 순서가 모든 코드 경로에서 동일한가?
+- [ ] 트랜잭션 내부에서 외부 API 호출, 파일 I/O 등 느린 작업을 하고 있지 않은가?
+- [ ] Deadlock / Lock Timeout 예외를 캐치하여 재시도 로직이 구현되어 있는가?
+- [ ] DB 모니터링(슬로우 쿼리, Lock wait 시간)을 알람과 함께 설정해 두었는가?
+- [ ] `SELECT ... FOR UPDATE`를 사용할 때 NOWAIT 또는 SKIP LOCKED 옵션을 고려했는가?
+
+---
+
+## 다음 단계
+
+이 글에서 다룬 내용을 실제 프로젝트에 적용해 보셨나요?
+다음 포스트에서는 **낙관적 Lock(Optimistic Lock) vs 비관적 Lock(Pessimistic Lock)** 선택 전략과 JPA / SQLAlchemy에서의 구현 방법을 다룹니다.
+실무에서 바로 쓸 수 있는 패턴이 필요하다면 구독하고 다음 글을 기다려 주세요!
+
+---
+
+## 검색 키워드
+
+- DB 동시성 제어
+- 트랜잭션 격리 수준
+- Deadlock 해결 방법
+- Phantom Read MVCC
+- PostgreSQL Lock 순서
+
+---
+
+> 이 글은 ChatGPT-4o이 작성을 도왔습니다.

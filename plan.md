@@ -1,6 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SecurityContext 전파, SSE 예상 시간 카운트다운 구현)
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SecurityContext 전파, SSE 예상 시간 카운트다운 구현, SSE 스트리밍 테스트 설계)
 
 ## 문서 구조
 
@@ -177,6 +177,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] Repository 통합 테스트 (4개 — H2 기반)
 - [x] 도메인 단위 테스트 (`PostDomainTest`, `MemberDomainTest`, `WebhookSignatureVerifierTest`)
 - [x] UseCase 단위 테스트 (`CreatePostUseCaseTest`, `ImportHashnodePostUseCaseTest`, `AiClientRouterTest`)
+- [x] SSE 스트리밍 통합 테스트 — `MockAiClient` + `StepVerifier` / `MockMvc` SSE 이벤트 순서 검증 (단위 4개 + Controller 4개 + DB 저장 3개)
 
 ---
 
