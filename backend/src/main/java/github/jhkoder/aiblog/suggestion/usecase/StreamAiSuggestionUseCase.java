@@ -107,9 +107,11 @@ public class StreamAiSuggestionUseCase {
             long durationMs = System.currentTimeMillis() - startMs.get();
             log.info("[StreamAI][7] DB 저장 시작 durationMs={} textLen={}", durationMs, accumulated.length());
             try {
-                saveResult(postId, memberId, accumulated.toString(),
-                        route.model(), finalEffectiveExtraPrompt, durationMs, prompt.length());
-                log.info("[StreamAI][8] DB 저장 완료 → __done__ emit");
+                String parsedTitle = parseTitle(accumulated.toString());
+                String cleanContent = removeFirstHeading(accumulated.toString());
+                saveResult(postId, memberId, cleanContent,
+                        route.model(), finalEffectiveExtraPrompt, durationMs, prompt.length(), parsedTitle);
+                log.info("[StreamAI][8] DB 저장 완료 → __done__ emit suggestedTitle={}", parsedTitle);
             } catch (Exception e) {
                 log.error("[StreamAI][ERR] 완료 후 저장 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e);
             }
@@ -136,13 +138,13 @@ public class StreamAiSuggestionUseCase {
      */
     @Transactional
     public void saveResult(Long postId, Long memberId, String text, String model,
-                           String extraPrompt, long durationMs, int promptLength) {
+                           String extraPrompt, long durationMs, int promptLength, String suggestedTitle) {
         aiUsageLimiter.increment(memberId);
         tokenUsageTracker.record(memberId, model,
                 (long) (promptLength / 4), (long) (text.length() / 4));
 
         AiSuggestion suggestion = AiSuggestion.createWithDuration(
-                postId, memberId, text, model, extraPrompt, durationMs);
+                postId, memberId, text, model, extraPrompt, durationMs, suggestedTitle);
         aiSuggestionRepository.save(suggestion);
 
         // 이미 AI_SUGGESTED 상태인 경우 상태 전이 생략 (멱등)
@@ -151,6 +153,33 @@ public class StreamAiSuggestionUseCase {
                 post.markAiSuggested();
             }
         });
+    }
+
+    /**
+     * AI 응답 첫 줄이 "# 제목" 형식이면 제목을 추출한다.
+     * 그렇지 않으면 null 반환.
+     */
+    private String parseTitle(String text) {
+        if (text == null || text.isBlank()) return null;
+        String firstLine = text.stripLeading().lines().findFirst().orElse("").trim();
+        if (firstLine.startsWith("# ")) {
+            String title = firstLine.substring(2).trim();
+            return title.isBlank() ? null : title;
+        }
+        return null;
+    }
+
+    /**
+     * 첫 줄이 "# 제목" 형식이면 제거한 본문을 반환한다.
+     * 제목이 없으면 원문 그대로 반환.
+     */
+    private String removeFirstHeading(String text) {
+        if (text == null) return text;
+        String stripped = text.stripLeading();
+        if (!stripped.startsWith("# ")) return text;
+        int newline = stripped.indexOf('\n');
+        if (newline == -1) return "";
+        return stripped.substring(newline + 1).stripLeading();
     }
 
     private String resolveExtraPrompt(AiSuggestionRequest request) {

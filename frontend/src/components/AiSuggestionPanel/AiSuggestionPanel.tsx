@@ -348,11 +348,18 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
                 })}
               </span>
             </div>
+            {suggestion.suggestedTitle && (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                제안 제목: <strong>{suggestion.suggestedTitle}</strong>
+              </div>
+            )}
             <div className={`${styles.content} markdown-body`}>
               <MarkdownRenderer content={suggestion.suggestedContent} />
             </div>
             <div className={styles.suggestionActions}>
-              <button className={styles.acceptBtn} onClick={handleAccept}>✓ 수락 (내용 적용)</button>
+              <button className={styles.acceptBtn} onClick={handleAccept}>
+                ✓ 수락 {suggestion.suggestedTitle ? '(본문 + 제목 적용)' : '(내용 적용)'}
+              </button>
               <button className={styles.rejectBtn} onClick={handleReject}>✕ 거절</button>
             </div>
           </div>

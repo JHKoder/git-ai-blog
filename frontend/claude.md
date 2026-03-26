@@ -283,7 +283,7 @@ accept(postId, id)         POST /ai-suggestions/{postId}/{id}/accept
 reject(postId, id)         POST /ai-suggestions/{postId}/{id}/reject
 ```
 
-**SSE 스트리밍:** `fetch` + `ReadableStream` 직접 사용 (Axios는 SSE 미지원)
+**SSE 스트리밍:** `fetch` + `ReadableStream` 직접 사용 (Axios는 SSE 미지원) — `AiSuggestionPanel` 내부에서 직접 호출, 이 파일에 함수 미분리
 - `POST /api/ai-suggestions/{postId}/stream` → `text/event-stream`
 - `event: token` / `data: <토큰>` 수신 시 `streamingText`에 누적
 - `event: done` / `data: [DONE]` 수신 시 스트리밍 종료 → `onSuggestionUpdate()` 호출

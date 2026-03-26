@@ -26,6 +26,9 @@ public class AiSuggestion {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String suggestedContent;
 
+    @Column(columnDefinition = "TEXT")
+    private String suggestedTitle;
+
     @Column(nullable = false)
     private String model;
 
@@ -56,9 +59,11 @@ public class AiSuggestion {
     }
 
     public static AiSuggestion createWithDuration(Long postId, Long memberId, String suggestedContent,
-                                                   String model, String extraPrompt, Long durationMs) {
+                                                   String model, String extraPrompt, Long durationMs,
+                                                   String suggestedTitle) {
         AiSuggestion suggestion = create(postId, memberId, suggestedContent, model, extraPrompt);
         suggestion.durationMs = durationMs;
+        suggestion.suggestedTitle = suggestedTitle;
         return suggestion;
     }
 }

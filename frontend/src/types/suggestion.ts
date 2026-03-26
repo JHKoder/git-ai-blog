@@ -2,6 +2,7 @@ export interface AiSuggestion {
   id: number
   postId: number
   suggestedContent: string
+  suggestedTitle?: string
   model: string
   extraPrompt?: string
   createdAt: string

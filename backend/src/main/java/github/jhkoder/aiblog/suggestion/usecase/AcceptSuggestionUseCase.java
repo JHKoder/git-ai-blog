@@ -30,7 +30,7 @@ public class AcceptSuggestionUseCase {
             throw new NotFoundException("해당 게시글의 제안이 아닙니다.");
         }
 
-        post.accept(suggestion.getSuggestedContent());
+        post.accept(suggestion.getSuggestedContent(), suggestion.getSuggestedTitle());
         return AiSuggestionResponse.from(suggestion);
     }
 }
