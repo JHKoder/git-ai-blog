@@ -177,6 +177,7 @@ export function AiSuggestionPanel({ postId, suggestion, initialExtraPrompt, onEx
       const decoder = new TextDecoder()
       let buffer = ''
       let currentEvent = ''
+      let lastWasData = false
       let finished = false
 
       while (!finished) {
@@ -205,14 +206,16 @@ export function AiSuggestionPanel({ postId, suggestion, initialExtraPrompt, onEx
               finished = true
               break
             } else {
-              // token 이벤트
-              setStreamingText(prev => prev + data)
+              // token 이벤트 — SSE 스펙: 연속된 data: 라인은 \n으로 join
+              setStreamingText(prev => prev + (lastWasData ? '\n' : '') + data)
+              lastWasData = true
             }
             continue
           }
           // 빈 줄 = SSE 이벤트 구분자 → currentEvent 초기화
           if (line === '') {
             currentEvent = ''
+            lastWasData = false
           }
         }
       }

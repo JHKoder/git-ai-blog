@@ -152,6 +152,7 @@ export function AiEvaluationPanel({ postId, onApplyToImprovement, onEvalComplete
       let buffer = ''
       let currentEvent = ''
       let accumulated = ''
+      let lastWasData = false
       let finished = false
 
       while (!finished) {
@@ -179,13 +180,17 @@ export function AiEvaluationPanel({ postId, onApplyToImprovement, onEvalComplete
               finished = true
               break
             } else {
+              // SSE 스펙: 연속된 data: 라인은 \n으로 join
+              if (lastWasData) accumulated += '\n'
               accumulated += data
+              lastWasData = true
               setStreamingText(accumulated)
             }
             continue
           }
           if (line === '') {
             currentEvent = ''
+            lastWasData = false
           }
         }
       }
