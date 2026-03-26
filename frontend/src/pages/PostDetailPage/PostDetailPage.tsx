@@ -93,6 +93,12 @@ export function PostDetailPage() {
         </div>
         <div className={styles.actions}>
           <button className={styles.pdfBtn} onClick={handleExportPdf}>PDF 내보내기</button>
+          <a href="#ai-panel" className={styles.aiPanelLink}>▼ AI 패널</a>
+          {currentPost.status === 'PUBLISHED' && currentPost.hashnodeUrl && (
+            <a href={currentPost.hashnodeUrl} target="_blank" rel="noopener noreferrer" className={styles.hashnodeLinkBtn}>
+              Hashnode에서 보기 →
+            </a>
+          )}
           <button className={styles.editBtn} onClick={() => navigate(`/posts/${id}/edit`)}>수정</button>
           <button className={styles.publishBtn} onClick={handlePublish} disabled={publishing}>
             {publishing ? '발행 중...' : currentPost.status === 'PUBLISHED' ? '재발행' : 'Hashnode 발행'}
@@ -130,16 +136,7 @@ export function PostDetailPage() {
         </div>
       )}
 
-      <div className={styles.bottomActions}>
-        {currentPost.status === 'PUBLISHED' && currentPost.hashnodeUrl && (
-          <a href={currentPost.hashnodeUrl} target="_blank" rel="noopener noreferrer" className={styles.hashnodeLink}>
-            Hashnode에서 보기 →
-          </a>
-        )}
-      </div>
-
-      {/* 우측 고정 사이드바 — 본문 컨테이너 바깥 오른쪽에 fixed */}
-      <aside className={styles.sidebar}>
+      <div id="ai-panel" className={styles.aiPanel}>
         <AiEvaluationPanel
           postId={Number(id)}
           onApplyToImprovement={(prompt) => setSuggestionExtraPrompt(prompt)}
@@ -151,7 +148,7 @@ export function PostDetailPage() {
           onExtraPromptApplied={() => setSuggestionExtraPrompt('')}
           onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
         />
-      </aside>
+      </div>
 
       {showDeleteModal && (
         <ConfirmModal

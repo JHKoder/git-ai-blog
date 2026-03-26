@@ -34,6 +34,14 @@ public class Member {
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String hashnodePublicationId;
 
+    /**
+     * Hashnode 태그 매핑 테이블 — JSON 배열 문자열로 저장.
+     * 형식: [{"name":"java","slug":"java","id":"..."},...]
+     * 발행 시 로컬 태그명 → Hashnode tag ID 매핑에 사용.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String hashnodeTags;
+
     @Column(length = 1000)
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String claudeApiKey;
@@ -134,6 +142,10 @@ public class Member {
 
     public boolean hasGeminiApiKey() {
         return geminiApiKey != null && !geminiApiKey.isBlank();
+    }
+
+    public void updateHashnodeTags(String hashnodeTagsJson) {
+        this.hashnodeTags = hashnodeTagsJson;
     }
 
     public void updateAiDailyLimit(Integer limit) {

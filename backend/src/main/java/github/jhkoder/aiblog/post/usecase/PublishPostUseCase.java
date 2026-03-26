@@ -59,12 +59,12 @@ public class PublishPostUseCase {
         if (post.getHashnodeId() == null) {
             HashnodeClient.PublishResult result = hashnodeClient.publishPost(
                     post.getTitle(), contentWithMeta, member.getHashnodeToken(), member.getHashnodePublicationId(),
-                    post.getTags());
+                    post.getTags(), member.getHashnodeTags());
             post.markPublished(result.getId(), result.getUrl());
         } else {
             hashnodeClient.updatePost(
                     post.getHashnodeId(), post.getTitle(), contentWithMeta, member.getHashnodeToken(),
-                    post.getTags());
+                    post.getTags(), member.getHashnodeTags());
             post.markPublished(post.getHashnodeId(), post.getHashnodeUrl());
         }
 

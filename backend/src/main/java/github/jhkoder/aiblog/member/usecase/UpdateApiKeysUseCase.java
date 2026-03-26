@@ -73,6 +73,9 @@ public class UpdateApiKeysUseCase {
         if (request.getGeminiDailyLimit() != null) {
             member.updateGeminiDailyLimit(request.getGeminiDailyLimit());
         }
+        if (request.getHashnodeTags() != null) {
+            member.updateHashnodeTags(request.getHashnodeTags());
+        }
         return MemberResponse.from(member);
     }
 }

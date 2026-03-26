@@ -56,15 +56,15 @@ public class HashnodeClient {
         }
     }
 
-    public PublishResult publishPost(String title, String content, String token, String publicationId, List<String> tags) {
-        GqlRequest req = graphqlBuilder.buildPublishRequest(title, content, publicationId, tags);
+    public PublishResult publishPost(String title, String content, String token, String publicationId, List<String> tags, String memberHashnodeTags) {
+        GqlRequest req = graphqlBuilder.buildPublishRequest(title, content, publicationId, tags, memberHashnodeTags);
         JsonNode response = executeWithRetry(req, token);
         JsonNode post = response.path("data").path("publishPost").path("post");
         return new PublishResult(post.path("id").asText(), post.path("url").asText());
     }
 
-    public void updatePost(String postId, String title, String content, String token, List<String> tags) {
-        GqlRequest req = graphqlBuilder.buildUpdateRequest(postId, title, content, tags);
+    public void updatePost(String postId, String title, String content, String token, List<String> tags, String memberHashnodeTags) {
+        GqlRequest req = graphqlBuilder.buildUpdateRequest(postId, title, content, tags, memberHashnodeTags);
         executeWithRetry(req, token);
     }
 

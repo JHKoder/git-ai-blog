@@ -21,6 +21,7 @@ public class MemberResponse {
     private Integer grokDailyLimit;
     private Integer gptDailyLimit;
     private Integer geminiDailyLimit;
+    private String hashnodeTags;
 
     public static MemberResponse from(Member member) {
         return MemberResponse.builder()
@@ -38,6 +39,7 @@ public class MemberResponse {
                 .grokDailyLimit(member.getGrokDailyLimit())
                 .gptDailyLimit(member.getGptDailyLimit())
                 .geminiDailyLimit(member.getGeminiDailyLimit())
+                .hashnodeTags(member.getHashnodeTags())
                 .build();
     }
 }

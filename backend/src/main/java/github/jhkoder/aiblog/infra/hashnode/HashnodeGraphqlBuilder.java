@@ -1,17 +1,21 @@
 package github.jhkoder.aiblog.infra.hashnode;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Hashnode GraphQL 요청 페이로드 빌더.
  * query + variables 분리 방식으로 이중 이스케이프 문제를 완전히 회피한다.
  * HashnodeClient.execute()가 {"query":..., "variables":...} 형태로 직렬화한다.
  */
+@Slf4j
 @Component
 public class HashnodeGraphqlBuilder {
 
@@ -19,7 +23,7 @@ public class HashnodeGraphqlBuilder {
 
     public record GqlRequest(String query, Object variables) {}
 
-    public GqlRequest buildPublishRequest(String title, String content, String publicationId, List<String> tags) {
+    public GqlRequest buildPublishRequest(String title, String content, String publicationId, List<String> localTags, String memberHashnodeTags) {
         String query = """
                 mutation PublishPost($input: PublishPostInput!) {
                   publishPost(input: $input) {
@@ -34,14 +38,14 @@ public class HashnodeGraphqlBuilder {
         input.put("title", title);
         input.put("contentMarkdown", sanitizeForHashnode(content));
         input.put("publicationId", publicationId);
-        input.set("tags", buildTagsNode(tags));
+        input.set("tags", buildTagsNode(localTags, memberHashnodeTags));
 
         ObjectNode variables = objectMapper.createObjectNode();
         variables.set("input", input);
         return new GqlRequest(query, variables);
     }
 
-    public GqlRequest buildUpdateRequest(String postId, String title, String content, List<String> tags) {
+    public GqlRequest buildUpdateRequest(String postId, String title, String content, List<String> localTags, String memberHashnodeTags) {
         String query = """
                 mutation UpdatePost($input: UpdatePostInput!) {
                   updatePost(input: $input) {
@@ -56,7 +60,7 @@ public class HashnodeGraphqlBuilder {
         input.put("id", postId);
         input.put("title", title);
         input.put("contentMarkdown", sanitizeForHashnode(content));
-        input.set("tags", buildTagsNode(tags));
+        input.set("tags", buildTagsNode(localTags, memberHashnodeTags));
 
         ObjectNode variables = objectMapper.createObjectNode();
         variables.set("input", input);
@@ -119,9 +123,35 @@ public class HashnodeGraphqlBuilder {
         return result;
     }
 
-    private ArrayNode buildTagsNode(List<String> tags) {
-        // Hashnode API는 자체 DB에 등록된 slug와 정확히 일치해야 태그 연동됨.
-        // 임의 생성 slug는 무시되므로 빈 배열 전송. (장기: 사용자 Hashnode 태그 ID 사전 등록 방식)
-        return objectMapper.createArrayNode();
+    /**
+     * 로컬 태그명을 Hashnode tag ID로 매핑해 tags 배열을 생성한다.
+     * memberHashnodeTags — JSON 배열: [{"name":"java","slug":"java","id":"..."},...]
+     * 매핑되지 않는 로컬 태그는 무시한다. (Hashnode API는 자체 DB에 등록된 ID만 허용)
+     */
+    private ArrayNode buildTagsNode(List<String> localTags, String memberHashnodeTags) {
+        ArrayNode tagsNode = objectMapper.createArrayNode();
+        if (localTags == null || localTags.isEmpty() || memberHashnodeTags == null || memberHashnodeTags.isBlank()) {
+            return tagsNode;
+        }
+        try {
+            List<Map<String, String>> tagMappings = objectMapper.readValue(
+                    memberHashnodeTags, new TypeReference<>() {});
+            Map<String, Map<String, String>> byName = new java.util.HashMap<>();
+            for (Map<String, String> mapping : tagMappings) {
+                String name = mapping.get("name");
+                if (name != null) byName.put(name.toLowerCase(), mapping);
+            }
+            for (String localTag : localTags) {
+                Map<String, String> mapping = byName.get(localTag.toLowerCase());
+                if (mapping != null && mapping.get("id") != null) {
+                    ObjectNode tagNode = objectMapper.createObjectNode();
+                    tagNode.put("id", mapping.get("id"));
+                    tagsNode.add(tagNode);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Hashnode 태그 매핑 파싱 실패 — 빈 배열로 발행: {}", e.getMessage());
+        }
+        return tagsNode;
     }
 }

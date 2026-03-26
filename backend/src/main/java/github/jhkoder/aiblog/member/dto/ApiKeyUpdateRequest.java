@@ -48,4 +48,11 @@ public class ApiKeyUpdateRequest {
     private Boolean clearGptApiKey;
     private Boolean clearGeminiApiKey;
     private Boolean clearGithubToken;
+
+    /**
+     * Hashnode 태그 매핑 테이블 — JSON 배열 문자열.
+     * 형식: [{"name":"java","slug":"java","id":"..."},...]
+     */
+    @Size(max = 5000, message = "Hashnode 태그 설정은 5000자 이하여야 합니다.")
+    private String hashnodeTags;
 }

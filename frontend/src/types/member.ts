@@ -13,6 +13,7 @@ export interface Member {
   grokDailyLimit: number | null
   gptDailyLimit: number | null
   geminiDailyLimit: number | null
+  hashnodeTags: string | null
 }
 
 export interface HashnodeConnectRequest {
@@ -36,4 +37,5 @@ export interface ApiKeyUpdateRequest {
   clearGptApiKey?: boolean
   clearGeminiApiKey?: boolean
   clearGithubToken?: boolean
+  hashnodeTags?: string
 }

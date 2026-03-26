@@ -8,6 +8,11 @@ import { AiUsage } from '../../types/post'
 import { Prompt, PromptRequest } from '../../types/prompt'
 import styles from './ProfilePage.module.css'
 
+interface HashnodeTagEntry {
+  name: string
+  id: string
+}
+
 function RateLimitBar({ used, limit, color }: { used: number; limit: number; color: string }) {
   if (limit <= 0) return null
   return (
@@ -35,6 +40,12 @@ export function ProfilePage() {
   const [connectingHashnode, setConnectingHashnode] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
+  // Hashnode 태그 매핑
+  const [hashnodeTagEntries, setHashnodeTagEntries] = useState<HashnodeTagEntry[]>([])
+  const [newTagName, setNewTagName] = useState('')
+  const [newTagId, setNewTagId] = useState('')
+  const [savingTags, setSavingTags] = useState(false)
+
   // 커스텀 프롬프트
   const [prompts, setPrompts] = useState<Prompt[]>([])
   const [promptTitle, setPromptTitle] = useState('')
@@ -43,7 +54,17 @@ export function ProfilePage() {
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null)
 
   useEffect(() => {
-    memberApi.getMe().then(res => setMember(res.data.data))
+    memberApi.getMe().then(res => {
+      const m = res.data.data
+      setMember(m)
+      if (m.hashnodeTags) {
+        try {
+          setHashnodeTagEntries(JSON.parse(m.hashnodeTags) as HashnodeTagEntry[])
+        } catch {
+          setHashnodeTagEntries([])
+        }
+      }
+    })
     memberApi.getAiUsage().then(res => setAiUsage(res.data.data)).catch(() => {})
     promptApi.getMyPrompts().then(res => setPrompts(res.data.data)).catch(() => {})
   }, [])
@@ -82,6 +103,35 @@ export function ProfilePage() {
       toast.success('삭제됐습니다.')
     } catch {
       toast.error('삭제 실패')
+    }
+  }
+
+  const handleAddTagEntry = () => {
+    if (!newTagName.trim() || !newTagId.trim()) {
+      toast.error('태그명과 태그 ID를 모두 입력해 주세요.')
+      return
+    }
+    setHashnodeTagEntries(prev => [...prev, { name: newTagName.trim(), id: newTagId.trim() }])
+    setNewTagName('')
+    setNewTagId('')
+  }
+
+  const handleRemoveTagEntry = (index: number) => {
+    setHashnodeTagEntries(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleSaveHashnodeTags = async () => {
+    setSavingTags(true)
+    try {
+      const data: ApiKeyUpdateRequest = { hashnodeTags: JSON.stringify(hashnodeTagEntries) }
+      const res = await memberApi.updateApiKeys(data)
+      setMember(res.data.data)
+      toast.success('Hashnode 태그 매핑이 저장됐습니다.')
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message || '저장 실패')
+    } finally {
+      setSavingTags(false)
     }
   }
 
@@ -190,6 +240,46 @@ export function ProfilePage() {
                 {syncing ? '동기화 중...' : '게시글 동기화'}
               </button>
               <button className={styles.disconnectBtn} onClick={handleHashnodeDisconnect}>연동 해제</button>
+            </div>
+
+            <div className={styles.tagMappingSection}>
+              <p className={styles.groupLabel}>Hashnode 태그 매핑</p>
+              <p className={styles.hint}>
+                발행 시 로컬 태그명을 Hashnode 태그 ID로 자동 변환합니다.
+                Hashnode 태그 ID는 Hashnode 관리 페이지에서 확인할 수 있습니다.
+              </p>
+              {hashnodeTagEntries.length > 0 && (
+                <ul className={styles.tagMappingList}>
+                  {hashnodeTagEntries.map((entry, i) => (
+                    <li key={i} className={styles.tagMappingItem}>
+                      <span className={styles.tagMappingName}>{entry.name}</span>
+                      <span className={styles.tagMappingArrow}>→</span>
+                      <span className={styles.tagMappingId}>{entry.id}</span>
+                      <button type="button" className={styles.deleteBtn} onClick={() => handleRemoveTagEntry(i)}>삭제</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className={styles.tagMappingAdd}>
+                <input
+                  value={newTagName}
+                  onChange={e => setNewTagName(e.target.value)}
+                  placeholder="로컬 태그명 (예: java)"
+                  className={styles.input}
+                  style={{ width: '160px' }}
+                />
+                <input
+                  value={newTagId}
+                  onChange={e => setNewTagId(e.target.value)}
+                  placeholder="Hashnode 태그 ID"
+                  className={styles.input}
+                  style={{ width: '220px' }}
+                />
+                <button type="button" className={styles.editBtn} onClick={handleAddTagEntry}>추가</button>
+                <button type="button" className={styles.saveBtn} onClick={handleSaveHashnodeTags} disabled={savingTags}>
+                  {savingTags ? '저장 중...' : '저장'}
+                </button>
+              </div>
             </div>
           </div>
         ) : (

@@ -29,6 +29,13 @@ public class Prompt {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    /**
+     * 자가성장 구상용 예약 컬럼 — 200~300자 메타 프롬프트(자기 설명).
+     * 향후 "평가 결과 → 프롬프트 개선" 배치에서 활용 예정. 현재 로직 없음.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String metaPrompt;
+
     @Column(nullable = false)
     private int usageCount;
 
