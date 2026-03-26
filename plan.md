@@ -1,6 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (AI 태그 자동 추출, AI 평가 GFM 렌더링, 반응형 레이아웃, 2컬럼 레이아웃, 본문 폭 유지, AI 개선 중복 제거, 스트리밍 버그, 태그 자동등록)
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (AI 태그 자동 추출, AI 평가 GFM 렌더링, 반응형 레이아웃, 2컬럼 레이아웃, 본문 폭 유지, AI 개선 중복 제거, 스트리밍 버그, 태그 자동등록, SQLViz 버그, AI 중복 개선, 결과 닫기 버튼, 발행 버튼 스타일)
 
 ## 문서 구조
 
@@ -188,8 +188,14 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] AI 평가 결과 `#` 헤더 렌더링 안됨 — 빈 `data:` 라인(AI `\n` 토큰)을 `\n`으로 처리하도록 수정. AiEvaluationPanel·AiSuggestionPanel 동일 적용
 - [x] `PromptBuilder.buildEvaluation()` 출력 형식 리뉴얼 — 섹션 순서 재구성(🔥총평→📊점수표→🚨TOP3→🧠개선→✂️제거→🏗구조→💎전문가한줄), 강조·가독성·Java 코드블록 언어태그
   규칙 적용
-- [x] AI 제안 결과 존재 시 실시간 스트리밍 미표시 버그 — `hideResult=true`여도 스트리밍 진행 UI 표시하도록 조건 수정 (`streaming && !hideResult` → `streaming`)
-- [x] AI 태그 자동등록 UI — `AiSuggestionResult`에 "+ 프로필에 추가" 버튼 추가, 기존 hashnodeTags에 중복 없이 merge 후 `PATCH /members/api-keys` 저장 (마이페이지 직접 등록 X)
+- [x] AI 제안 결과 존재 시 실시간 스트리밍 미표시 버그 — `hideResult=true`여도 스트리밍 진행 UI 표시하도록 조건 수정 (`streaming && !hideResult` →
+  `streaming`)
+- [x] AI 태그 자동등록 UI — `AiSuggestionResult`에 "+ 프로필에 추가" 버튼 추가, 기존 hashnodeTags에 중복 없이 merge 후 `PATCH /members/api-keys`
+  저장 (마이페이지 직접 등록 X)
+- [ ] AI 개선 중복 생성 방지 — 개선 요청 시 기존 제안 내용과 동일하면 새로 저장하지 않고 기존 것을 유지/재사용. 매 요청마다 무조건 새 레코드 생성 중
+- [x] AI 제안 결과 / 평가 결과 닫기 버튼 — 본문 하단 결과 섹션에 닫기/열기 토글 버튼 추가. 닫으면 화면에서만 숨김 (데이터 유지)
+- [x] AI 제안 결과 / 평가 결과 간격 조정 — 두 결과 섹션 사이 `margin-top: 10px` 적용
+- [x] sidebarPublish 발행 버튼 ghost 스타일 — 배경 `var(--bg-card)`, 테두리 `var(--border)`, 텍스트 `var(--text)`로 변경
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
 ### SQL Visualization Widget
@@ -203,6 +209,9 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] `sql visualize` 마커 렌더링 — `MarkdownRenderer` 전처리 + `SqlVizMarker` 컴포넌트
 - [x] `[IMAGE: ...]` 플레이스홀더 처리 — 이미지 없으면 본문에서 제거
 - [x] AI 작성 메타 정보 통합 표시 — PostDetailPage 하단 카드 (모델·날짜·개선횟수), 본문 인용 줄 제거
+- [ ] SQLViz 시뮬레이션 결과 미표시 버그 — `/sqlviz` 페이지에서 SQL 입력 후 시뮬레이션 실행 시 화면에 배경색 외 아무것도 렌더링되지 않음. 재현:
+  `BEGIN ISOLATION LEVEL read committed` 형식 + `FOR KEY SHARE` / `DELETE FROM parent` 조합
+- [ ] SQLViz 위젯 목록 선택 무반응 버그 — "내 위젯 목록"에서 항목 선택 시 아무것도 표시되지 않음 (시뮬레이션 미표시 버그와 동일 원인으로 추정)
 
 ### 운영 / 모니터링
 

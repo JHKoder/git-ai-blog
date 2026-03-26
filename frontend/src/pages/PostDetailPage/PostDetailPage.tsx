@@ -31,6 +31,8 @@ export function PostDetailPage() {
   const [publishing, setPublishing] = useState(false)
   const [suggestionExtraPrompt, setSuggestionExtraPrompt] = useState('')
   const [evalText, setEvalText] = useState<string | null>(null)
+  const [evalCollapsed, setEvalCollapsed] = useState(false)
+  const [suggestionCollapsed, setSuggestionCollapsed] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -135,21 +137,36 @@ export function PostDetailPage() {
           {/* AI 평가 결과 — 본문 하단 */}
           {evalText && (
             <div id="eval-result" className={styles.resultBlock}>
-              <h3 className={styles.resultBlockTitle}>AI 평가 결과</h3>
-              <div className={`${styles.evalContent} markdown-body`}>
-                <MarkdownRenderer content={evalText} />
+              <div className={styles.resultBlockHeader}>
+                <h3 className={styles.resultBlockTitle}>AI 평가 결과</h3>
+                <button className={styles.collapseBtn} onClick={() => setEvalCollapsed(v => !v)}>
+                  {evalCollapsed ? '열기 ▲' : '닫기 ▼'}
+                </button>
               </div>
+              {!evalCollapsed && (
+                <div className={`${styles.evalContent} markdown-body`}>
+                  <MarkdownRenderer content={evalText} />
+                </div>
+              )}
             </div>
           )}
 
           {/* AI 제안 결과 — 본문 하단 */}
           {latestSuggestion && (
             <div id="suggestion-result" className={styles.resultBlock}>
-              <AiSuggestionResult
-                postId={Number(id)}
-                suggestion={latestSuggestion}
-                onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
-              />
+              <div className={styles.resultBlockHeader}>
+                <h3 className={styles.resultBlockTitle}>AI 제안 결과</h3>
+                <button className={styles.collapseBtn} onClick={() => setSuggestionCollapsed(v => !v)}>
+                  {suggestionCollapsed ? '열기 ▲' : '닫기 ▼'}
+                </button>
+              </div>
+              {!suggestionCollapsed && (
+                <AiSuggestionResult
+                  postId={Number(id)}
+                  suggestion={latestSuggestion}
+                  onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
+                />
+              )}
             </div>
           )}
         </div>

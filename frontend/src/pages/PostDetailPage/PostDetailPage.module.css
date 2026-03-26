@@ -52,13 +52,37 @@
 }
 
 .resultBlock {
+  margin-top: 10px;
+}
+
+.resultBlock:first-of-type {
   margin-top: 32px;
 }
 
+.resultBlockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .resultBlockTitle {
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 16px;
   font-weight: 700;
+  color: var(--text);
+}
+
+.collapseBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.collapseBtn:hover {
   color: var(--text);
 }
 
@@ -249,14 +273,18 @@
 }
 
 .publishBtn {
-  background: #8b5cf6;
-  color: #fff;
-  border: none;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
   padding: 6px 16px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
+}
+
+.publishBtn:hover {
+  background: var(--bg-subtle);
 }
 
 .publishBtn:disabled {
