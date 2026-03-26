@@ -147,6 +147,7 @@ public class ClaudeClient implements AiClient {
                 .retrieve()
                 .bodyToFlux(String.class)
                 .doOnSubscribe(s -> log.info("[Claude] HTTP 연결 수립, SSE 수신 대기 중"))
+                .doOnNext(line -> log.info("[Claude] RAW line=[{}]", line.replace("\n", "\\n").replace("\r", "\\r")))
                 .flatMap(line -> {
                     // SSE line: "data: {...}"
                     if (!line.startsWith("data: ")) return Flux.empty();
