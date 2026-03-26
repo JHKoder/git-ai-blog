@@ -126,6 +126,7 @@ public class GrokClient implements AiClient {
                 .retrieve()
                 .bodyToFlux(String.class)
                 .doOnSubscribe(s -> log.info("[Grok] HTTP 연결 수립, SSE 수신 대기 중"))
+                .doOnNext(line -> log.info("[Grok] RAW line=[{}]", line.replace("\n", "\\n").replace("\r", "\\r")))
                 .flatMap(line -> {
                     String json = line.startsWith("data: ") ? line.substring(6).trim() : line.trim();
                     if (json.isEmpty() || "[DONE]".equals(json)) return Flux.empty();
