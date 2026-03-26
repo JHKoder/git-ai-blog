@@ -1,6 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SecurityContext Async 전파 이슈 추가)
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SecurityContext 전파, SSE 예상 시간 카운트다운 구현)
 
 ## 문서 구조
 
@@ -13,6 +13,9 @@
 | [`monitoring.md`](monitoring.md)           | 운영 / 장애 대응                       |
 | [`research.md`](research.md)               | 리서치 내용                           |
 
+/*
+
+*/
 ---
 
 ## Mermaid 다이어그램 사용 기준
@@ -150,8 +153,9 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] `durationMs` 컬럼 — AI 응답 소요 시간 저장, 모델별 평균 조회
 - [x] nginx SSE 지원 — `/api/ai-suggestions/*/stream` 경로에 `proxy_buffering off`
 - [x] SSE 버그 수정 — `이미 AI 제안 상태` 오류, `Access Denied` + response committed 오류, 에러 이벤트 미처리
-- [ ] AI SSE 예상 완료 시간 표시 — `durationMs` 평균으로 카운트다운 UI (스트리밍 시작 시 첫 이벤트로 예상 시간 전달)
-- [ ] `@Async` SecurityContext 전파 — `SimpleAsyncTaskExecutor` 경고, `DelegatingSecurityContextAsyncTaskExecutor` + `WebMvcConfigurer.configureAsyncSupport` 적용 필요
+- [x] AI SSE 예상 완료 시간 표시 — `estimated` 첫 이벤트로 전달, 프론트 카운트다운 UI
+- [x] `@Async` SecurityContext 전파 — `DelegatingSecurityContextAsyncTaskExecutor` 래핑,
+  `WebMvcConfigurer.configureAsyncSupport` 등록
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
 ### SQL Visualization Widget

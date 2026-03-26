@@ -56,10 +56,18 @@ public class AiSuggestionController {
         if (request == null) request = new AiSuggestionRequest();
         AiSuggestionRequest finalRequest = request;
         return streamAiSuggestionUseCase.stream(postId, memberId, finalRequest)
-                .map(token -> ServerSentEvent.<String>builder()
-                        .event("token")
-                        .data(token)
-                        .build())
+                .map(token -> {
+                    if (token.startsWith("__estimated__:")) {
+                        return ServerSentEvent.<String>builder()
+                                .event("estimated")
+                                .data(token.substring("__estimated__:".length()))
+                                .build();
+                    }
+                    return ServerSentEvent.<String>builder()
+                            .event("token")
+                            .data(token)
+                            .build();
+                })
                 .concatWith(Flux.just(ServerSentEvent.<String>builder()
                         .event("done")
                         .data("[DONE]")

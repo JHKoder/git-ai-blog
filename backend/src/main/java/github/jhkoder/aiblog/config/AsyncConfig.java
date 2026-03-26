@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.security.task.DelegatingSecurityContextAsyncTaskExecutor;
 
 import java.util.concurrent.Executor;
 
@@ -13,7 +14,8 @@ public class AsyncConfig {
 
     /**
      * AI 개선 요청 전용 스레드 풀.
-     * 각 요청이 30~60초 소요되므로 corePoolSize는 작게, maxPoolSize는 여유 있게 설정.
+     * DelegatingSecurityContextAsyncTaskExecutor로 래핑하여
+     * @Async 스레드에서도 SecurityContext(인증 정보)가 전파되도록 한다.
      */
     @Bean(name = "aiTaskExecutor")
     public Executor aiTaskExecutor() {
@@ -23,6 +25,6 @@ public class AsyncConfig {
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("ai-async-");
         executor.initialize();
-        return executor;
+        return new DelegatingSecurityContextAsyncTaskExecutor(executor);
     }
 }

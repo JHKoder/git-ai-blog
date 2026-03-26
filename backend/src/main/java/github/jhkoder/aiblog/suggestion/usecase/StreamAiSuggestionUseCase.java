@@ -43,8 +43,19 @@ public class StreamAiSuggestionUseCase {
     private final TokenUsageTracker tokenUsageTracker;
     private final PromptRepository promptRepository;
 
+    /** 모델별 예상 시간 fallback (초). durationMs 데이터 없을 때 사용 */
+    private static final java.util.Map<String, Long> FALLBACK_SECONDS = java.util.Map.of(
+            "claude-sonnet-4-6", 40L,
+            "claude-opus-4-5",   60L,
+            "grok-3",            20L,
+            "gpt-4o",            30L,
+            "gpt-4o-mini",       20L,
+            "gemini-2.0-flash",  15L
+    );
+
     /**
      * SSE 스트리밍 Flux를 반환한다. 구독 시 AI API를 호출하고 토큰을 순서대로 emit한다.
+     * 첫 번째 이벤트로 "__estimated__:{초}" 를 emit — 프론트에서 카운트다운에 활용.
      * 스트리밍 완료 시 DB 저장 + 토큰 사용량 기록을 수행한다 (cold publisher).
      *
      * 주의: doOnComplete 는 리액터 스레드에서 실행되므로 @Transactional 이 적용되지 않는다.
@@ -68,11 +79,15 @@ public class StreamAiSuggestionUseCase {
         String prompt = promptBuilder.build(post.getContentType(), contentToImprove, effectiveExtraPrompt);
         AiClientRouter.RouteResult route = aiClientRouter.route(post.getContentType(), request.getModel(), member);
 
+        // 예상 시간 계산: DB 평균 → 없으면 모델별 fallback
+        long estimatedSec = resolveEstimatedSeconds(route.model());
+
         StringBuilder accumulated = new StringBuilder();
         AtomicLong startMs = new AtomicLong(System.currentTimeMillis());
 
         String finalEffectiveExtraPrompt = effectiveExtraPrompt;
-        return route.client().streamComplete(prompt, route.model(), route.apiKey())
+        Flux<String> estimatedEvent = Flux.just("__estimated__:" + estimatedSec);
+        Flux<String> tokenStream = route.client().streamComplete(prompt, route.model(), route.apiKey())
                 .doOnNext(accumulated::append)
                 .doOnComplete(() -> {
                     long durationMs = System.currentTimeMillis() - startMs.get();
@@ -84,6 +99,18 @@ public class StreamAiSuggestionUseCase {
                     }
                 })
                 .doOnError(e -> log.error("[StreamAI] 스트리밍 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e));
+
+        return estimatedEvent.concatWith(tokenStream);
+    }
+
+    private long resolveEstimatedSeconds(String model) {
+        try {
+            Double avg = aiSuggestionRepository.findAvgDurationMsByModel(model);
+            if (avg != null && avg > 0) {
+                return Math.max(1L, avg.longValue() / 1000);
+            }
+        } catch (Exception ignored) {}
+        return FALLBACK_SECONDS.getOrDefault(model, 30L);
     }
 
     /**

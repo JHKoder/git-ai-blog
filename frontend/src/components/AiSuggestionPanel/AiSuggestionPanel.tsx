@@ -35,7 +35,7 @@ const MODEL_LABEL: Record<string, string> = {
 }
 
 const POLL_INTERVAL_MS = 3000
-const POLL_MAX_ATTEMPTS = 40 // 최대 2분 폴링
+const POLL_MAX_ATTEMPTS = 40
 
 function getModelLabel(model: string) {
   return MODEL_LABEL[model] ?? model
@@ -45,6 +45,7 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
   const [polling, setPolling] = useState(false)
   const [streaming, setStreaming] = useState(false)
   const [streamingText, setStreamingText] = useState('')
+  const [countdown, setCountdown] = useState<number | null>(null)
   const [model, setModel] = useState('')
   const [extraPrompt, setExtraPrompt] = useState('')
   const [myPrompts, setMyPrompts] = useState<Prompt[]>([])
@@ -55,6 +56,7 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
   const pollAttemptsRef = useRef(0)
   const latestSuggestionIdRef = useRef<number | null>(suggestion?.id ?? null)
   const streamAbortRef = useRef<AbortController | null>(null)
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     latestSuggestionIdRef.current = suggestion?.id ?? null
@@ -64,7 +66,6 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
     promptApi.getMyPrompts().then(res => setMyPrompts(res.data.data)).catch(() => {})
   }, [])
 
-  // 컴포넌트 언마운트 시 정리
   useEffect(() => {
     return () => {
       stopPolling()
@@ -86,7 +87,25 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
       streamAbortRef.current.abort()
       streamAbortRef.current = null
     }
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current)
+      countdownTimerRef.current = null
+    }
     setStreaming(false)
+    setCountdown(null)
+  }
+
+  function startCountdown(seconds: number) {
+    setCountdown(seconds)
+    countdownTimerRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
   }
 
   function startPolling() {
@@ -105,7 +124,6 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
         const res = await suggestionApi.getLatest(postId)
         const latest = res.data.data
         if (latest && latest.id !== latestSuggestionIdRef.current) {
-          // 새 제안 감지
           stopPolling()
           toast.success('AI 제안이 생성됐습니다.')
           onSuggestionUpdate?.()
@@ -119,6 +137,7 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
   async function startStreaming(req: AiSuggestionRequest) {
     setStreaming(true)
     setStreamingText('')
+    setCountdown(null)
 
     const token = useAuthStore.getState().token
     const controller = new AbortController()
@@ -145,6 +164,7 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let currentEvent = ''
 
       while (true) {
         const { done, value } = await reader.read()
@@ -155,24 +175,28 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
         buffer = lines.pop() ?? ''
 
         for (const line of lines) {
-          if (line.startsWith('event: error')) {
-            // 서버에서 에러 이벤트 수신
-            const dataLine = lines[lines.indexOf(line) + 1] ?? ''
-            const errMsg = dataLine.startsWith('data: ') ? dataLine.slice(6) : 'AI 스트리밍 오류'
-            throw new Error(errMsg)
-          }
-          if (line.startsWith('event: done') || (line.startsWith('data: ') && line.slice(6) === '[DONE]')) {
-            // 스트리밍 완료
-            break
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim()
+            continue
           }
           if (line.startsWith('data: ')) {
             const data = line.slice(6)
-            setStreamingText(prev => prev + data)
+            if (currentEvent === 'estimated') {
+              const secs = parseInt(data, 10)
+              if (!isNaN(secs) && secs > 0) startCountdown(secs)
+            } else if (currentEvent === 'error') {
+              throw new Error(data || 'AI 스트리밍 오류')
+            } else if (currentEvent === 'done' || data === '[DONE]') {
+              // 완료
+            } else {
+              // token 이벤트
+              setStreamingText(prev => prev + data)
+            }
+            currentEvent = ''
           }
         }
       }
 
-      // 완료 후 최신 제안 조회
       stopStreaming()
       toast.success('AI 제안이 생성됐습니다.')
       onSuggestionUpdate?.()
@@ -191,8 +215,6 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
       if (extraPrompt) req.extraPrompt = extraPrompt
       if (selectedPromptId !== '') req.promptId = selectedPromptId
       setExtraPrompt('')
-
-      // 스트리밍 방식으로 요청
       await startStreaming(req)
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } } }
@@ -279,16 +301,22 @@ export function AiSuggestionPanel({ postId, suggestion, onSuggestionUpdate }: Pr
       </div>
 
       {/* 스트리밍 중 실시간 출력 */}
-      {streaming && streamingText && (
+      {streaming && (
         <div className={styles.suggestionSection}>
           <h3 className={styles.sectionTitle}>
             <span className={styles.loadingRow}>
-              <span className={styles.spinnerDark} /> AI 생성 중...
+              <span className={styles.spinnerDark} />
+              AI 생성 중...
+              {countdown !== null && (
+                <span className={styles.countdown}>약 {countdown}초 남음</span>
+              )}
             </span>
           </h3>
-          <div className={`${styles.content} ${styles.streamingContent} markdown-body`}>
-            <MarkdownRenderer content={streamingText} />
-          </div>
+          {streamingText && (
+            <div className={`${styles.content} ${styles.streamingContent} markdown-body`}>
+              <MarkdownRenderer content={streamingText} />
+            </div>
+          )}
         </div>
       )}
 

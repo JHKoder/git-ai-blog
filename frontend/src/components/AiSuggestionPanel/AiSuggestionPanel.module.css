@@ -241,3 +241,10 @@
   max-height: 600px;
   overflow-y: auto;
 }
+
+.countdown {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
