@@ -34,19 +34,6 @@
   margin-top: 32px;
 }
 
-.resultBlockHeader {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.resultBlockTitle {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-}
-
 .resultViewBtn {
   display: block;
   text-align: center;
@@ -64,37 +51,6 @@
   background: var(--border);
   color: var(--text);
 }
-
-.evalApplyRow {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.evalApplyNote {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
-.evalApplyBtn {
-  background: #3b82f6;
-  color: #fff;
-  border: none;
-  padding: 8px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  align-self: flex-start;
-}
-
-.evalApplyBtn:hover { background: #2563eb; }
 
 @media (max-width: 860px) {
   .twoCol {

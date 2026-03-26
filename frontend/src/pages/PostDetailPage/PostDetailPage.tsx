@@ -30,8 +30,6 @@ export function PostDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [suggestionExtraPrompt, setSuggestionExtraPrompt] = useState('')
-  const [evalText, setEvalText] = useState<string | null>(null)
-  const [evalSuggestedPrompt, setEvalSuggestedPrompt] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -151,47 +149,15 @@ export function PostDetailPage() {
               />
             </div>
           )}
-
-          {/* 평가 결과 — 본문 하단 (evalText는 사이드바 AiEvaluationPanel에서 올라옴) */}
-          {evalText && (
-            <div id="eval-result" className={styles.resultBlock}>
-              <div className={styles.resultBlockHeader}>
-                <h3 className={styles.resultBlockTitle}>AI 평가 결과</h3>
-              </div>
-              <div className={`${styles.content} markdown-body`}>
-                <MarkdownRenderer content={evalText} />
-              </div>
-              {evalSuggestedPrompt && (
-                <div className={styles.evalApplyRow}>
-                  <p className={styles.evalApplyNote}>
-                    💡 추천 개선 요청사항이 추출됐습니다.
-                  </p>
-                  <button
-                    className={styles.evalApplyBtn}
-                    onClick={() => setSuggestionExtraPrompt(evalSuggestedPrompt)}
-                  >
-                    AI 개선에 적용하기 →
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* 우측 사이드바: 폼만 */}
+        {/* 우측 사이드바 */}
         <div className={styles.sidebar}>
-          {/* 평가 폼 (결과 숨김) */}
+          {/* 평가 패널 (폼 + 결과) */}
           <AiEvaluationPanel
             postId={Number(id)}
-            onApplyToImprovement={(prompt) => setEvalSuggestedPrompt(prompt)}
-            hideResult
-            onEvalComplete={(text) => setEvalText(text)}
+            onApplyToImprovement={(prompt) => setSuggestionExtraPrompt(prompt)}
           />
-          {evalText && (
-            <a href="#eval-result" className={styles.resultViewBtn}>
-              평가 결과 보기 ↓
-            </a>
-          )}
 
           {/* 개선 폼 */}
           <AiSuggestionPanel

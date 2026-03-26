@@ -177,7 +177,8 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] 반응형 레이아웃 — 모바일/태블릿 대응 미디어 쿼리 (Layout 네비, PostDetailPage, PostListPage, PostCreatePage, PostEditPage)
 - [x] AI 평가 결과 localStorage 저장 — `ai_eval_{postId}` 키, 재방문 시 자동 복원, 저장 시각·지우기 버튼
 - [x] PostDetailPage 2컬럼 레이아웃 — 우측 사이드바(요청 폼) + 본문 하단(결과), 앵커 버튼으로 결과 섹션 이동
-- [x] PostDetailPage 본문 폭 유지 — `Layout wide` prop + `mainWide` (max-width: 1320px), 2컬럼 grid `minmax(0, 960px) 320px`으로 본문 폭 유지
+- [x] PostDetailPage 본문 폭 유지 — `Layout wide` prop + `mainWide` (max-width: 1320px), 2컬럼 grid `minmax(0, 960px) 320px`으로
+  본문 폭 유지
 - [x] AI 개선 요청 중복 제거 — `AiSuggestionResult` 전용 컴포넌트 분리, 사이드바=폼 전용(`hideResult`), 본문 하단=결과 전용
 - [x] AI 평가 결과 마크다운 렌더링 — `AiEvaluationPanel` 내부 + `PostDetailPage` `evalText` 모두 `MarkdownRenderer` 적용 완료
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
