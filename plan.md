@@ -2,6 +2,19 @@
 
 > 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (AI 태그 자동 추출, AI 평가 GFM 렌더링, 반응형 레이아웃, 2컬럼 레이아웃, 본문 폭 유지, AI 개선 중복 제거)
 
+
+/*
+
+# ai 실시간 기능 안먹힘
+
+ai 제안 결과가 이미 있고 ai 개선 요청시 실시간 기능이 안보여 왜냐하면 이전에 ai 제안 결과가 있으니 뭔가 엇갈리는 것같아
+
+# 마이페이지에서 태그 등록 ?
+
+no 게시글에서 ai에게 받은 태그를 자동등록해서 사용할수 있게 만들어줘
+
+*/
+
 ## 문서 구조
 
 | 파일                                         | 역할                               |
@@ -183,9 +196,11 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] AI 평가 결과 마크다운 렌더링 — `AiEvaluationPanel` 내부 + `PostDetailPage` `evalText` 모두 `MarkdownRenderer` 적용 완료
 - [x] AI 평가 결과 레이아웃 리뉴얼 — 평가 결과를 본문 하단(`#eval-result`)으로 이동, 사이드바는 폼 + "평가 결과 보기 ↓" 앵커 버튼만 유지. `evalContent` overflow-x:
   auto로 테이블 가로 스크롤 보장
-- [x] 사이드바 상단에 발행 버튼 이동 — "Hashnode 발행/재발행" + "Hashnode에서 보기" 링크를 사이드바 최상단 카드로 이동, 상단 actions에서 제거
+- [x] 사이드바 상단에 발행 버튼 이동 — "Hashnode 발행/재발행" + "Hashnode에서 보기" 링크를 사이드바 최상단 카드로 이동, 상단 actions에서 제거. 가로 배열
+  `[재발행][Hashnode에서 보기]`
 - [x] AI 평가 결과 `#` 헤더 렌더링 안됨 — 빈 `data:` 라인(AI `\n` 토큰)을 `\n`으로 처리하도록 수정. AiEvaluationPanel·AiSuggestionPanel 동일 적용
-- [x] `PromptBuilder.buildEvaluation()` 출력 형식 리뉴얼 — 섹션 순서 재구성(🔥총평→📊점수표→🚨TOP3→🧠개선→✂️제거→🏗구조→💎전문가한줄), 강조·가독성·Java 코드블록 언어태그 규칙 적용
+- [x] `PromptBuilder.buildEvaluation()` 출력 형식 리뉴얼 — 섹션 순서 재구성(🔥총평→📊점수표→🚨TOP3→🧠개선→✂️제거→🏗구조→💎전문가한줄), 강조·가독성·Java 코드블록 언어태그
+  규칙 적용
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
 ### SQL Visualization Widget

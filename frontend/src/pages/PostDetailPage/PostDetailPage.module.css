@@ -36,17 +36,19 @@
   border-radius: 10px;
   padding: 14px 16px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
 }
 
-/* 사이드바 발행 영역 안의 버튼/링크는 전체 너비 */
+/* 사이드바 발행 영역 안의 버튼/링크는 균등 분할 */
 .sidebarPublish .publishBtn,
 .sidebarPublish .hashnodeLinkBtn {
-  width: 100%;
+  flex: 1;
   text-align: center;
   box-sizing: border-box;
-  white-space: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .resultBlock {
