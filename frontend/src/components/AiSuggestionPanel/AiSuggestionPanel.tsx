@@ -206,8 +206,13 @@ export function AiSuggestionPanel({ postId, suggestion, initialExtraPrompt, onEx
               finished = true
               break
             } else {
-              // token 이벤트 — SSE 스펙: 연속된 data: 라인은 \n으로 join
-              setStreamingText(prev => prev + (lastWasData ? '\n' : '') + data)
+              // 빈 data: 라인 = AI가 \n 토큰을 전송한 것
+              if (data === '') {
+                setStreamingText(prev => prev + '\n')
+              } else {
+                // SSE 스펙: 연속된 data: 라인은 \n으로 join
+                setStreamingText(prev => prev + (lastWasData ? '\n' : '') + data)
+              }
               lastWasData = true
             }
             continue

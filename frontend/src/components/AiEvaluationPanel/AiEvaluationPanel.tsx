@@ -181,9 +181,14 @@ export function AiEvaluationPanel({ postId, onApplyToImprovement, hideResult, on
               finished = true
               break
             } else {
-              // SSE 스펙: 연속된 data: 라인은 \n으로 join
-              if (lastWasData) accumulated += '\n'
-              accumulated += data
+              // 빈 data: 라인 = AI가 \n 토큰을 전송한 것
+              if (data === '') {
+                accumulated += '\n'
+              } else {
+                // SSE 스펙: 연속된 data: 라인은 \n으로 join
+                if (lastWasData) accumulated += '\n'
+                accumulated += data
+              }
               lastWasData = true
               setStreamingText(accumulated)
             }
