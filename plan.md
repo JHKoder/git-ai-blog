@@ -3,6 +3,55 @@
 > 작성일: 2026-03-20 / 최종 수정: 2026-03-25 (Mermaid 다이어그램 개선 가이드 추가)
 > 개발자: 1인 개인 프로젝트 / 목표 사용자: 최대 100명
 
+<!--
+## AI 개선 요청 — 클라이언트 연결 끊김 문제
+
+### 현상
+- AI API 호출은 수십 초 소요 → 클라이언트가 타임아웃 또는 네트워크 단절로 먼저 연결을 끊음
+- 서버 측에서는 "클라이언트가 연결을 먼저 끊었습니다(Broken pipe / Connection reset)" 에러 발생
+- 하지만 AI 응답은 정상 완료되어 DB에 AiSuggestion이 저장됨
+- 클라이언트는 에러 화면 표시 → 사용자가 다시 요청 → AI 사용량 이중 차감
+
+### 근본 원인
+현재 `POST /api/ai-suggestions/{postId}` 가 동기(sync) 방식:
+클라이언트가 AI 응답이 올 때까지 HTTP 연결을 유지해야 함 (30~60초)
+→ 브라우저/프록시 타임아웃(보통 30초), 모바일 네트워크 단절 등으로 끊김
+
+### 개선 아이디어
+
+#### 방안 A — 폴링 방식 (구현 난이도: 낮음) ✅ 추천
+1. `POST /api/ai-suggestions/{postId}` 는 즉시 `202 Accepted` 반환 + `jobId` 응답
+2. 백엔드는 `@Async`로 AI 처리를 별도 스레드에서 실행, 완료 시 DB 저장
+3. 클라이언트는 `GET /api/ai-suggestions/{postId}/latest` 를 일정 간격(3~5초)으로 폴링
+4. `latestSuggestion`이 새로 생기면 폴링 중단 → 정상 표시
+
+- 장점: 기존 API 구조 최소 변경, 추가 인프라 불필요
+- 단점: 폴링 주기만큼 지연 표시. Redis job 상태 추적 없으면 진행률 표시 불가
+- 프론트: `AiSuggestionPanel`에 폴링 로직 + 로딩 UI 추가
+
+#### 방안 B — SSE(Server-Sent Events) (구현 난이도: 중간)
+1. `POST /api/ai-suggestions/{postId}` 즉시 `jobId` 반환
+2. 클라이언트는 `GET /api/ai-suggestions/stream/{jobId}` SSE 연결
+3. 백엔드가 AI 응답 완료 시 SSE 이벤트 전송
+
+- 장점: 실시간 완료 알림, 진행 상태 스트리밍 가능
+- 단점: SSE 연결 관리, nginx 설정 필요 (`proxy_buffering off`)
+
+#### 방안 C — 프론트 재조회 fallback (구현 난이도: 매우 낮음)
+현재 구조 유지, 에러 발생 시 클라이언트가 `GET /latest` 재조회:
+- 에러 응답을 받아도 "이미 처리됐을 수 있음" 안내 토스트 표시
+- `fetchLatest` 자동 재호출 → 이미 저장된 제안이 있으면 정상 표시
+- AI 사용량 이중 차감 방지: `aiUsageLimiter.increment` 는 이미 됐으므로 재요청 방지 UI 필요
+
+- 장점: 구현 1~2시간, 현재 코드 변경 최소
+- 단점: 근본 해결 아님 (연결 끊김 자체는 그대로)
+
+### 결론 / 우선순위
+- **단기**: 방안 C — 에러 시 자동 `fetchLatest` + 안내 토스트로 UX 개선
+- **중기**: 방안 A — `@Async` 비동기화 + 폴링으로 근본 해결
+-->
+
+
 ## 문서 구조
 
 | 파일                                         | 역할                               |
