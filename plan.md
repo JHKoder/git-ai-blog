@@ -18,17 +18,6 @@
 → 브라우저/프록시 타임아웃(보통 30초), 모바일 네트워크 단절 등으로 끊김
 
 ### 개선 아이디어
-
-#### 방안 A — 폴링 방식 (구현 난이도: 낮음) ✅ 추천
-1. `POST /api/ai-suggestions/{postId}` 는 즉시 `202 Accepted` 반환 + `jobId` 응답
-2. 백엔드는 `@Async`로 AI 처리를 별도 스레드에서 실행, 완료 시 DB 저장
-3. 클라이언트는 `GET /api/ai-suggestions/{postId}/latest` 를 일정 간격(3~5초)으로 폴링
-4. `latestSuggestion`이 새로 생기면 폴링 중단 → 정상 표시
-
-- 장점: 기존 API 구조 최소 변경, 추가 인프라 불필요
-- 단점: 폴링 주기만큼 지연 표시. Redis job 상태 추적 없으면 진행률 표시 불가
-- 프론트: `AiSuggestionPanel`에 폴링 로직 + 로딩 UI 추가
-
 #### 방안 B — SSE 스트리밍 (구현 난이도: 높음) — "AI가 타이핑하는 것처럼" 실시간 표시
 > Q: 실시간으로 AI가 작업 중인 텍스트도 보여줄 수 있어?
 
@@ -36,6 +25,7 @@
 
 **동작 원리:**
 1. AI API(Claude, Grok, GPT, Gemini) 모두 스트리밍 모드 지원 — 토큰이 생성될 때마다 청크 단위로 전송
+   - **토큰 비용**: 스트리밍 여부는 요금에 영향 없음. 입출력 토큰 수는 동일.
 2. 백엔드에서 AI 스트리밍 응답(`text/event-stream`)을 받아 그대로 클라이언트에 SSE로 중계
 3. 클라이언트는 SSE 연결을 유지하면서 토큰이 도착할 때마다 화면에 append
 
@@ -44,6 +34,12 @@
 - 변경: `bodyToFlux(String.class)` + `text/event-stream` Accept 헤더로 교체 필요
 - 백엔드 컨트롤러: `SseEmitter` 또는 `Flux<ServerSentEvent>` 반환으로 교체
 - nginx: `proxy_buffering off` 설정 필요 (SSE가 버퍼링되면 실시간 안 됨)
+
+**동시성 / 100명·1000명 성능 고려:**
+- SSE + Spring WebFlux(`Flux` 반환)는 비동기 논블로킹 → 100명 동시 스트리밍도 스레드 수십 개로 처리 가능
+- **실질 병목은 AI API rate limit**: Claude/GPT 등 분당 요청 한도에 먼저 막힘 (서버 CPU/메모리보다 먼저)
+- 100명(현재 목표): SSE + WebFlux 조합으로 충분
+- 1000명 이상: AI API 요청을 Redis Queue로 순차 처리 + 대기열 UI("N번째 대기 중") 도입 필요
 
 **구현 범위:**
 - 백엔드: `AiClient` 인터페이스에 `streamComplete()` 메서드 추가, 4개 클라이언트 각각 스트리밍 구현
@@ -56,12 +52,16 @@
 - 4개 AI 모두 스트리밍 API 형식이 다름 (Claude: `data:`, GPT: `data:`, Grok: OpenAI 호환, Gemini: 별도 파싱 필요)
 - 토큰 카운팅은 스트리밍 완료 후 summary 이벤트에서 추출 (Claude: `message_delta` 이벤트)
 
+**완료 예상 시간 표시 (UX 개선):**
+- SSE 스트림 시작 시 첫 이벤트로 "예상 완료까지 약 N초" 전송 → 프론트에서 카운트다운/프로그레스 바
+- 구현 방법: 모델별 평균 응답 시간을 Redis에 누적 측정 후 전송 (단순하게는 고정값 하드코딩도 효과 있음)
+  예: Claude 40초, Grok 20초, GPT-4o 30초
+- 연결이 끊겨도 "처리 중입니다. 잠시 후 확인해보세요." 안내로 재요청 방지 가능
+
 ### 결론 / 우선순위
-- **단기**: 방안 A — `@Async` + 폴링으로 연결 끊김 근본 해결 (구현 빠름)
 - **중기**: 방안 B — SSE 스트리밍으로 "AI 타이핑" UX 추가 (방안 A 위에 올리는 구조)
   → 방안 A 완료 후 B를 선택적으로 추가 가능
 -->
-
 
 ## 문서 구조
 
