@@ -1,22 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (SSE 스트리밍 전체 파이프라인 버그 해결 — ObjectMapper, done race condition, bodyToFlux data 접두사,
-> 실시간 pre 렌더링)
-
-/*
-ai 평가 보기에서
-내용이 마크 다운형식이 깨져
-
-테이블 안됨 AI 제안 결과 출력과 동일하게 보여줬으면해(당연히 분리는 되어야함)
-
-개선 요청시 태그 도 따로 추출해서 가져왔으면 좋겠어 핵심 태그 최소 3 ~10개로
-
-# 웹 앱에서도 동작할수 있게 반응형으로 만들어줘
-
-지금 가지고 있는 문제도 알려줄게
-우측 고정 사이드바가 가운데 게시글위로 그냥 보여줘서
-게시글 위로 올라간 특정 부분들만 투명화를 조금 가졌으면 좋겠어
-*/
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (AI 태그 자동 추출, AI 평가 GFM 렌더링, 반응형 레이아웃)
 
 ## 문서 구조
 
@@ -187,6 +171,9 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] "Hashnode에서 보기" 링크 상단 이동 — PDF 내보내기 오른쪽, `PUBLISHED` + `hashnodeUrl` 조건부 표시
 - [x] Hashnode 태그 장기 대응 — Member `hashnodeTags` TEXT 컬럼, ProfilePage 태그명↔ID 매핑 UI, 발행 시 로컬 태그명 → Hashnode tag ID 자동 변환
 - [x] 자가성장 프롬프트 구상 — `Prompt` 엔티티 `metaPrompt TEXT` 컬럼 예약 (로직 없음)
+- [x] AI 평가 패널 마크다운 렌더링 — GFM 테이블 포함 완전 렌더링 (스트리밍 중 `<pre>`, 완료 후 `MarkdownRenderer` 전환)
+- [x] AI 개선 시 태그 자동 추출 — `TAGS:` 형식 파싱, `AiSuggestion.suggestedTags` 저장, `accept` 시 `Post.tags` 교체 (3~10개), 수락 버튼에 적용 항목 표시
+- [x] 반응형 레이아웃 — 모바일/태블릿 대응 미디어 쿼리 (Layout 네비, PostDetailPage, PostListPage, PostCreatePage, PostEditPage)
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
 ### SQL Visualization Widget

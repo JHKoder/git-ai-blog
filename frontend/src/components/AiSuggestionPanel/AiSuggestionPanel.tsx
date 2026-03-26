@@ -15,6 +15,7 @@ interface Props {
   initialExtraPrompt?: string
   onExtraPromptApplied?: () => void
   onSuggestionUpdate?: () => void
+  hideResult?: boolean
 }
 
 const MODELS = [
@@ -43,7 +44,7 @@ function getModelLabel(model: string) {
   return MODEL_LABEL[model] ?? model
 }
 
-export function AiSuggestionPanel({ postId, suggestion, initialExtraPrompt, onExtraPromptApplied, onSuggestionUpdate }: Props) {
+export function AiSuggestionPanel({ postId, suggestion, initialExtraPrompt, onExtraPromptApplied, onSuggestionUpdate, hideResult }: Props) {
   const [polling, setPolling] = useState(false)
   const [streaming, setStreaming] = useState(false)
   const [streamingText, setStreamingText] = useState('')
@@ -319,8 +320,8 @@ export function AiSuggestionPanel({ postId, suggestion, initialExtraPrompt, onEx
         </div>
       </div>
 
-      {/* 스트리밍 중 실시간 출력 */}
-      {streaming && (
+      {/* 스트리밍 중 실시간 출력 — hideResult=true여도 진행 상태는 표시 */}
+      {streaming && !hideResult && (
         <div className={styles.suggestionSection}>
           <h3 className={styles.sectionTitle}>
             <span className={styles.loadingRow}>
@@ -340,7 +341,7 @@ export function AiSuggestionPanel({ postId, suggestion, initialExtraPrompt, onEx
       )}
 
       {/* AI 제안 결과 */}
-      {!streaming && suggestion && (
+      {!hideResult && !streaming && suggestion && (
         <div className={styles.suggestionSection}>
           <h3 className={styles.sectionTitle}>AI 제안 결과</h3>
           <div className={styles.suggestion}>
@@ -364,12 +365,22 @@ export function AiSuggestionPanel({ postId, suggestion, initialExtraPrompt, onEx
                 제안 제목: <strong>{suggestion.suggestedTitle}</strong>
               </div>
             )}
+            {suggestion.suggestedTags && (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                제안 태그: <strong>{suggestion.suggestedTags.split(',').map(t => `#${t}`).join(' ')}</strong>
+              </div>
+            )}
             <div className={`${styles.content} markdown-body`}>
               <MarkdownRenderer content={suggestion.suggestedContent} />
             </div>
             <div className={styles.suggestionActions}>
               <button className={styles.acceptBtn} onClick={handleAccept}>
-                ✓ 수락 {suggestion.suggestedTitle ? '(본문 + 제목 적용)' : '(내용 적용)'}
+                {(() => {
+                  const parts = ['본문']
+                  if (suggestion.suggestedTitle) parts.push('제목')
+                  if (suggestion.suggestedTags) parts.push(`태그 ${suggestion.suggestedTags.split(',').length}개`)
+                  return `✓ 수락 (${parts.join(' + ')} 적용)`
+                })()}
               </button>
               <button className={styles.rejectBtn} onClick={handleReject}>✕ 거절</button>
             </div>

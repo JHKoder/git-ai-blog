@@ -114,11 +114,14 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 16px;
-  max-height: 600px;
-  overflow-y: auto;
   font-size: 14px;
   background: var(--bg-subtle);
   color: var(--text);
+}
+
+.streamingContent {
+  max-height: 600px;
+  overflow-y: auto;
 }
 
 .streamingPre {
@@ -128,6 +131,43 @@
   font-family: inherit;
   font-size: 14px;
   line-height: 1.7;
+  color: var(--text);
+}
+
+.resultHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.resultHeader .sectionTitle {
+  margin: 0;
+}
+
+.resultMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.savedAt {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.clearBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.clearBtn:hover {
+  background: var(--bg-subtle);
   color: var(--text);
 }
 

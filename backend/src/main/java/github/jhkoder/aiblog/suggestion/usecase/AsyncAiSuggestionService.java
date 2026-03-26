@@ -75,7 +75,7 @@ public class AsyncAiSuggestionService {
             aiUsageLimiter.increment(memberId);
 
             AiSuggestion suggestion = AiSuggestion.createWithDuration(
-                    postId, memberId, aiResponse.text(), route.model(), effectiveExtraPrompt, durationMs, null);
+                    postId, memberId, aiResponse.text(), route.model(), effectiveExtraPrompt, durationMs, null, null);
             aiSuggestionRepository.save(suggestion);
 
             post.markAiSuggested();

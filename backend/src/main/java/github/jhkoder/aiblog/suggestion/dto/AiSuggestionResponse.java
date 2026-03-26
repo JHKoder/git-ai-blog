@@ -13,6 +13,7 @@ public class AiSuggestionResponse {
     private Long postId;
     private String suggestedContent;
     private String suggestedTitle;
+    private String suggestedTags;
     private String model;
     private String extraPrompt;
     private LocalDateTime createdAt;
@@ -23,6 +24,7 @@ public class AiSuggestionResponse {
                 .postId(suggestion.getPostId())
                 .suggestedContent(suggestion.getSuggestedContent())
                 .suggestedTitle(suggestion.getSuggestedTitle())
+                .suggestedTags(suggestion.getSuggestedTags())
                 .model(suggestion.getModel())
                 .extraPrompt(suggestion.getExtraPrompt())
                 .createdAt(suggestion.getCreatedAt())

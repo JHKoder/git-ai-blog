@@ -107,11 +107,13 @@ public class StreamAiSuggestionUseCase {
             long durationMs = System.currentTimeMillis() - startMs.get();
             log.info("[StreamAI][7] DB 저장 시작 durationMs={} textLen={}", durationMs, accumulated.length());
             try {
-                String parsedTitle = parseTitle(accumulated.toString());
-                String cleanContent = removeFirstHeading(accumulated.toString());
+                String rawText = accumulated.toString();
+                String parsedTitle = parseTitle(rawText);
+                String parsedTags = parseTags(rawText);
+                String cleanContent = removeTagsLine(removeFirstHeading(rawText));
                 saveResult(postId, memberId, cleanContent,
-                        route.model(), finalEffectiveExtraPrompt, durationMs, prompt.length(), parsedTitle);
-                log.info("[StreamAI][8] DB 저장 완료 → __done__ emit suggestedTitle={}", parsedTitle);
+                        route.model(), finalEffectiveExtraPrompt, durationMs, prompt.length(), parsedTitle, parsedTags);
+                log.info("[StreamAI][8] DB 저장 완료 → __done__ emit suggestedTitle={} suggestedTags={}", parsedTitle, parsedTags);
             } catch (Exception e) {
                 log.error("[StreamAI][ERR] 완료 후 저장 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e);
             }
@@ -138,13 +140,14 @@ public class StreamAiSuggestionUseCase {
      */
     @Transactional
     public void saveResult(Long postId, Long memberId, String text, String model,
-                           String extraPrompt, long durationMs, int promptLength, String suggestedTitle) {
+                           String extraPrompt, long durationMs, int promptLength,
+                           String suggestedTitle, String suggestedTags) {
         aiUsageLimiter.increment(memberId);
         tokenUsageTracker.record(memberId, model,
                 (long) (promptLength / 4), (long) (text.length() / 4));
 
         AiSuggestion suggestion = AiSuggestion.createWithDuration(
-                postId, memberId, text, model, extraPrompt, durationMs, suggestedTitle);
+                postId, memberId, text, model, extraPrompt, durationMs, suggestedTitle, suggestedTags);
         aiSuggestionRepository.save(suggestion);
 
         // 이미 AI_SUGGESTED 상태인 경우 상태 전이 생략 (멱등)
@@ -180,6 +183,42 @@ public class StreamAiSuggestionUseCase {
         int newline = stripped.indexOf('\n');
         if (newline == -1) return "";
         return stripped.substring(newline + 1).stripLeading();
+    }
+
+    /**
+     * 응답 텍스트에서 "TAGS: tag1,tag2,..." 줄을 찾아 쉼표 구분 태그 문자열을 반환한다.
+     * 없으면 null 반환.
+     */
+    private String parseTags(String text) {
+        if (text == null || text.isBlank()) return null;
+        for (String line : text.lines().toList()) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("TAGS:")) {
+                String raw = trimmed.substring(5).trim();
+                if (raw.isBlank()) return null;
+                // 공백 제거, 소문자 정규화, 3~10개 범위 검증
+                String[] parts = raw.split(",");
+                java.util.List<String> tags = new java.util.ArrayList<>();
+                for (String part : parts) {
+                    String tag = part.trim().toLowerCase();
+                    if (!tag.isBlank()) tags.add(tag);
+                }
+                if (tags.size() < 3) return null;
+                if (tags.size() > 10) tags = tags.subList(0, 10);
+                return String.join(",", tags);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 응답 텍스트에서 "TAGS: ..." 줄을 제거한 본문을 반환한다.
+     */
+    private String removeTagsLine(String text) {
+        if (text == null) return null;
+        return text.lines()
+                .filter(line -> !line.trim().startsWith("TAGS:"))
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 
     private String resolveExtraPrompt(AiSuggestionRequest request) {

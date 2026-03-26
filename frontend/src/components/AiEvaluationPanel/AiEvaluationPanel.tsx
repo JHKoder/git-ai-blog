@@ -7,6 +7,15 @@ import styles from './AiEvaluationPanel.module.css'
 interface Props {
   postId: number
   onApplyToImprovement?: (extraPrompt: string) => void
+  hideResult?: boolean
+  onEvalComplete?: (text: string) => void
+}
+
+interface StoredEval {
+  result: string
+  suggestedPrompt: string | null
+  model: string
+  savedAt: string
 }
 
 const MODELS = [
@@ -21,16 +30,55 @@ const MODELS = [
 
 const RECOMMENDED_RE = /```\n([\s\S]*?)\n```/
 
-export function AiEvaluationPanel({ postId, onApplyToImprovement }: Props) {
+function storageKey(postId: number) {
+  return `ai_eval_${postId}`
+}
+
+function loadStored(postId: number): StoredEval | null {
+  try {
+    const raw = localStorage.getItem(storageKey(postId))
+    if (!raw) return null
+    return JSON.parse(raw) as StoredEval
+  } catch {
+    return null
+  }
+}
+
+function saveStored(postId: number, data: StoredEval) {
+  try {
+    localStorage.setItem(storageKey(postId), JSON.stringify(data))
+  } catch {
+    // localStorage 용량 초과 등 무시
+  }
+}
+
+function clearStored(postId: number) {
+  localStorage.removeItem(storageKey(postId))
+}
+
+export function AiEvaluationPanel({ postId, onApplyToImprovement, hideResult, onEvalComplete }: Props) {
   const [model, setModel] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [streamingText, setStreamingText] = useState('')
   const [evalResult, setEvalResult] = useState<string | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [suggestedPrompt, setSuggestedPrompt] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<string | null>(null)
 
   const streamAbortRef = useRef<AbortController | null>(null)
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // 컴포넌트 마운트 시 localStorage에서 이전 결과 복원
+  useEffect(() => {
+    const stored = loadStored(postId)
+    if (stored) {
+      setEvalResult(stored.result)
+      setSuggestedPrompt(stored.suggestedPrompt)
+      setSavedAt(stored.savedAt)
+      if (stored.model) setModel(stored.model)
+      onEvalComplete?.(stored.result)
+    }
+  }, [postId])
 
   useEffect(() => {
     return () => {
@@ -48,6 +96,7 @@ export function AiEvaluationPanel({ postId, onApplyToImprovement }: Props) {
       countdownTimerRef.current = null
     }
     setStreaming(false)
+    setStreamingText('')
     setCountdown(null)
   }
 
@@ -143,8 +192,12 @@ export function AiEvaluationPanel({ postId, onApplyToImprovement }: Props) {
       }
 
       const extracted = extractSuggestedPrompt(accumulated)
+      const now = new Date().toISOString()
       setSuggestedPrompt(extracted)
       setEvalResult(accumulated)
+      setSavedAt(now)
+      saveStored(postId, { result: accumulated, suggestedPrompt: extracted, model, savedAt: now })
+      onEvalComplete?.(accumulated)
       stopStreaming()
       toast.success('AI 평가가 완료됐습니다.')
     } catch (e: unknown) {
@@ -176,22 +229,37 @@ export function AiEvaluationPanel({ postId, onApplyToImprovement }: Props) {
         </button>
       </div>
 
-      {streaming && streamingText && (
+      {streaming && streamingText && !hideResult && (
         <div className={styles.resultSection}>
           <h3 className={styles.sectionTitle}>
             <span className={styles.loadingRow}>
               <span className={styles.spinnerDark} /> 평가 중...
             </span>
           </h3>
-          <div className={styles.content}>
+          <div className={`${styles.content} ${styles.streamingContent}`}>
             <pre className={styles.streamingPre}>{streamingText}</pre>
           </div>
         </div>
       )}
 
-      {!streaming && evalResult && (
+      {!hideResult && !streaming && evalResult && (
         <div className={styles.resultSection}>
-          <h3 className={styles.sectionTitle}>평가 결과</h3>
+          <div className={styles.resultHeader}>
+            <h3 className={styles.sectionTitle}>평가 결과</h3>
+            <div className={styles.resultMeta}>
+              {savedAt && (
+                <span className={styles.savedAt}>
+                  {new Date(savedAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} 저장됨
+                </span>
+              )}
+              <button
+                className={styles.clearBtn}
+                onClick={() => { clearStored(postId); setEvalResult(null); setSuggestedPrompt(null); setSavedAt(null) }}
+              >
+                지우기
+              </button>
+            </div>
+          </div>
           <div className={`${styles.content} markdown-body`}>
             <MarkdownRenderer content={evalResult} />
           </div>

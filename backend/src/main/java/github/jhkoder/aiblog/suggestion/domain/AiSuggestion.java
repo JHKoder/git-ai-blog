@@ -39,6 +39,14 @@ public class AiSuggestion {
     @Column
     private Long durationMs;
 
+    /**
+     * AI가 제안한 핵심 태그 목록 (쉼표 구분 문자열).
+     * 예: "java,spring,database,transaction,deadlock"
+     * accept 시 Post.tags 교체에 사용.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String suggestedTags;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -60,10 +68,11 @@ public class AiSuggestion {
 
     public static AiSuggestion createWithDuration(Long postId, Long memberId, String suggestedContent,
                                                    String model, String extraPrompt, Long durationMs,
-                                                   String suggestedTitle) {
+                                                   String suggestedTitle, String suggestedTags) {
         AiSuggestion suggestion = create(postId, memberId, suggestedContent, model, extraPrompt);
         suggestion.durationMs = durationMs;
         suggestion.suggestedTitle = suggestedTitle;
+        suggestion.suggestedTags = suggestedTags;
         return suggestion;
     }
 }

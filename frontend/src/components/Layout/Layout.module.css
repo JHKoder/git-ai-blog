@@ -75,3 +75,20 @@
   margin: 0 auto;
   padding: 32px 16px;
 }
+
+@media (max-width: 640px) {
+  .nav {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px;
+  }
+
+  .navLeft, .navRight {
+    gap: 12px;
+  }
+
+  .main {
+    padding: 20px 12px;
+  }
+}

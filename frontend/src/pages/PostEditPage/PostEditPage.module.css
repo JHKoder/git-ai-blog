@@ -100,3 +100,22 @@
 }
 
 .publishBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .pageHeader {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .form {
+    padding: 16px;
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .cancelBtn, .submitBtn, .publishBtn {
+    flex: 1;
+  }
+}

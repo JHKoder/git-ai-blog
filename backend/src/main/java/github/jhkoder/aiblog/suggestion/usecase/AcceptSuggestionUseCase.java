@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AcceptSuggestionUseCase {
@@ -30,7 +33,10 @@ public class AcceptSuggestionUseCase {
             throw new NotFoundException("해당 게시글의 제안이 아닙니다.");
         }
 
-        post.accept(suggestion.getSuggestedContent(), suggestion.getSuggestedTitle());
+        List<String> tags = suggestion.getSuggestedTags() != null
+                ? Arrays.asList(suggestion.getSuggestedTags().split(","))
+                : null;
+        post.accept(suggestion.getSuggestedContent(), suggestion.getSuggestedTitle(), tags);
         return AiSuggestionResponse.from(suggestion);
     }
 }

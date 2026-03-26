@@ -29,6 +29,8 @@ export function PostDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [suggestionExtraPrompt, setSuggestionExtraPrompt] = useState('')
+  const [evalText, setEvalText] = useState<string | null>(null)
+  const [evalSuggestedPrompt, setEvalSuggestedPrompt] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -93,7 +95,6 @@ export function PostDetailPage() {
         </div>
         <div className={styles.actions}>
           <button className={styles.pdfBtn} onClick={handleExportPdf}>PDF 내보내기</button>
-          <a href="#ai-panel" className={styles.aiPanelLink}>▼ AI 패널</a>
           {currentPost.status === 'PUBLISHED' && currentPost.hashnodeUrl && (
             <a href={currentPost.hashnodeUrl} target="_blank" rel="noopener noreferrer" className={styles.hashnodeLinkBtn}>
               Hashnode에서 보기 →
@@ -107,47 +108,105 @@ export function PostDetailPage() {
         </div>
       </div>
 
-      <h1 className={styles.title}>{currentPost.title}</h1>
+      <div className={styles.twoCol}>
+        {/* 좌측: 본문 + 결과 섹션 */}
+        <div className={styles.mainCol}>
+          <h1 className={styles.title}>{currentPost.title}</h1>
 
-      {currentPost.tags && currentPost.tags.length > 0 && (
-        <div className={styles.tags}>
-          {currentPost.tags.map(tag => (
-            <span key={tag} className={styles.tag}>#{tag}</span>
-          ))}
+          {currentPost.tags && currentPost.tags.length > 0 && (
+            <div className={styles.tags}>
+              {currentPost.tags.map(tag => (
+                <span key={tag} className={styles.tag}>#{tag}</span>
+              ))}
+            </div>
+          )}
+
+          <div className={`${styles.content} markdown-body`}>
+            <MarkdownRenderer content={currentPost.content} />
+          </div>
+
+          {aiImprovedCount > 0 && lastSuggestion && (
+            <div className={styles.aiMeta}>
+              <span className={styles.aiMetaLabel}>🤖 AI 작성 정보</span>
+              <span className={styles.aiMetaItem}>
+                모델: {MODEL_LABEL[lastSuggestion.model] ?? lastSuggestion.model}
+              </span>
+              <span className={styles.aiMetaItem}>
+                최종 수정: {new Date(lastSuggestion.createdAt).toLocaleDateString('ko-KR')}
+              </span>
+              <span className={styles.aiMetaItem}>
+                AI 개선 {aiImprovedCount}회
+              </span>
+            </div>
+          )}
+
+          {/* AI 제안 결과 — 본문 하단 */}
+          <div id="suggestion-result">
+            <AiSuggestionPanel
+              postId={Number(id)}
+              suggestion={latestSuggestion}
+              initialExtraPrompt={suggestionExtraPrompt}
+              onExtraPromptApplied={() => setSuggestionExtraPrompt('')}
+              onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
+            />
+          </div>
+
+          {/* 평가 결과 — 본문 하단 (evalText는 사이드바 AiEvaluationPanel에서 올라옴) */}
+          {evalText && (
+            <div id="eval-result" className={styles.resultBlock}>
+              <div className={styles.resultBlockHeader}>
+                <h3 className={styles.resultBlockTitle}>AI 평가 결과</h3>
+              </div>
+              <div className={`${styles.content} markdown-body`}>
+                <MarkdownRenderer content={evalText} />
+              </div>
+              {evalSuggestedPrompt && (
+                <div className={styles.evalApplyRow}>
+                  <p className={styles.evalApplyNote}>
+                    💡 추천 개선 요청사항이 추출됐습니다.
+                  </p>
+                  <button
+                    className={styles.evalApplyBtn}
+                    onClick={() => setSuggestionExtraPrompt(evalSuggestedPrompt)}
+                  >
+                    AI 개선에 적용하기 →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
 
-      <div className={`${styles.content} markdown-body`}>
-        <MarkdownRenderer content={currentPost.content} />
-      </div>
+        {/* 우측 사이드바: 폼만 */}
+        <div className={styles.sidebar}>
+          {/* 평가 폼 (결과 숨김) */}
+          <AiEvaluationPanel
+            postId={Number(id)}
+            onApplyToImprovement={(prompt) => setEvalSuggestedPrompt(prompt)}
+            hideResult
+            onEvalComplete={(text) => setEvalText(text)}
+          />
+          {evalText && (
+            <a href="#eval-result" className={styles.resultViewBtn}>
+              평가 결과 보기 ↓
+            </a>
+          )}
 
-      {aiImprovedCount > 0 && lastSuggestion && (
-        <div className={styles.aiMeta}>
-          <span className={styles.aiMetaLabel}>🤖 AI 작성 정보</span>
-          <span className={styles.aiMetaItem}>
-            모델: {MODEL_LABEL[lastSuggestion.model] ?? lastSuggestion.model}
-          </span>
-          <span className={styles.aiMetaItem}>
-            최종 수정: {new Date(lastSuggestion.createdAt).toLocaleDateString('ko-KR')}
-          </span>
-          <span className={styles.aiMetaItem}>
-            AI 개선 {aiImprovedCount}회
-          </span>
+          {/* 개선 폼 (결과 숨김) */}
+          <AiSuggestionPanel
+            postId={Number(id)}
+            suggestion={latestSuggestion}
+            initialExtraPrompt={suggestionExtraPrompt}
+            onExtraPromptApplied={() => setSuggestionExtraPrompt('')}
+            onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
+            hideResult
+          />
+          {latestSuggestion && (
+            <a href="#suggestion-result" className={styles.resultViewBtn}>
+              AI 제안 결과 보기 ↓
+            </a>
+          )}
         </div>
-      )}
-
-      <div id="ai-panel" className={styles.aiPanel}>
-        <AiEvaluationPanel
-          postId={Number(id)}
-          onApplyToImprovement={(prompt) => setSuggestionExtraPrompt(prompt)}
-        />
-        <AiSuggestionPanel
-          postId={Number(id)}
-          suggestion={latestSuggestion}
-          initialExtraPrompt={suggestionExtraPrompt}
-          onExtraPromptApplied={() => setSuggestionExtraPrompt('')}
-          onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
-        />
       </div>
 
       {showDeleteModal && (

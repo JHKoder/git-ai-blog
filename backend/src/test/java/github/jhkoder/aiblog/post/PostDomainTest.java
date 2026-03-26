@@ -51,7 +51,7 @@ class PostDomainTest {
         post.markAiSuggested();
         String aiContent = "AI가 개선한 내용";
 
-        post.accept(aiContent, null);
+        post.accept(aiContent, null, null);
 
         assertThat(post.getStatus()).isEqualTo(PostStatus.ACCEPTED);
         assertThat(post.getContent()).isEqualTo(aiContent);
@@ -62,7 +62,7 @@ class PostDomainTest {
     void accept_fromDraft_success() {
         Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
 
-        post.accept("AI 내용", null);
+        post.accept("AI 내용", null, null);
 
         assertThat(post.getStatus()).isEqualTo(PostStatus.ACCEPTED);
         assertThat(post.getContent()).isEqualTo("AI 내용");

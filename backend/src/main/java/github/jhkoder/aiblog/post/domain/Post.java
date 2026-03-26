@@ -117,11 +117,14 @@ public class Post {
         this.status = PostStatus.AI_SUGGESTED;
     }
 
-    public void accept(String suggestedContent, String suggestedTitle) {
+    public void accept(String suggestedContent, String suggestedTitle, List<String> suggestedTags) {
         // AI_SUGGESTED 외에 DRAFT/ACCEPTED/PUBLISHED에서도 허용 — 거절 후 히스토리 제안 재수락 지원
         this.content = suggestedContent;
         if (suggestedTitle != null && !suggestedTitle.isBlank()) {
             this.title = suggestedTitle;
+        }
+        if (suggestedTags != null && !suggestedTags.isEmpty()) {
+            this.tags = normalizeTags(suggestedTags);
         }
         this.status = PostStatus.ACCEPTED;
     }

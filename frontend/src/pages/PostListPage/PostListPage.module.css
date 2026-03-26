@@ -105,3 +105,20 @@
 }
 
 .clearTagBtn:hover { opacity: 1; }
+
+@media (max-width: 640px) {
+  .header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pagination {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .pageBtn {
+    padding: 5px 9px;
+    font-size: 13px;
+  }
+}
