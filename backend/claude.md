@@ -28,7 +28,7 @@ github.jhkoder.aiblog/
 │   exception/            NotFoundException, InvalidStateException, BusinessRuleException
 │                         ExternalApiException, RateLimitException
 ├── config/               SecurityConfig, WebClientConfig, WebMvcConfig, JasyptConfig
-│                         RedisConfig, AesGcmEncryptionConverter, OpenApiConfig
+│                         RedisConfig, AesGcmEncryptionConverter, OpenApiConfig, AsyncConfig
 ├── security/             JwtProvider, JwtAuthenticationFilter, RefreshTokenService
 │                         CustomOAuth2UserService, OAuth2SuccessHandler, AuthController
 │                         MockLoginController
@@ -43,8 +43,11 @@ github.jhkoder.aiblog/
 ├── post/                 Post, PostStatus, ContentType, PostRepository
 │                         PostController, 9개 UseCase
 │                         dto/PostPageResponse (Page<T> 직렬화 DTO)
-├── suggestion/           AiSuggestion, AiSuggestionRepository
-│                         AiSuggestionController, 5개 UseCase
+├── suggestion/           AiSuggestion (durationMs 컬럼), AiSuggestionRepository
+│                         AiSuggestionController, 7개 UseCase
+│                         (RequestAiSuggestionUseCase → 202 즉시 반환)
+│                         (AsyncAiSuggestionService → @Async AI 처리 + DB 저장)
+│                         (StreamAiSuggestionUseCase → SSE Flux<String> 스트리밍)
 ├── member/               Member, MemberRepository
 │                         MemberController, 4개 UseCase
 ├── repo/                 Repo, RepoCollectHistory, RepoRepository, CollectType
@@ -89,6 +92,37 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 - GraphQL variables 분리 방식 사용 (`HashnodeGraphqlBuilder` → `GqlRequest(query, variables)`)
 - `escapeGraphql()` 사용 금지 — `objectMapper`가 단일 직렬화 담당 (이중 이스케이프 방지)
 - 4xx 응답 시 `onStatus`로 바디 읽어 GraphQL `errors[0].message` 추출 후 로깅
+
+### AI 요청 비동기 처리 (연결 끊김 방지)
+
+**방안 A — @Async + 폴링:**
+- `POST /api/ai-suggestions/{postId}` → 202 Accepted 즉시 반환
+- `AsyncAiSuggestionService.executeAsync()`: `@Async("aiTaskExecutor")` 별도 스레드에서 AI 처리 → DB 저장
+- `AsyncConfig`: `aiTaskExecutor` (core=4, max=20, queue=50, prefix=`ai-async-`)
+- 클라이언트는 `/latest` 를 3초 간격 폴링 → 새 제안 감지 시 중단
+
+**방안 B — SSE 스트리밍:**
+- `POST /api/ai-suggestions/{postId}/stream` → `text/event-stream` 반환
+- `StreamAiSuggestionUseCase.stream()`: 4개 AI 클라이언트 `streamComplete()` 호출 → `Flux<String>`
+- 각 토큰은 `event: token` / `data: <텍스트>` SSE로 emit, 완료 시 `event: done` / `data: [DONE]`
+- 스트리밍 완료 시 `doOnComplete` 콜백에서 DB 저장 + durationMs 기록 + 토큰 사용량 기록
+- 클라이언트가 끊겨도 백엔드는 계속 실행 → 완료 후 DB 저장 보장
+- nginx: `/api/ai-suggestions/*/stream` 경로에 `proxy_buffering off`, `proxy_read_timeout 300s`
+
+**AI 스트리밍 API 형식 (클라이언트별):**
+| 클라이언트 | 엔드포인트 | 텍스트 추출 경로 |
+|---------|---------|-------------|
+| Claude  | `POST /v1/messages` + `"stream": true` | `type == content_block_delta` → `delta.text` |
+| GPT     | `POST /v1/chat/completions` + `"stream": true` | `choices[0].delta.content` |
+| Grok    | OpenAI 호환 (GPT와 동일) | `choices[0].delta.content` |
+| Gemini  | `POST /v1beta/models/{model}:streamGenerateContent?alt=sse` | `candidates[0].content.parts[0].text` |
+
+**durationMs:**
+- `AiSuggestion` 테이블에 `durationMs BIGINT` 컬럼 (nullable — 이전 데이터는 null)
+- `AiSuggestion.createWithDuration()` 팩토리 메서드로 저장
+- `findAvgDurationMsByModel(model)`: `WHERE durationMs IS NOT NULL AND durationMs > 0` 평균 조회
+
+---
 
 ### AI 사용량 제한
 
@@ -143,13 +177,14 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 
 ### AI Suggestion
 
-| 기능    | 엔드포인트                                           |
-|-------|-------------------------------------------------|
-| AI 요청 | `POST /api/ai-suggestions/{postId}`             |
-| 최신 제안 | `GET /api/ai-suggestions/{postId}/latest`       |
-| 히스토리  | `GET /api/ai-suggestions/{postId}/history`      |
-| 수락    | `POST /api/ai-suggestions/{postId}/{id}/accept` |
-| 거절    | `POST /api/ai-suggestions/{postId}/{id}/reject` |
+| 기능           | 엔드포인트                                               | 비고                             |
+|--------------|-----------------------------------------------------|--------------------------------|
+| AI 요청 (비동기)  | `POST /api/ai-suggestions/{postId}`                 | 202 Accepted 즉시 반환, @Async 처리  |
+| AI 스트리밍 요청   | `POST /api/ai-suggestions/{postId}/stream`          | `text/event-stream`, 토큰 단위 실시간 |
+| 최신 제안        | `GET /api/ai-suggestions/{postId}/latest`           |                                |
+| 히스토리         | `GET /api/ai-suggestions/{postId}/history`          |                                |
+| 수락           | `POST /api/ai-suggestions/{postId}/{id}/accept`     |                                |
+| 거절           | `POST /api/ai-suggestions/{postId}/{id}/reject`     |                                |
 
 ### Member
 
@@ -270,3 +305,5 @@ cd backend && ./gradlew serverRun
 | AI 응답이 글 중간에서 잘림 | `ClaudeClient.max_tokens: 4096` 고정 — Sonnet 4.6 최대 16,384 대비 부족 | `max_tokens` 를 `16000`으로 상향 (`ClaudeClient.java:46`) |
 | `Page<T>` 직렬화 경고 (`Serializing PageImpl instances as-is`) | `PostController.list()`가 `Page<PostListResponse>` 직접 반환 | `PostPageResponse` record DTO 도입, `GetPostListUseCase` 반환 타입 변경 |
 | 거절 후 수락 불가 | `Post.accept()`가 `AI_SUGGESTED` 상태만 허용 → 거절(`DRAFT` 복귀) 후 히스토리 제안 수락 시 `InvalidStateException` | `accept()` 상태 검사 제거 — 모든 상태에서 수락 허용 |
+| AI 요청 클라이언트 연결 끊김 | `POST /api/ai-suggestions/{postId}` 동기 처리 — 30~60초 HTTP 연결 유지 필요 → 브라우저/프록시 타임아웃으로 끊김 | 방안 A: `@Async` + 202 즉시 반환 + 폴링 / 방안 B: SSE 스트리밍 (`Flux<ServerSentEvent>`) |
+| Gemini `streamComplete()` 컴파일 오류 | `HttpHeaders` import 누락 | `import org.springframework.http.HttpHeaders` 추가 (`GeminiClient.java`) |

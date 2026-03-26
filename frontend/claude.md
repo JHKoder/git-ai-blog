@@ -49,7 +49,7 @@ src/
 ├── components/
 │   ├── Layout/
 │   ├── PostCard/
-│   ├── AiSuggestionPanel/    AI 개선 요청 + 커스텀 프롬프트 선택 + 수락/거절
+│   ├── AiSuggestionPanel/    AI 개선 요청 (SSE 스트리밍 실시간 렌더링) + 커스텀 프롬프트 선택 + 수락/거절
 │   ├── StatusBadge/
 │   ├── Modal/ConfirmModal/
 │   ├── TagInput/
@@ -276,23 +276,18 @@ GET / posts / ai - usage
 ### suggestionApi.ts
 
 ```typescript
-request(postId, data)
-POST / ai - suggestions / {postId}
-getLatest(postId)
-GET / ai - suggestions / {postId}
-/latest
-getHistory(postId)
-GET / ai - suggestions / {postId}
-/history
-accept(postId, id)
-POST / ai - suggestions / {postId}
-/{id}/
-accept
-reject(postId, id)
-POST / ai - suggestions / {postId}
-/{id}/
-reject
+request(postId, data)      POST /ai-suggestions/{postId}              // 202 Accepted (비동기)
+getLatest(postId)          GET  /ai-suggestions/{postId}/latest
+getHistory(postId)         GET  /ai-suggestions/{postId}/history
+accept(postId, id)         POST /ai-suggestions/{postId}/{id}/accept
+reject(postId, id)         POST /ai-suggestions/{postId}/{id}/reject
 ```
+
+**SSE 스트리밍:** `fetch` + `ReadableStream` 직접 사용 (Axios는 SSE 미지원)
+- `POST /api/ai-suggestions/{postId}/stream` → `text/event-stream`
+- `event: token` / `data: <토큰>` 수신 시 `streamingText`에 누적
+- `event: done` / `data: [DONE]` 수신 시 스트리밍 종료 → `onSuggestionUpdate()` 호출
+- `AbortController`로 컴포넌트 언마운트 시 연결 중단
 
 ### repoApi.ts
 
@@ -391,6 +386,19 @@ npm run build                  # 프로덕션 빌드
 
 ---
 
+## 해결된 이슈 (2026-03-26)
+
+### 5. AI 요청 클라이언트 연결 끊김 ✅
+- **원인**: AI API 30~60초 동기 처리 → 브라우저/프록시 타임아웃으로 HTTP 연결 먼저 끊김
+- **방안 A** (@Async + 폴링): `POST` 즉시 202 반환, 백엔드 `@Async` 처리, 프론트 3초 폴링
+- **방안 B** (SSE 스트리밍): `POST .../stream` → `fetch + ReadableStream`으로 토큰 실시간 렌더링
+  - 스트리밍 중 `streaming` state = true → `streamingText` 누적 → `MarkdownRenderer` 실시간 표시
+  - 완료(`event: done`) 시 `onSuggestionUpdate()` 호출 → 최신 제안 갱신
+  - `AbortController`로 언마운트 시 스트림 정리
+- **nginx**: `/api/ai-suggestions/*/stream` 경로에 `proxy_buffering off`, `proxy_read_timeout 300s`
+
+---
+
 ## 해결된 이슈 (2026-03-25)
 
 ### 1. `sql visualize` 마커 렌더링 ✅
@@ -404,3 +412,7 @@ npm run build                  # 프로덕션 빌드
 ### 3. AI 작성 정보 분리 표시 ✅
 - **해결**: `PostDetailPage` 하단 `aiMeta` 카드로 통합 (모델명·최종수정일·개선횟수), 본문 내 `> 이 글은 ...` 인용 줄은 `removeAiAuthorLine()`으로 제거
 - `fetchHistory` 추가 호출로 개선 횟수 집계
+
+### 4. AI 작성 정보 카드 중복 표시 ✅
+- **원인**: AI가 `> 이 글은 ...` 인용 형식 대신 일반 텍스트로 저자 줄을 생성하는 경우, `removeAiAuthorLine()` 정규식이 `>` 없는 줄을 제거 못해 본문에 그대로 노출됨 → `PostDetailPage` `aiMeta` 카드와 중복
+- **해결**: 정규식을 `^>?\s*이 글은 .+이 작성을 도왔습니다\.?\s*$` 로 수정 — `>` 유무 무관하게 제거
