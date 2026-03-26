@@ -18,6 +18,17 @@
 → 브라우저/프록시 타임아웃(보통 30초), 모바일 네트워크 단절 등으로 끊김
 
 ### 개선 아이디어
+
+#### 방안 A — @Async 비동기 + 폴링 (구현 난이도: 낮음) ✅ 단기 추천
+1. `POST /api/ai-suggestions/{postId}` 즉시 `202 Accepted` 반환
+2. 백엔드는 `@Async`로 AI 처리를 별도 스레드에서 실행, 완료 시 DB 저장
+3. 클라이언트는 `GET /api/ai-suggestions/{postId}/latest` 를 3~5초 간격으로 폴링
+4. 새 `latestSuggestion` 감지 시 폴링 중단 → 정상 표시
+
+- 장점: 기존 API 구조 최소 변경, 추가 인프라 불필요, 구현 빠름
+- 단점: 폴링 주기만큼 지연 표시. 진행률 표시 불가 (스피너만)
+- 프론트: `AiSuggestionPanel`에 폴링 로직 + 로딩 UI 추가
+
 #### 방안 B — SSE 스트리밍 (구현 난이도: 높음) — "AI가 타이핑하는 것처럼" 실시간 표시
 > Q: 실시간으로 AI가 작업 중인 텍스트도 보여줄 수 있어?
 
@@ -35,22 +46,16 @@
 - 백엔드 컨트롤러: `SseEmitter` 또는 `Flux<ServerSentEvent>` 반환으로 교체
 - nginx: `proxy_buffering off` 설정 필요 (SSE가 버퍼링되면 실시간 안 됨)
 
-**동시성 / 100명·1000명 성능 고려:**
+**동시성 성능 고려 (참고용 — 현재 목표 100명):**
 - SSE + Spring WebFlux(`Flux` 반환)는 비동기 논블로킹 → 100명 동시 스트리밍도 스레드 수십 개로 처리 가능
 - **실질 병목은 AI API rate limit**: Claude/GPT 등 분당 요청 한도에 먼저 막힘 (서버 CPU/메모리보다 먼저)
-- 100명(현재 목표): SSE + WebFlux 조합으로 충분
-- 1000명 이상: AI API 요청을 Redis Queue로 순차 처리 + 대기열 UI("N번째 대기 중") 도입 필요
 
-**규모별 변화 (참고용 — 현재 프로젝트는 100명 목표라 도입 불필요):**
 | 규모 | 주요 병목 | 추가로 필요한 것 |
 |------|----------|----------------|
 | 100명 | 없음 | SSE + WebFlux로 충분 |
-| 1,000명 | AI API rate limit | Redis Queue + 대기열 UI |
-| 1만명 | 단일 서버 한계 | 서버 수평 확장(로드밸런서 + 다중 인스턴스). SSE는 같은 서버로 고정(sticky session) 또는 Redis Pub/Sub 중계 필요 |
-| 100만명 | DB/Redis 자체 | DB 샤딩, Redis Cluster, Kafka 등 분산 메시지 브로커, AI API key 다중화(라운드로빈) |
-
-- 1만명부터 SSE 자체가 문제: 로드밸런서 환경에서 연결 유지가 특정 서버에 묶여야 하므로 sticky session 필수 → 없으면 Redis Pub/Sub으로 인스턴스 간 이벤트 브로드캐스트 구조 필요
-- 100만명은 Kafka 없이는 불가능한 영역
+| 1,000명 | AI API rate limit | Redis Queue + 대기열 UI("N번째 대기 중") |
+| 1만명 | 단일 서버 한계 | 수평 확장 + sticky session 또는 Redis Pub/Sub 중계 |
+| 100만명 | DB/Redis 자체 | DB 샤딩, Redis Cluster, Kafka, AI API key 다중화 |
 
 **구현 범위:**
 - 백엔드: `AiClient` 인터페이스에 `streamComplete()` 메서드 추가, 4개 클라이언트 각각 스트리밍 구현
@@ -71,7 +76,12 @@
   - 데이터가 없거나 평균 계산 불가 시 → 모델별 하드코딩 fallback (Claude 40초, Grok 20초, GPT-4o 30초)
 - 연결이 끊겨도 "처리 중입니다. 잠시 후 확인해보세요." 안내로 재요청 방지 가능
 
+### 결론 / 구현 우선순위
+- **단기**: 방안 A — `@Async` + 폴링. 연결 끊김 근본 해결, 구현 빠름
+- **중기**: 방안 B — SSE 스트리밍. 방안 A 위에 올리는 구조. AI 타이핑 UX + 예상 시간 표시
+
 -->
+
 
 ## 문서 구조
 
