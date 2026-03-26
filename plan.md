@@ -29,26 +29,37 @@
 - 단점: 폴링 주기만큼 지연 표시. Redis job 상태 추적 없으면 진행률 표시 불가
 - 프론트: `AiSuggestionPanel`에 폴링 로직 + 로딩 UI 추가
 
-#### 방안 B — SSE(Server-Sent Events) (구현 난이도: 중간)
-1. `POST /api/ai-suggestions/{postId}` 즉시 `jobId` 반환
-2. 클라이언트는 `GET /api/ai-suggestions/stream/{jobId}` SSE 연결
-3. 백엔드가 AI 응답 완료 시 SSE 이벤트 전송
+#### 방안 B — SSE 스트리밍 (구현 난이도: 높음) — "AI가 타이핑하는 것처럼" 실시간 표시
+> Q: 실시간으로 AI가 작업 중인 텍스트도 보여줄 수 있어?
 
-- 장점: 실시간 완료 알림, 진행 상태 스트리밍 가능
-- 단점: SSE 연결 관리, nginx 설정 필요 (`proxy_buffering off`)
+**가능하다.** 이게 SSE(Server-Sent Events) + AI 스트리밍 API 조합이다.
 
-#### 방안 C — 프론트 재조회 fallback (구현 난이도: 매우 낮음)
-현재 구조 유지, 에러 발생 시 클라이언트가 `GET /latest` 재조회:
-- 에러 응답을 받아도 "이미 처리됐을 수 있음" 안내 토스트 표시
-- `fetchLatest` 자동 재호출 → 이미 저장된 제안이 있으면 정상 표시
-- AI 사용량 이중 차감 방지: `aiUsageLimiter.increment` 는 이미 됐으므로 재요청 방지 UI 필요
+**동작 원리:**
+1. AI API(Claude, Grok, GPT, Gemini) 모두 스트리밍 모드 지원 — 토큰이 생성될 때마다 청크 단위로 전송
+2. 백엔드에서 AI 스트리밍 응답(`text/event-stream`)을 받아 그대로 클라이언트에 SSE로 중계
+3. 클라이언트는 SSE 연결을 유지하면서 토큰이 도착할 때마다 화면에 append
 
-- 장점: 구현 1~2시간, 현재 코드 변경 최소
-- 단점: 근본 해결 아님 (연결 끊김 자체는 그대로)
+**현재 상태 vs 변경 필요:**
+- 현재: `ClaudeClient`, `GrokClient` 등 모두 `bodyToMono(String.class)` — 전체 응답 한 번에 수신
+- 변경: `bodyToFlux(String.class)` + `text/event-stream` Accept 헤더로 교체 필요
+- 백엔드 컨트롤러: `SseEmitter` 또는 `Flux<ServerSentEvent>` 반환으로 교체
+- nginx: `proxy_buffering off` 설정 필요 (SSE가 버퍼링되면 실시간 안 됨)
+
+**구현 범위:**
+- 백엔드: `AiClient` 인터페이스에 `streamComplete()` 메서드 추가, 4개 클라이언트 각각 스트리밍 구현
+- 백엔드: `AiSuggestionController`에 SSE 엔드포인트 추가 (`GET /api/ai-suggestions/{postId}/stream`)
+- 프론트: `EventSource` API로 SSE 연결, 토큰 도착마다 `MarkdownRenderer`에 누적 렌더링
+- 완료 이벤트 수신 시 SSE 닫고 DB 저장된 최종본 `fetchLatest`로 교체
+
+**주의사항:**
+- 스트리밍 중 클라이언트가 끊기면 백엔드는 계속 실행 → 완료 후 DB 저장은 정상 (연결 끊김 문제 근본 해결)
+- 4개 AI 모두 스트리밍 API 형식이 다름 (Claude: `data:`, GPT: `data:`, Grok: OpenAI 호환, Gemini: 별도 파싱 필요)
+- 토큰 카운팅은 스트리밍 완료 후 summary 이벤트에서 추출 (Claude: `message_delta` 이벤트)
 
 ### 결론 / 우선순위
-- **단기**: 방안 C — 에러 시 자동 `fetchLatest` + 안내 토스트로 UX 개선
-- **중기**: 방안 A — `@Async` 비동기화 + 폴링으로 근본 해결
+- **단기**: 방안 A — `@Async` + 폴링으로 연결 끊김 근본 해결 (구현 빠름)
+- **중기**: 방안 B — SSE 스트리밍으로 "AI 타이핑" UX 추가 (방안 A 위에 올리는 구조)
+  → 방안 A 완료 후 B를 선택적으로 추가 가능
 -->
 
 
