@@ -8,7 +8,7 @@
 /* 2컬럼 레이아웃 */
 .twoCol {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: minmax(0, 960px) 320px;
   gap: 24px;
   align-items: start;
 }

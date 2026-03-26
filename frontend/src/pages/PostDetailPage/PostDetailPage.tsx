@@ -9,6 +9,7 @@ import { CONTENT_TYPE_LABEL } from '../../types/post'
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge'
 import { AiSuggestionPanel } from '../../components/AiSuggestionPanel/AiSuggestionPanel'
 import { AiEvaluationPanel } from '../../components/AiEvaluationPanel/AiEvaluationPanel'
+import { AiSuggestionResult } from '../../components/AiSuggestionResult/AiSuggestionResult'
 import { ConfirmModal } from '../../components/Modal/ConfirmModal'
 import styles from './PostDetailPage.module.css'
 
@@ -141,15 +142,15 @@ export function PostDetailPage() {
           )}
 
           {/* AI 제안 결과 — 본문 하단 */}
-          <div id="suggestion-result">
-            <AiSuggestionPanel
-              postId={Number(id)}
-              suggestion={latestSuggestion}
-              initialExtraPrompt={suggestionExtraPrompt}
-              onExtraPromptApplied={() => setSuggestionExtraPrompt('')}
-              onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
-            />
-          </div>
+          {latestSuggestion && (
+            <div id="suggestion-result" className={styles.resultBlock}>
+              <AiSuggestionResult
+                postId={Number(id)}
+                suggestion={latestSuggestion}
+                onSuggestionUpdate={() => { fetchPost(Number(id)); fetchLatest(Number(id)); fetchHistory(Number(id)) }}
+              />
+            </div>
+          )}
 
           {/* 평가 결과 — 본문 하단 (evalText는 사이드바 AiEvaluationPanel에서 올라옴) */}
           {evalText && (
@@ -192,7 +193,7 @@ export function PostDetailPage() {
             </a>
           )}
 
-          {/* 개선 폼 (결과 숨김) */}
+          {/* 개선 폼 */}
           <AiSuggestionPanel
             postId={Number(id)}
             suggestion={latestSuggestion}

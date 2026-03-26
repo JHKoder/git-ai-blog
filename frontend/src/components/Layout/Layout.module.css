@@ -76,6 +76,10 @@
   padding: 32px 16px;
 }
 
+.mainWide {
+  max-width: 1320px;
+}
+
 @media (max-width: 640px) {
   .nav {
     height: auto;

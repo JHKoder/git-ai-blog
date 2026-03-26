@@ -43,7 +43,7 @@ export function AppRouter() {
         <Route path="/oauth/callback" element={<OAuthCallback />} />
         <Route path="/" element={<PrivateRoute><Layout><PostListPage /></Layout></PrivateRoute>} />
         <Route path="/posts/new" element={<PrivateRoute><Layout><PostCreatePage /></Layout></PrivateRoute>} />
-        <Route path="/posts/:id" element={<PrivateRoute><Layout><PostDetailPage /></Layout></PrivateRoute>} />
+        <Route path="/posts/:id" element={<PrivateRoute><Layout wide><PostDetailPage /></Layout></PrivateRoute>} />
         <Route path="/posts/:id/edit" element={<PrivateRoute><Layout><PostEditPage /></Layout></PrivateRoute>} />
         <Route path="/repos" element={<PrivateRoute><Layout><RepoListPage /></Layout></PrivateRoute>} />
         <Route path="/profile" element={<PrivateRoute><Layout><ProfilePage /></Layout></PrivateRoute>} />

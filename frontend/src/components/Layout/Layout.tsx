@@ -5,9 +5,10 @@ import styles from './Layout.module.css'
 
 interface Props {
   children: React.ReactNode
+  wide?: boolean
 }
 
-export function Layout({ children }: Props) {
+export function Layout({ children, wide }: Props) {
   const { logout } = useAuthStore()
   const navigate = useNavigate()
   const { theme, toggle } = useTheme()
@@ -35,7 +36,7 @@ export function Layout({ children }: Props) {
           <button className={styles.logoutBtn} onClick={handleLogout}>로그아웃</button>
         </div>
       </nav>
-      <main className={styles.main}>{children}</main>
+      <main className={`${styles.main}${wide ? ` ${styles.mainWide}` : ''}`}>{children}</main>
     </div>
   )
 }

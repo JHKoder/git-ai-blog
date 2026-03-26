@@ -1,6 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (AI 태그 자동 추출, AI 평가 GFM 렌더링, 반응형 레이아웃)
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-26 (AI 태그 자동 추출, AI 평가 GFM 렌더링, 반응형 레이아웃, 2컬럼 레이아웃, 본문 폭 유지, AI 개선 중복 제거)
 
 ## 문서 구조
 
@@ -172,8 +172,14 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] Hashnode 태그 장기 대응 — Member `hashnodeTags` TEXT 컬럼, ProfilePage 태그명↔ID 매핑 UI, 발행 시 로컬 태그명 → Hashnode tag ID 자동 변환
 - [x] 자가성장 프롬프트 구상 — `Prompt` 엔티티 `metaPrompt TEXT` 컬럼 예약 (로직 없음)
 - [x] AI 평가 패널 마크다운 렌더링 — GFM 테이블 포함 완전 렌더링 (스트리밍 중 `<pre>`, 완료 후 `MarkdownRenderer` 전환)
-- [x] AI 개선 시 태그 자동 추출 — `TAGS:` 형식 파싱, `AiSuggestion.suggestedTags` 저장, `accept` 시 `Post.tags` 교체 (3~10개), 수락 버튼에 적용 항목 표시
+- [x] AI 개선 시 태그 자동 추출 — `TAGS:` 형식 파싱, `AiSuggestion.suggestedTags` 저장, `accept` 시 `Post.tags` 교체 (3~10개), 수락 버튼에 적용 항목
+  표시
 - [x] 반응형 레이아웃 — 모바일/태블릿 대응 미디어 쿼리 (Layout 네비, PostDetailPage, PostListPage, PostCreatePage, PostEditPage)
+- [x] AI 평가 결과 localStorage 저장 — `ai_eval_{postId}` 키, 재방문 시 자동 복원, 저장 시각·지우기 버튼
+- [x] PostDetailPage 2컬럼 레이아웃 — 우측 사이드바(요청 폼) + 본문 하단(결과), 앵커 버튼으로 결과 섹션 이동
+- [x] PostDetailPage 본문 폭 유지 — `Layout wide` prop + `mainWide` (max-width: 1320px), 2컬럼 grid `minmax(0, 960px) 320px`으로 본문 폭 유지
+- [x] AI 개선 요청 중복 제거 — `AiSuggestionResult` 전용 컴포넌트 분리, 사이드바=폼 전용(`hideResult`), 본문 하단=결과 전용
+- [x] AI 평가 결과 마크다운 렌더링 — `AiEvaluationPanel` 내부 + `PostDetailPage` `evalText` 모두 `MarkdownRenderer` 적용 완료
 - [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
 
 ### SQL Visualization Widget
