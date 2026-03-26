@@ -20,6 +20,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
 
+    /**
+     * Tomcat async dispatch(SSE Flux 구독 재진입) 시 필터를 건너뛴다.
+     * 첫 번째 요청에서 SecurityContext가 이미 설정되었고,
+     * async dispatch는 Authorization 헤더 없이 재진입하므로 재인증 시도 불필요.
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return true;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
