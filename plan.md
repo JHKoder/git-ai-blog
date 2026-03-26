@@ -13,9 +13,6 @@
 | [`monitoring.md`](monitoring.md)           | 운영 / 장애 대응                       |
 | [`research.md`](research.md)               | 리서치 내용                           |
 
-/*
-
-*/
 ---
 
 ## Mermaid 다이어그램 사용 기준
