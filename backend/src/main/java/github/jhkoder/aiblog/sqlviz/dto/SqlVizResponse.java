@@ -14,7 +14,7 @@ public record SqlVizResponse(
         List<String> sqls,
         SqlVizScenario scenario,
         IsolationLevel isolationLevel,
-        SimulationResult simulationData,
+        SimulationResult simulation,
         String embedUrl,
         String hashnodeWidgetCode,
         LocalDateTime createdAt

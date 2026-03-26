@@ -1,5 +1,6 @@
 package github.jhkoder.aiblog.sqlviz.infra;
 
+import github.jhkoder.aiblog.sqlviz.domain.SqlVizScenario;
 import github.jhkoder.aiblog.sqlviz.domain.SqlVizWidget;
 import github.jhkoder.aiblog.sqlviz.domain.SqlVizWidgetRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,11 @@ public class SqlVizWidgetRepositoryImpl implements SqlVizWidgetRepository {
     @Override
     public List<SqlVizWidget> findByMemberId(Long memberId) {
         return jpa.findByMemberId(memberId);
+    }
+
+    @Override
+    public Optional<SqlVizWidget> findByMemberIdAndSqlsJsonAndScenario(Long memberId, String sqlsJson, SqlVizScenario scenario) {
+        return jpa.findByMemberIdAndSqlsJsonAndScenario(memberId, sqlsJson, scenario);
     }
 
     @Override

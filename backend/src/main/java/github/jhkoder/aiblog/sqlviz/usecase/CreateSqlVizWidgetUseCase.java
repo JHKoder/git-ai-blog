@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,12 +34,22 @@ public class CreateSqlVizWidgetUseCase {
             throw new BusinessRuleException("SQL은 최대 10개까지 입력 가능합니다.");
         }
 
-        SimulationResult simulation = simulationEngine.simulate(
-                req.sqls(), req.scenario(), req.isolationLevel()
-        );
-
         try {
             String sqlsJson = objectMapper.writeValueAsString(req.sqls());
+
+            // 동일 SQL + 시나리오 조합이 이미 존재하면 재사용 (중복 생성 방지)
+            Optional<SqlVizWidget> existing = widgetRepository
+                    .findByMemberIdAndSqlsJsonAndScenario(memberId, sqlsJson, req.scenario());
+            if (existing.isPresent()) {
+                SqlVizWidget widget = existing.get();
+                SimulationResult cached = objectMapper.readValue(
+                        widget.getSimulationJson(), SimulationResult.class);
+                return SqlVizResponse.of(widget, req.sqls(), cached, baseUrl);
+            }
+
+            SimulationResult simulation = simulationEngine.simulate(
+                    req.sqls(), req.scenario(), req.isolationLevel()
+            );
             String simJson = objectMapper.writeValueAsString(simulation);
 
             SqlVizWidget widget = SqlVizWidget.create(

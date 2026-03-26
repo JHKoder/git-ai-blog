@@ -90,7 +90,8 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 
 - [x] 2컬럼 레이아웃 — 우측 사이드바(폼) + 본문 하단(결과), `Layout wide` prop, `minmax(0, 960px) 320px`
 - [x] 사이드바 발행 버튼 — ghost 스타일, 가로 배열 `[재발행][Hashnode에서 보기]`
-- [x] 사이드바 발행 버튼 스타일 분리 — "재발행" 버튼만 `#7c3aed→#6d28d9` gradient + shadow 적용. "Hashnode에서 보기" 버튼은 현재 스타일 유지. 바깥 카드 배경 변경 없음
+- [x] 사이드바 발행 버튼 스타일 분리 — "재발행" 버튼만 `#7c3aed→#6d28d9` gradient + shadow 적용. "Hashnode에서 보기" 버튼은 현재 스타일 유지. 바깥 카드 배경 변경
+  없음
 - [x] AI 평가/제안 결과 닫기/열기 토글 버튼 — 화면에서만 숨김, 데이터 유지, 섹션 간격 10px
 - [x] GFM + Mermaid 렌더링, AI 평가 결과 마크다운 완전 렌더링 (SSE `\n` 토큰 처리 포함)
 
@@ -112,9 +113,8 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] 시뮬레이션 엔진 — 6개 시나리오, 격리 수준 분기, JSQLParser + RowKey + VirtualDB
 - [x] 프론트: `SqlVizPage`, `SqlVizEmbedPage`, `ConcurrencyTimeline`, `ExecutionFlow`, `EmbedGenerator`
 - [x] PromptBuilder SQLViz 마커 지시문 + `sql visualize` 마커 렌더링
-- [ ] SQLViz 시뮬레이션 결과 미표시 버그 — SQL 입력 후 실행 시 화면에 배경색만 표시됨. 재현: `BEGIN ISOLATION LEVEL read committed` +
-  `FOR KEY SHARE` / `DELETE FROM parent` 조합
-- [ ] SQLViz 위젯 목록 선택 무반응 버그 — 위젯 선택 시 아무것도 표시되지 않음 (위 버그와 동일 원인 추정)
+- [x] SQLViz 시뮬레이션/위젯 목록 미표시 버그 — `SqlVizResponse` 필드명 `simulationData` → `simulation`으로 통일 (프론트 타입 `SqlVizWidget.simulation`과 불일치가 원인)
+- [x] SQLViz AI 개선 시 위젯 중복 생성 방지 — `CreateSqlVizWidgetUseCase`에서 `memberId + sqlsJson + scenario` 조합 중복 검사 후 기존 위젯 재사용
 
 ### 운영 / 모니터링
 
