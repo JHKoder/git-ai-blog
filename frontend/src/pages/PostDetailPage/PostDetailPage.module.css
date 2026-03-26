@@ -273,23 +273,26 @@
 }
 
 .publishBtn {
-  background: var(--bg-card);
-  color: var(--text);
-  border: 1px solid var(--border);
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+  border: none;
   padding: 6px 16px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
 }
 
 .publishBtn:hover {
-  background: var(--bg-subtle);
+  background: linear-gradient(135deg, #6d28d9, #5b21b6);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.45);
 }
 
 .publishBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 
