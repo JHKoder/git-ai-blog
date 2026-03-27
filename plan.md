@@ -134,6 +134,10 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
   UI
 - [x] `LOCK_WAIT` 시나리오 신설 — T1 미커밋 → T2 BLOCKED → T1 커밋 → T2 획득 흐름, `buildLockWait()` 빌더, 프론트 라벨/감지 추가
 - [x] `SqlParser` `-- STEP:n` (TX 없음) 지원 — `STEP_ONLY` 패턴 추가, `StepMeta(step, null)` 반환, `runInterleaved()` null txId fallback (`T{step}`)
+- [x] DB CHECK 제약 자동 마이그레이션 — `DbMigrationRunner`에 `sqlviz_widgets_scenario_check` / `isolation_level_check` DROP 추가
+- [x] `ParsedSql.lockType` 필드 추가 + `SqlParser` locking read 추출 (`FOR KEY SHARE` / `FOR UPDATE` 등) — regex 방식 (JSQLParser 5.x API 미지원)
+- [x] `runInterleaved()` locking SELECT 처리 — lockType 있으면 `acquireLock()` 호출, BLOCKED 시 `pendingLocks` 기록, COMMIT 시 자동 재획득
+- [x] `SqlVizSimulationEngineTest` 단위 테스트 5개 — FOR KEY SHARE→DELETE BLOCKED→T1 커밋→T2 획득 인터리빙 시나리오 검증
 
 ### 운영 / 모니터링
 

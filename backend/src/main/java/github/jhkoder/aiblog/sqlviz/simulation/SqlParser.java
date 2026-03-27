@@ -58,10 +58,10 @@ public final class SqlParser {
         // BEGIN / COMMIT / ROLLBACK
         if (upper.startsWith("BEGIN")) {
             IsolationLevel isoLevel = extractIsolationLevel(cleanSql);
-            return new ParsedSql(ParsedSql.SqlType.BEGIN, "", List.of(), "", dbType, isoLevel, stepMeta);
+            return new ParsedSql(ParsedSql.SqlType.BEGIN, "", List.of(), "", dbType, isoLevel, stepMeta, null);
         }
-        if (upper.startsWith("COMMIT"))   return new ParsedSql(ParsedSql.SqlType.COMMIT,   "", List.of(), "", dbType, null, stepMeta);
-        if (upper.startsWith("ROLLBACK")) return new ParsedSql(ParsedSql.SqlType.ROLLBACK, "", List.of(), "", dbType, null, stepMeta);
+        if (upper.startsWith("COMMIT"))   return new ParsedSql(ParsedSql.SqlType.COMMIT,   "", List.of(), "", dbType, null, stepMeta, null);
+        if (upper.startsWith("ROLLBACK")) return new ParsedSql(ParsedSql.SqlType.ROLLBACK, "", List.of(), "", dbType, null, stepMeta, null);
 
         try {
             Statement stmt = CCJSqlParserUtil.parse(cleanSql);
@@ -74,7 +74,7 @@ public final class SqlParser {
             };
             // base에 메타데이터 병합
             return new ParsedSql(base.type(), base.table(), base.columns(), base.whereClause(),
-                    dbType, null, stepMeta);
+                    dbType, null, stepMeta, base.lockType());
         } catch (Exception e) {
             return ParsedSql.unknown();
         }
@@ -128,12 +128,32 @@ public final class SqlParser {
 
     // ── SQL 타입별 파싱 ──────────────────────────────────────────────────────────
 
+    private static final Pattern LOCK_TYPE_PATTERN = Pattern.compile(
+            "FOR\\s+KEY\\s+SHARE|FOR\\s+NO\\s+KEY\\s+UPDATE|FOR\\s+UPDATE|FOR\\s+SHARE|LOCK\\s+IN\\s+SHARE\\s+MODE",
+            Pattern.CASE_INSENSITIVE);
+
     private static ParsedSql parseSelect(Select select) {
         if (!(select instanceof PlainSelect plain)) return ParsedSql.unknown();
         String table = extractTableName(plain.getFromItem());
         List<String> columns = extractSelectColumns(plain);
         String where = whereStr(plain.getWhere());
-        return ParsedSql.of(ParsedSql.SqlType.SELECT, table, columns, where);
+        // JSQLParser 5.x는 locking clause API가 없으므로 toString()에서 추출
+        LockType lockType = extractLockTypeFromSql(select.toString());
+        return new ParsedSql(ParsedSql.SqlType.SELECT, table, columns, where,
+                DEFAULT_DB, null, null, lockType);
+    }
+
+    private static LockType extractLockTypeFromSql(String sql) {
+        Matcher m = LOCK_TYPE_PATTERN.matcher(sql);
+        if (!m.find()) return null;
+        String matched = m.group().toUpperCase().replaceAll("\\s+", " ");
+        return switch (matched) {
+            case "FOR KEY SHARE"     -> LockType.FOR_KEY_SHARE;
+            case "FOR NO KEY UPDATE" -> LockType.FOR_NO_KEY_UPDATE;
+            case "FOR UPDATE"        -> LockType.FOR_UPDATE;
+            case "FOR SHARE", "LOCK IN SHARE MODE" -> LockType.SHARE;
+            default                  -> null;
+        };
     }
 
     private static ParsedSql parseUpdate(Update update) {

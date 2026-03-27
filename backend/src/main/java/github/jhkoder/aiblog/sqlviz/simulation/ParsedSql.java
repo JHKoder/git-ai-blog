@@ -20,7 +20,9 @@ public record ParsedSql(
         String whereClause,
         DbType dbType,
         IsolationLevel isolationLevel,
-        StepMeta stepMeta
+        StepMeta stepMeta,
+        /** SELECT ... FOR UPDATE / FOR KEY SHARE 등 locking read 타입. null이면 일반 SELECT. */
+        LockType lockType
 ) {
 
     public enum SqlType {
@@ -32,12 +34,12 @@ public record ParsedSql(
 
     /** 파싱 실패 or 지원하지 않는 구문일 때 반환하는 기본값 */
     public static ParsedSql unknown() {
-        return new ParsedSql(SqlType.UNKNOWN, "", List.of(), "", SqlParser.DEFAULT_DB, null, null);
+        return new ParsedSql(SqlType.UNKNOWN, "", List.of(), "", SqlParser.DEFAULT_DB, null, null, null);
     }
 
-    /** dbType/isolationLevel/stepMeta 없는 기본 생성자 (하위 호환) */
+    /** dbType/isolationLevel/stepMeta/lockType 없는 기본 생성자 (하위 호환) */
     public static ParsedSql of(SqlType type, String table, List<String> columns, String whereClause) {
-        return new ParsedSql(type, table, columns, whereClause, SqlParser.DEFAULT_DB, null, null);
+        return new ParsedSql(type, table, columns, whereClause, SqlParser.DEFAULT_DB, null, null, null);
     }
 
     public boolean hasTable() {

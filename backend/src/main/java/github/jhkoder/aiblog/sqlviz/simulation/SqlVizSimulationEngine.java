@@ -75,6 +75,8 @@ public class SqlVizSimulationEngine {
         List<SimulationStep> steps = new ArrayList<>();
         List<String> limitations = buildCommonLimitations();
         int stepNum = 1;
+        // blocked TX가 대기 중인 잠금 정보: txId → (RowKey, LockType, operation)
+        Map<String, PendingLock> pendingLocks = new HashMap<>();
 
         for (ParsedSql parsed : sorted) {
             ParsedSql.StepMeta meta = parsed.stepMeta();
@@ -98,11 +100,37 @@ public class SqlVizSimulationEngine {
                 case SELECT -> {
                     if (tx == null) { tx = db.begin(txId, defaultIsolation); txMap.put(txId, tx); }
                     RowKey key = RowKey.from(parsed);
-                    var row = db.read(tx, key);
-                    String detail = row.isPresent()
-                            ? txId + ": " + key + " 읽기 → " + row.get().getData()
-                            : txId + ": " + key + " 읽기 → 스냅샷에 없음(버전 차이)";
-                    steps.add(new SimulationStep(stepNum++, txId, "SELECT", sql, "success", detail, 400));
+                    LockType selectLock = parsed.lockType();
+                    if (selectLock != null) {
+                        // locking read — FOR KEY SHARE / FOR UPDATE 등
+                        VirtualDatabase.LockResult lockResult = db.acquireLock(tx, key, selectLock);
+                        if (lockResult == VirtualDatabase.LockResult.DEADLOCK) {
+                            steps.add(new SimulationStep(stepNum++, txId, "LOCK_WAIT", key + " 잠금 요청",
+                                    "deadlock", txId + " → 데드락 감지! 강제 롤백", 800,
+                                    "데드락 감지 — DB가 이 트랜잭션을 victim으로 선택"));
+                            db.rollback(tx);
+                            txMap.remove(txId);
+                            steps.add(new SimulationStep(stepNum++, txId, "ROLLBACK", "", "rollback", txId + " 롤백", 300));
+                        } else if (lockResult == VirtualDatabase.LockResult.BLOCKED) {
+                            String blocker = db.getLockOwner(key).orElse("unknown");
+                            steps.add(new SimulationStep(stepNum++, txId, "LOCK_WAIT", key + " 잠금 요청",
+                                    "blocked", txId + " 대기 — " + blocker + " 보유 중 (" + selectLock + ")", 600,
+                                    "락 대기 발생 — " + selectLock + " 잠금 충돌"));
+                            pendingLocks.put(txId, new PendingLock(key, selectLock, "SELECT"));
+                        } else {
+                            var row = db.read(tx, key);
+                            String detail = row.isPresent()
+                                    ? txId + ": " + key + " " + selectLock + " 읽기 → " + row.get().getData()
+                                    : txId + ": " + key + " " + selectLock + " 읽기 → 스냅샷에 없음";
+                            steps.add(new SimulationStep(stepNum++, txId, "SELECT", sql + " [" + selectLock + "]", "success", detail, 400));
+                        }
+                    } else {
+                        var row = db.read(tx, key);
+                        String detail = row.isPresent()
+                                ? txId + ": " + key + " 읽기 → " + row.get().getData()
+                                : txId + ": " + key + " 읽기 → 스냅샷에 없음(버전 차이)";
+                        steps.add(new SimulationStep(stepNum++, txId, "SELECT", sql, "success", detail, 400));
+                    }
                 }
                 case UPDATE -> {
                     if (tx == null) { tx = db.begin(txId, defaultIsolation); txMap.put(txId, tx); }
@@ -120,6 +148,7 @@ public class SqlVizSimulationEngine {
                         steps.add(new SimulationStep(stepNum++, txId, "LOCK_WAIT", key + " 잠금 요청",
                                 "blocked", txId + " 대기 — " + blocker + " 보유 중", 600,
                                 "락 대기 발생 — 실제 DB에서는 timeout 또는 deadlock으로 해소"));
+                        pendingLocks.put(txId, new PendingLock(key, LockType.FOR_UPDATE, "UPDATE"));
                     } else {
                         db.write(tx, key, Map.of("updated_by", txId));
                         steps.add(new SimulationStep(stepNum++, txId, "UPDATE", sql, "success",
@@ -140,7 +169,9 @@ public class SqlVizSimulationEngine {
                     } else if (lockResult == VirtualDatabase.LockResult.BLOCKED) {
                         String blocker = db.getLockOwner(key).orElse("unknown");
                         steps.add(new SimulationStep(stepNum++, txId, "LOCK_WAIT", key + " 잠금 요청",
-                                "blocked", txId + " 대기 — " + blocker + " 보유 중", 600));
+                                "blocked", txId + " 대기 — " + blocker + " 보유 중", 600,
+                                "락 대기 발생 — FOR KEY SHARE 보유 중인 행 삭제 시도"));
+                        pendingLocks.put(txId, new PendingLock(key, LockType.FOR_UPDATE, "DELETE"));
                     } else {
                         steps.add(new SimulationStep(stepNum++, txId, "DELETE", sql, "success",
                                 txId + ": " + key + " DELETE (락 획득)", 400));
@@ -158,7 +189,21 @@ public class SqlVizSimulationEngine {
                         int newVersion = db.commit(tx);
                         txMap.remove(txId);
                         steps.add(new SimulationStep(stepNum++, txId, "COMMIT", "", "success",
-                                txId + " 커밋 — DB 버전 " + newVersion + " 확정", 300));
+                                txId + " 커밋 — DB 버전 " + newVersion + " 확정. 잠금 해제.", 300));
+                        // 이 TX 커밋 후 대기 중인 TX들 자동 락 획득 처리
+                        for (Map.Entry<String, PendingLock> entry : new HashMap<>(pendingLocks).entrySet()) {
+                            String waitingTxId = entry.getKey();
+                            PendingLock pending = entry.getValue();
+                            TransactionContext waitingTx = txMap.get(waitingTxId);
+                            if (waitingTx == null) continue;
+                            VirtualDatabase.LockResult reacquire = db.acquireLock(waitingTx, pending.key(), pending.lockType());
+                            if (reacquire == VirtualDatabase.LockResult.SUCCESS) {
+                                pendingLocks.remove(waitingTxId);
+                                String resolvedDetail = waitingTxId + " 잠금 대기 해소 — " + txId + " 커밋 후 " + pending.key() + " " + pending.lockType() + " 획득";
+                                steps.add(new SimulationStep(stepNum++, waitingTxId, pending.operation(), pending.key().toString(),
+                                        "success", resolvedDetail, 400));
+                            }
+                        }
                     }
                 }
                 case ROLLBACK -> {
@@ -585,6 +630,9 @@ public class SqlVizSimulationEngine {
                 List.of("실제 DB에는 lock_timeout 설정이 있어 대기 시간 초과 시 오류를 반환합니다.",
                         "락 대기 시간 분석에는 pg_locks, SHOW ENGINE INNODB STATUS 등의 진단 도구를 사용하세요."));
     }
+
+    /** blocked TX가 대기 중인 잠금 정보 */
+    private record PendingLock(RowKey key, LockType lockType, String operation) {}
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
