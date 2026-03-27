@@ -326,6 +326,33 @@
   color: #fff;
 }
 
+.savedMark {
+  color: inherit;
+  opacity: 0.8;
+  font-size: 10px;
+}
+
+.previewLoadingText {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.previewBadge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+[data-theme='dark'] .previewBadge {
+  background: #422006;
+  color: #fde68a;
+  border-color: #78350f;
+}
+
 .tabContent {
   padding: 16px;
 }

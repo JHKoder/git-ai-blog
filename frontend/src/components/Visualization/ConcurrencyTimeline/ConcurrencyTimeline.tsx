@@ -14,7 +14,15 @@ export function ConcurrencyTimeline({ simulation }: Props) {
   const steps = simulation.steps
   const txIds = Array.from(new Set(steps.map(s => s.txId)))
 
+  // 현재 표시 중인 스텝이 BLOCKED인지 확인
+  const isCurrentStepBlocked = steps[currentStep]?.result === 'blocked'
+
   useEffect(() => {
+    // BLOCKED 스텝에 도달하면 자동 일시정지
+    if (playing && isCurrentStepBlocked) {
+      setPlaying(false)
+      return
+    }
     if (playing) {
       intervalRef.current = setInterval(() => {
         setCurrentStep(prev => {
@@ -22,14 +30,19 @@ export function ConcurrencyTimeline({ simulation }: Props) {
             setPlaying(false)
             return prev
           }
-          return prev + 1
+          // 다음 스텝이 BLOCKED면 그 스텝에서 멈춤
+          const next = prev + 1
+          if (steps[next]?.result === 'blocked') {
+            setPlaying(false)
+          }
+          return next
         })
       }, 600)
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [playing, steps.length])
+  }, [playing, steps.length, isCurrentStepBlocked, steps])
 
   const handlePlay = () => {
     if (currentStep >= steps.length - 1) setCurrentStep(0)
@@ -42,6 +55,11 @@ export function ConcurrencyTimeline({ simulation }: Props) {
     const s = steps[stepIdx]
     return s && s.txId === txId ? s : null
   }
+
+  // 현재 스텝에 BLOCKED가 있는지 (LOCK ZONE 배지 표시 조건)
+  const hasBlockedAtCurrent = visibleSteps.some(
+    (_, idx) => idx === currentStep && steps[idx]?.result === 'blocked'
+  )
 
   return (
     <div className={styles.container}>
@@ -74,6 +92,12 @@ export function ConcurrencyTimeline({ simulation }: Props) {
         </div>
       )}
 
+      {hasBlockedAtCurrent && (
+        <div className={styles.lockZoneBadge}>
+          🔒 LOCK ZONE — 잠금 대기 중 (재생이 일시정지됩니다)
+        </div>
+      )}
+
       <div className={styles.timeline}>
         <div className={styles.txHeaders}>
           <div className={styles.stepCol} />
@@ -92,7 +116,7 @@ export function ConcurrencyTimeline({ simulation }: Props) {
               return (
                 <div key={txId} className={styles.cell}>
                   {s && (
-                    <div className={`${styles.stepBox} ${getOperationClass(s.operation, styles)}`}>
+                    <div className={`${styles.stepBox} ${getResultColorClass(s.result, s.operation, styles)}`}>
                       <div className={styles.operation}>
                         {s.operation}
                         {s.warning && (
@@ -128,10 +152,28 @@ export function ConcurrencyTimeline({ simulation }: Props) {
   )
 }
 
-function getOperationClass(operation: string, styles: Record<string, string>): string {
+/**
+ * result 값 기준 5단계 색상 클래스:
+ *  회색  — 진행 중 / 일반 (BEGIN, SELECT, INSERT, UPDATE 등 success)
+ *  초록  — 커밋 완료 (COMMIT success)
+ *  주황  — 롤백 / 경고 (ROLLBACK, dirty_value, non_repeatable, phantom, lost_update)
+ *  빨강  — 데드락 (deadlock, rollback after deadlock)
+ *  보라  — 잠금 대기 (blocked)
+ */
+function getResultColorClass(result: string, operation: string, s: Record<string, string>): string {
+  const r = result.toLowerCase()
   const op = operation.toUpperCase()
-  if (op.includes('LOCK') || op.includes('WAIT') || op.includes('DEADLOCK')) return styles.opDanger
-  if (op.includes('COMMIT')) return styles.opSuccess
-  if (op.includes('ROLLBACK') || op.includes('ABORT')) return styles.opWarning
-  return styles.opNormal
+
+  if (r === 'blocked') return s.opBlocked          // 보라
+  if (r === 'deadlock') return s.opDeadlock         // 빨강
+  if (op === 'COMMIT' && r === 'success') return s.opSuccess  // 초록
+  if (
+    r === 'rollback' ||
+    op.includes('ROLLBACK') ||
+    r === 'dirty_value' ||
+    r === 'non_repeatable' ||
+    r === 'phantom' ||
+    r === 'lost_update'
+  ) return s.opWarning                             // 주황
+  return s.opNormal                                // 회색
 }

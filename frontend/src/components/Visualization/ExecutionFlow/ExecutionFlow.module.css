@@ -29,6 +29,24 @@
   box-shadow: 0 2px 12px rgba(239, 68, 68, 0.4);
 }
 
+/* LOCK ZONE 배너 — 보라, DEADLOCK과 구분 */
+.lockZoneBanner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(124, 58, 237, 0.88);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 8px 20px;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 10;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.4);
+}
+
 .tooltip {
   background: var(--surface, #1e293b);
   border: 1px solid var(--border, #334155);

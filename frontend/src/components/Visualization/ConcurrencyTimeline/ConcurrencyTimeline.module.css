@@ -42,6 +42,8 @@
   white-space: nowrap;
 }
 
+/* ─── 배지 ─────────────────────────────────────── */
+
 .conflictBadge {
   background: #fee2e2;
   color: #dc2626;
@@ -57,6 +59,31 @@
   color: #fca5a5;
   border-color: #7f1d1d;
 }
+
+/* LOCK ZONE 배지 — 보라 계열 */
+.lockZoneBadge {
+  background: #f3e8ff;
+  color: #7c3aed;
+  border: 1px solid #c4b5fd;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  animation: lockPulse 1.4s ease-in-out infinite;
+}
+
+[data-theme='dark'] .lockZoneBadge {
+  background: #2e1065;
+  color: #c4b5fd;
+  border-color: #6d28d9;
+}
+
+@keyframes lockPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* ─── 타임라인 레이아웃 ─────────────────────────── */
 
 .timeline {
   overflow-x: auto;
@@ -140,16 +167,18 @@
   font-style: italic;
 }
 
+/* ─── 5단계 색상 클래스 ───────────────────────────
+   회색  opNormal  — 일반 진행 중
+   초록  opSuccess — COMMIT 완료
+   주황  opWarning — ROLLBACK / 이상 현상
+   빨강  opDeadlock — 데드락
+   보라  opBlocked — 잠금 대기
+   ─────────────────────────────────────────────── */
+
 .opNormal {
   background: var(--surface);
   border-color: var(--border);
   color: var(--text);
-}
-
-.opDanger {
-  background: #fee2e2;
-  border-color: #fca5a5;
-  color: #991b1b;
 }
 
 .opSuccess {
@@ -164,12 +193,26 @@
   color: #854d0e;
 }
 
-[data-theme='dark'] .opDanger {
-  background: #450a0a;
-  border-color: #7f1d1d;
-  color: #fca5a5;
+.opDeadlock {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
 }
 
+/* BLOCKED — 보라, 펄스 애니메이션 */
+.opBlocked {
+  background: #f3e8ff;
+  border-color: #c4b5fd;
+  color: #6b21a8;
+  animation: blockedPulse 1s ease-in-out infinite;
+}
+
+@keyframes blockedPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+/* 다크 모드 */
 [data-theme='dark'] .opSuccess {
   background: #052e16;
   border-color: #14532d;
@@ -181,6 +224,20 @@
   border-color: #78350f;
   color: #fde047;
 }
+
+[data-theme='dark'] .opDeadlock {
+  background: #450a0a;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+[data-theme='dark'] .opBlocked {
+  background: #2e1065;
+  border-color: #6d28d9;
+  color: #c4b5fd;
+}
+
+/* ─── 요약 / 한계 ────────────────────────────── */
 
 .summary {
   font-size: 13px;

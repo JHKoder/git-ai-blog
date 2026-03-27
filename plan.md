@@ -1,6 +1,6 @@
 # AI Blog Automation — 프로젝트 계획서
 
-> 작성일: 2026-03-20 / 최종 수정: 2026-03-26
+> 작성일: 2026-03-20 / 최종 수정: 2026-03-27
 
 ## 문서 구조
 
@@ -113,7 +113,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] 백엔드: `POST/GET/DELETE /api/sqlviz`, `GET /api/embed/sqlviz/{id}` (공개)
 - [x] 시뮬레이션 엔진 — 6개 시나리오, 격리 수준 분기, JSQLParser + RowKey + VirtualDB
 - [x] 프론트: `SqlVizPage`, `SqlVizEmbedPage`, `ConcurrencyTimeline`, `ExecutionFlow`, `EmbedGenerator`
-- [x] PromptBuilder SQLViz 마커 지시문 + `sql visualize` 마커 렌더링 (→ `--SQLViz:` 방식으로 교체 예정)
+- [x] PromptBuilder SQLViz 마커 지시문 + `--SQLViz:` 마커 렌더링
 - [x] SQLViz 시뮬레이션/위젯 목록 미표시 버그 — `SqlVizResponse` 필드명 `simulationData` → `simulation`으로 통일 (프론트 타입
   `SqlVizWidget.simulation`과 불일치가 원인)
 - [x] SQLViz AI 개선 시 위젯 중복 생성 방지 — `CreateSqlVizWidgetUseCase`에서 `memberId + sqlsJson + scenario` 조합 중복 검사 후 기존 위젯 재사용
@@ -138,6 +138,14 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] `ParsedSql.lockType` 필드 추가 + `SqlParser` locking read 추출 (`FOR KEY SHARE` / `FOR UPDATE` 등) — regex 방식 (JSQLParser 5.x API 미지원)
 - [x] `runInterleaved()` locking SELECT 처리 — lockType 있으면 `acquireLock()` 호출, BLOCKED 시 `pendingLocks` 기록, COMMIT 시 자동 재획득
 - [x] `SqlVizSimulationEngineTest` 단위 테스트 5개 — FOR KEY SHARE→DELETE BLOCKED→T1 커밋→T2 획득 인터리빙 시나리오 검증
+- [x] `SqlVizHelpPanel` 예시 코드 2개 추가 — 데드락 / 락 대기 T1·T2 나란히 표시
+- [x] 타임라인 색상 규칙 통일 — 회색/초록/주황/빨강/보라 5단계 (`resultColor()` + CSS 변수)
+- [x] ExecutionFlow 실선/점선/굵은 선 구분 — `strokeDasharray` + `strokeWidth` 기반
+- [x] CONFLICT 중앙 레이어 — BLOCKED/DEADLOCK 스텝 위치에 `LOCK ZONE` 배지 삽입
+- [x] 재생 애니메이션 BLOCKED 일시정지 — BLOCKED 도달 시 pause + 펄스, COMMIT 후 재개
+- [x] 격리 수준 모드 스위치 — `POST /api/sqlviz/preview` (저장 없는 미리보기 API)
+- [x] embed 페이지 다크모드 — `prefers-color-scheme` 자동 감지 + `?theme=dark` URL param 지원
+- [x] SQL 목록 TX별 컬럼 표시 — STEP 번호 기준 정렬, TX1/TX2/TX3 나란히 (상세 → `sqlviz.md`)
 
 ### 운영 / 모니터링
 

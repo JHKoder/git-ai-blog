@@ -1,5 +1,5 @@
 import api from './axiosInstance'
-import type { SqlVizWidget, SqlVizCreateRequest, SqlVizPageResponse } from '../types/sqlviz'
+import type { SqlVizWidget, SqlVizCreateRequest, SqlVizPageResponse, SimulationResult } from '../types/sqlviz'
 
 interface ApiResponse<T> {
   data: T
@@ -19,4 +19,8 @@ export const sqlvizApi = {
 
   getEmbed: (id: number) =>
     api.get<ApiResponse<SqlVizWidget>>(`/embed/sqlviz/${id}`).then(r => r.data.data),
+
+  /** 저장 없는 미리보기 시뮬레이션 — 격리 수준 변경 시 재실행 용도 */
+  preview: (req: SqlVizCreateRequest) =>
+    api.post<ApiResponse<SimulationResult>>('/sqlviz/preview', req).then(r => r.data.data),
 }

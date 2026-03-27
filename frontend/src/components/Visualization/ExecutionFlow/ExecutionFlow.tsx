@@ -49,9 +49,14 @@ export function ExecutionFlow({ simulation }: Props) {
           <Controls showInteractive={false} />
         </ReactFlow>
 
-        {simulation.hasConflict && (
+        {simulation.hasConflict && simulation.conflictType === 'DEADLOCK' && (
           <div className={styles.deadlockBanner}>
-            💀 {simulation.conflictType} 발생
+            💀 DEADLOCK 발생
+          </div>
+        )}
+        {simulation.hasConflict && simulation.conflictType === 'LOCK_WAIT' && (
+          <div className={styles.lockZoneBanner}>
+            🔒 LOCK ZONE — 잠금 대기 발생
           </div>
         )}
       </div>
@@ -72,22 +77,55 @@ export function ExecutionFlow({ simulation }: Props) {
   )
 }
 
-function getEdgeStyle(step: SimulationStep): { stroke: string; strokeDasharray?: string } {
+function getEdgeStyle(step: SimulationStep): { stroke: string; strokeDasharray?: string; strokeWidth?: number } {
   const op = step.operation.toUpperCase()
-  if (op.includes('DEADLOCK')) return { stroke: '#ef4444' }
-  if (op.includes('LOCK') || op.includes('WAIT')) return { stroke: '#f97316', strokeDasharray: '5,3' }
-  if (op.includes('COMMIT')) return { stroke: '#22c55e' }
-  if (op.includes('ROLLBACK') || op.includes('ABORT')) return { stroke: '#eab308' }
-  return { stroke: '#9ca3af' }
+  const r = step.result.toLowerCase()
+
+  // 데드락 — 빨강 굵은 실선
+  if (r === 'deadlock' || op.includes('DEADLOCK')) {
+    return { stroke: '#ef4444', strokeWidth: 3 }
+  }
+  // 잠금 대기(BLOCKED) — 보라 점선
+  if (r === 'blocked' || op.includes('LOCK') || op.includes('WAIT')) {
+    return { stroke: '#7c3aed', strokeDasharray: '6,4', strokeWidth: 2 }
+  }
+  // COMMIT — 초록 굵은 실선
+  if (op.includes('COMMIT')) {
+    return { stroke: '#22c55e', strokeWidth: 2 }
+  }
+  // ROLLBACK — 주황 점선
+  if (op.includes('ROLLBACK') || op.includes('ABORT')) {
+    return { stroke: '#f59e0b', strokeDasharray: '4,3' }
+  }
+  // 일반 — 회색 가는 실선
+  return { stroke: '#9ca3af', strokeWidth: 1 }
 }
 
 function getNodeStyle(step: SimulationStep): React.CSSProperties {
   const op = step.operation.toUpperCase()
-  if (op.includes('DEADLOCK')) return { background: '#fee2e2', border: '2px solid #ef4444' }
-  if (op.includes('LOCK') || op.includes('WAIT')) return { background: '#fff7ed', border: '1.5px solid #fb923c' }
-  if (op.includes('COMMIT')) return { background: '#f0fdf4', border: '1.5px solid #86efac' }
-  if (op.includes('ROLLBACK') || op.includes('ABORT')) return { background: '#fefce8', border: '1.5px solid #fde047' }
-  return { background: '#f9fafb', border: '1px solid #e5e7eb' }
+  const r = step.result.toLowerCase()
+
+  // 데드락 — 빨강
+  if (r === 'deadlock' || op.includes('DEADLOCK')) {
+    return { background: '#fee2e2', border: '2px solid #ef4444', color: '#991b1b' }
+  }
+  // BLOCKED — 보라
+  if (r === 'blocked') {
+    return { background: '#f3e8ff', border: '2px solid #a855f7', color: '#6b21a8' }
+  }
+  // COMMIT — 초록
+  if (op.includes('COMMIT')) {
+    return { background: '#f0fdf4', border: '1.5px solid #86efac', color: '#166534' }
+  }
+  // ROLLBACK / 이상 현상 — 주황
+  if (
+    op.includes('ROLLBACK') || op.includes('ABORT') ||
+    r === 'dirty_value' || r === 'non_repeatable' || r === 'phantom' || r === 'lost_update'
+  ) {
+    return { background: '#fefce8', border: '1.5px solid #fde047', color: '#854d0e' }
+  }
+  // 일반 — 회색
+  return { background: '#f9fafb', border: '1px solid #e5e7eb', color: '#374151' }
 }
 
 function getOperationIcon(step: SimulationStep): string {

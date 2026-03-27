@@ -8,229 +8,241 @@
 
 ---
 
-### 문제 5 — TX 정보 없는 STEP 주석 미지원 (단일 에디터에 여러 TX 혼합) ✅
+## 구현 현황 요약
 
-**요청:** TX 구분 없이 `-- STEP:n`만으로 인터리빙 순서를 지정하고, 어느 TX에 속하는지는 BEGIN 컨텍스트에서 자동 추론해줬으면 함.
-
-**예시:**
-
-```sql
--- STEP:1
-BEGIN
-ISOLATION LEVEL READ COMMITTED;
-← 이
-BEGIN부터가 T1
-
--- STEP:3
-SELECT *
-FROM parent
-WHERE id = 1 FOR KEY SHARE;
-
--- STEP:2
-BEGIN
-ISOLATION LEVEL READ COMMITTED;
-← 이
-BEGIN부터가 T2
-
--- STEP:4
-DELETE
-FROM parent
-WHERE id = 1;
-```
-
-**피드백:**
-
-현재 구조상 `SqlParser.STEP_COMMENT` 패턴은 `-- STEP:n TX:id` 형식에서 `TX:` 부분이 없으면 `stepMeta`가 `null`로 반환 → `runInterleaved()` 진입
-조건(`hasStepMeta`)을 통과 못 함.
-
-이 방식을 지원하려면 두 가지 선택지가 있음:
-
-- **방안 A (단순)**: 현재처럼 에디터를 TX 단위로 분리하되, `-- STEP:n`만 있어도 `TX:` 없이 동작하도록 `SqlParser`와 `runInterleaved()`를 확장. 단, "같은 에디터
-  안에 두 TX가 혼합"된 케이스는 지원 불가 — 사용자가 에디터를 TX별로 나눠서 입력해야 함.
-- **방안 B (복잡)**: 단일 에디터 안에서 `BEGIN`이 등장할 때마다 새 TX로 간주해 자동 분리. 백엔드 `SqlParser`가 `BEGIN` 앞의 STEP들을 이전 TX에, 이후 STEP들을 새 TX에
-  귀속시키는 상태머신 방식. 구현 복잡도가 높음.
-
-**추천**: 방안 A + TX 에디터 분리 방향 유지. 에디터를 TX 단위(T1, T2 …)로 나누는 현재 UX가 이미 이 문제를 해결하는 가장 명확한 구조임. 단, `-- STEP:n` (TX 없음)만 입력해도
-인식되도록 `SqlParser` 확장은 필요 — `TX:` 부분 없이도 `stepMeta(step, null)`을 반환하고, `runInterleaved()`에서 TX를 에디터 단위로 부여하는 로직 추가.
-추천방식대로 가보자
-
-> **피드백 (방안 A 구현 방향):**
->
-> `buildSqls()`는 이미 `-- STEP:n` (TX 없음) 블록에 에디터 단위 TX를 자동 매핑(`-- STEP:n TX:T1`)하므로 프론트는 수정 불필요.
->
-> 백엔드만 수정:
-> - `SqlParser.STEP_COMMENT` 패턴: `TX:` 부분 선택적으로 — `TX:` 없으면 `txId = null`인 `StepMeta(step, null)` 반환
-> - `runInterleaved()`: `meta.txId()`가 `null`이면 해당 STEP 스킵 또는 fallback TX 사용 — 실제로는 프론트가 이미 TX 매핑해서 보내므로 null 케이스는 방어용
-> - `hasStepMeta()`: `TX:` 없는 `-- STEP:n`도 인식하도록 별도 패턴 추가
->
-> 결과적으로 사용자가 `-- STEP:n`만 쓰고 TX를 에디터로 분리하면 프론트에서 자동 매핑 → 백엔드는 `-- STEP:n TX:T1` 형태로 받아 정상 처리.
-
-### 문제 4 — 에디터 내 STEP별 SQL 분리 안 됨 + 타임라인 주석 노출 ✅
-
-**증상:**
-T1 에디터 전체가 타임라인 `#3` 한 행으로, T2 전체가 `#4` 한 행으로 묶여서 인터리빙 순서가 무시됨.
-
-**원인:**
-
-- `buildSqls()`가 에디터 내용 전체를 하나의 문자열로 전달 → 백엔드 `runInterleaved()`는 sqls 배열 원소 하나를 SQL 하나로 취급, 내부의 여러 STEP 주석 분리 안 됨
-- `SqlParser.STEP_COMMENT` 패턴이 `-- STEP:[1] TX:[T1]` (대괄호 포함) 형식만 인식 → 사용자가 쓰는 `-- STEP:1 TX:T1` (대괄호 없음) 미인식
-
-**해결:**
-
-- `SqlParser.STEP_COMMENT` 패턴: 대괄호 선택적으로 수정 (`\[?(\d+)\]?` 형식)
-    - `-- STEP:1 TX:T1` / `-- STEP:[1] TX:[T1]` 둘 다 인식
-- `buildSqls()`: `-- STEP:n` 구분자 기준으로 에디터 내용 분할 → 각 STEP 블록을 독립 원소로 전달
-    - STEP 주석 없는 에디터 → 에디터 전체를 단일 STEP으로 래핑 (기존 동작 유지)
-    - TX 정보 없는 STEP 주석(`-- STEP:n`) → 에디터 단위 TX 자동 매핑 (`-- STEP:n TX:T1`)
-- 타임라인 sql 컬럼 주석 노출: `buildSqlLabel()`이 operation명만 반환하므로 주석이 노출되지 않음 — 2번 수정(STEP 분리)으로 함께 해소
-
-다른 트랜잭션에서 커밋을 안할시 데드락이 아닌 락이 걸릴시 (다른트랜잭션이 끝날떄까지 락 상태 유지)
-시나리오는 그냥 "락" 만 잇어도되
-
-> **피드백:**
->
-> 현재 시나리오 목록: `DEADLOCK`, `DIRTY_READ`, `NON_REPEATABLE_READ`, `PHANTOM_READ`, `LOST_UPDATE`, `MVCC`
->
-> "다른 TX가 커밋 안 한 채로 락을 보유 → 이쪽 TX는 무한 대기(LOCK_WAIT)" 케이스는 현재 `DEADLOCK` 시나리오에서 BLOCKED 결과로 일부 표현되지만, **데드락 없이 단순 락 대기**만 있는 시나리오가 별도로 없음.
->
-> **추가 시나리오 `LOCK_WAIT` (또는 `BLOCKED`) 신설 방향:**
-> - 백엔드: `SqlVizScenario` enum에 `LOCK_WAIT` 추가, `buildLockWait()` 빌더 추가 — T1이 행에 `FOR UPDATE` 획득 후 미커밋, T2가 같은 행 잠금 요청 → `LOCK_WAIT` 스텝 생성, T1 커밋 후 T2 잠금 획득으로 이어지는 흐름
-> - 프론트: `SCENARIO_LABEL`에 `LOCK_WAIT: '락 대기'` 추가, 자동 감지 규칙 추가 — `FOR UPDATE` + 같은 행 두 TX, 데드락 아닌 경우
-> - 인터리빙 런타임(`runInterleaved`)은 이미 BLOCKED 케이스를 처리하므로 사용자 SQL 기반으로도 동작 가능
-
-## UX 이슈 기록
-
-### 문제 1 — 왼쪽 패널 공간 부족 + 위젯 목록 페이징 ✅
-
-**증상:** SQL 입력 칸이 좁고, 위젯 목록이 페이징 없이 전부 노출됨.
-
-**해결:**
-
-- `SqlVizPage.module.css` grid `420px` → `560px` 확대
-- 위젯 목록 `(n/총)` 페이지네이션 + pageSize 10/20/30 버튼
-- `sqlvizStore`에 `page`, `pageSize`, `totalPages`, `totalElements` 상태 추가
-- 백엔드 `GetSqlVizListUseCase` + `SqlVizController` → `Page<SqlVizWidget>` + `SqlVizPageResponse` 반환
-- `sqlvizApi.getList(page, size)` 파라미터화
-
-### 문제 2 — STEP 주석 인터리빙 순서 오작동 ✅
-
-**증상:** 사용자가 원하는 방식은 TX별 에디터 안에 `-- STEP:n` 주석으로 글로벌 실행 순서를 지정하는 패러다임이나, 현재 UI는 행(row) 단위로 TX를 지정하고 `-- STEP:n TX:id` 를
-자동 조립하는 방식이라 결과가 맞지 않음.
-
-**사용자 기대 패러다임:**
-
-```
-SQL (#1)[T1]  ← TX 에디터 단위
-{
--- STEP:1   ← 전역 실행 순서
-BEGIN ISOLATION LEVEL READ COMMITTED;
--- STEP:3
-SELECT * FROM parent WHERE id = 1 FOR KEY SHARE;
-}
-
-SQL (#2)[T2]
-{
--- STEP:2
-BEGIN ISOLATION LEVEL READ COMMITTED;
--- STEP:4
-DELETE FROM parent WHERE id = 1;
-}
-```
-
-**현재 UI 결과:** 행 단위 조립 시 TX 전체가 하나의 STEP(`-- STEP:1 TX:T1`)으로 묶여 전달 → 인터리빙 순서 무시됨.
-
-**해결:**
-
-- UI 패러다임을 **TX별 에디터 카드** 방식으로 전환 (T1~T4, 최대 4개)
-- 각 에디터 내부에 `-- STEP:n` 주석을 직접 작성 (TX ID는 에디터 단위로 지정)
-- `buildSqls()`: `-- STEP:n` 주석에 `TX:id`가 없으면 에디터 단위 TX ID로 자동 매핑 (`-- STEP:n TX:T1` 변환)
-- ISO 삽입 버튼: `-- STEP:n\nBEGIN ISOLATION LEVEL ...` 형식으로 삽입, `-- STEP:n`은 전체 에디터 최대 STEP+1로 자동 계산
-
-### 문제 3 — ISO 버튼 클릭 시 중복 텍스트 ✅
-
-**증상:** `UNCOMMITTED` / `COMMITTED` / `READ` / `SERIALIZABLE` 버튼 클릭 시 `BEGIN ISOLATION LEVEL ...` 텍스트가 중복으로 삽입됨.
-
-**원인:** `insertIsoBegin()` 함수가 현재 에디터 내용과 무관하게 무조건 앞에 삽입함.
-
-**해결:**
-
-- `startsWithBegin()` 헬퍼: `--` 주석 줄 건너뛰고 첫 비주석 줄이 `BEGIN`이면 `true`
-- `insertIsoBegin()` 시작 시 `startsWithBegin()` 체크 → `true`이면 삽입 스킵 + toast 안내
-- 삽입 위치: `-- STEP:n\nBEGIN ISOLATION LEVEL ...` 형식, `n`은 전체 에디터 최대 STEP+1 자동 계산
+| 기능                                                                                                    | 상태 | 비고                                |
+|-------------------------------------------------------------------------------------------------------|:--:|-----------------------------------|
+| 시나리오 7개 (DEADLOCK / DIRTY_READ / NON_REPEATABLE_READ / PHANTOM_READ / LOST_UPDATE / MVCC / LOCK_WAIT) | ✅  |                                   |
+| `-- STEP:n TX:id` 인터리빙 런타임                                                                            | ✅  |                                   |
+| `-- STEP:n` (TX 없음) 지원                                                                                | ✅  | null txId fallback `T{step}`      |
+| `-- DB:[mysql\|postgresql]` 파싱 + DbType                                                               | ✅  |                                   |
+| FOR KEY SHARE / FOR UPDATE locking read 파싱                                                            | ✅  | regex 방식 (JSQLParser 5.x API 미지원) |
+| SELECT locking read → acquireLock() + pendingLocks 자동 재획득                                             | ✅  | T1 커밋 후 T2 대기 자동 해소               |
+| DB CHECK 제약 자동 마이그레이션                                                                                 | ✅  | `DbMigrationRunner`               |
+| `SimulationResult.limitations` + `SimulationStep.warning`                                             | ✅  |                                   |
+| TX별 에디터 카드 + buildSqls() STEP 분리                                                                      | ✅  |                                   |
+| 시나리오 자동 감지 + 툴팁                                                                                       | ✅  |                                   |
+| 사용법 패널 + 예시 2개                                                                                        | ✅  |                                   |
+| 위젯 목록 페이지네이션                                                                                          | ✅  | pageSize 10/20/30                 |
+| `--SQLViz:` 마커 렌더링                                                                                    | ✅  |                                   |
+| 색상 규칙 통일 (5단계)                                                                                        | ✅  | `resultColor()` + CSS 변수 5단계      |
+| 실선/점선/굵은 선 구분                                                                                         | ✅  | `strokeDasharray` + `strokeWidth`  |
+| CONFLICT 중앙 레이어                                                                                       | ✅  | `lockZoneBadge` / `lockZoneBanner` |
+| 재생 애니메이션 BLOCKED 일시정지                                                                                 | ✅  | `blockedPulse` CSS 애니메이션          |
+| 격리 수준 모드 스위치 (즉시 재시뮬레이션)                                                                              | ✅  | `POST /api/sqlviz/preview`         |
+| embed 페이지 다크모드                                                                                        | ✅  | `prefers-color-scheme` + `?theme=dark` URL param |
+| SQL 목록 TX별 컬럼 표시                                                                                       | ✅  | `SqlTxColumns` 컴포넌트               |
 
 ---
 
-## 시뮬레이션 엔진 개선 설계 (피드백 2026-03-25)
+## 시각화 개선 — 완료 현황
 
-> **피드백 결론:** "시각화 엔진으로는 충분히 좋은 수준인데, '사용자 SQL 기반으로 유연하게 동작하는 엔진'으로 보기엔 아직 한 단계 부족하다."
+> 피드백 요약: "타임라인이 명확하지 않고, 색 의미가 애매하고, CONFLICT 원인이 직관적으로 안 보임."
 
-### 이전 UX 피드백 요약 (구현 완료)
+### 1. 색상 규칙 통일 ✅
 
-| 피드백                     | 해결책                                                       | 상태 |
-|-------------------------|-----------------------------------------------------------|:--:|
-| 사용법 안내 없음               | `SqlVizHelpPanel` 4단계 가이드 (접기/펼치기)                        | ✅  |
-| ISO Level 설정 어려움        | `BEGIN ISOLATION LEVEL ...` 삽입 버튼 (BEGIN 중복 방지 + STEP 자동) | ✅  |
-| 시나리오 자동 감지 불가           | 규칙 기반 패턴 매칭 + "추천 + 사용자 확인" 드롭다운 자동 선택                    | ✅  |
-| 쿼리 실행 순서 오작동 (행 단위 조립)  | TX별 에디터 카드 + 에디터 내부 `-- STEP:n` 직접 작성 + TX 자동 매핑          | ✅  |
-| 왼쪽 패널 좁음 + 위젯 목록 페이징 없음 | 패널 560px 확대 + `SqlVizPageResponse` + pageSize 10/20/30 UI | ✅  |
-| ISO 버튼 중복 텍스트           | `startsWithBegin()` 중복 방지                                 | ✅  |
-| STEP 분리 안 됨 + 주석 패턴 미인식 | `buildSqls()` STEP 기준 분할 + `SqlParser` 대괄호 선택적 패턴         | ✅  |
+`result` 값 기준 5단계 색상 체계. `getResultColorClass()` 함수 + CSS 클래스 분리.
 
-### 현재 상태 평가
+| 상태      | 색상 | CSS 클래스      | result / operation 조건                                              |
+|---------|----|--------------|---------------------------------------------------------------------|
+| 일반 진행   | 회색 | `.opNormal`  | 기본 (SELECT, INSERT, UPDATE 등 `success`)                           |
+| 커밋 완료   | 초록 | `.opSuccess` | `operation === 'COMMIT' && result === 'success'`                    |
+| 롤백/이상현상 | 주황 | `.opWarning` | `result: rollback, dirty_value, non_repeatable, phantom, lost_update` |
+| 데드락     | 빨강 | `.opDeadlock`| `result === 'deadlock'`                                             |
+| 잠금 대기   | 보라 | `.opBlocked` | `result === 'blocked'` — 펄스 애니메이션(`blockedPulse`) 포함              |
 
-| 항목          | 현재 | 비고                       |
-|-------------|:--:|--------------------------|
-| 교육용 시각화     | ✅  | 강점, 건드리지 않음              |
-| Timeline UX | ✅  | step + delay + 상태값 잘 설계됨 |
-| 격리 수준 분기    | ✅  | 교육용으로 정확                 |
-| 실제 SQL 반영   | ✅  | JSQLParser 1단계 완료        |
-| 락 대상 정확도    | ✅  | RowKey 시스템 2단계 완료        |
-| 확장성         | ✅  | Virtual DB 3단계 완료        |
+`ExecutionFlow` 노드/엣지도 동일 5단계 기준:
+- 데드락: 빨강 굵은 실선 (`strokeWidth: 3`)
+- BLOCKED: 보라 점선 (`strokeDasharray: '6,4'`, `strokeWidth: 2`)
+- COMMIT: 초록 굵은 실선 (`strokeWidth: 2`)
+- ROLLBACK: 주황 점선 (`strokeDasharray: '4,3'`)
+- 일반: 회색 가는 실선
 
-### 문제 분석 (구현 완료)
+---
 
-#### 문제 1 — SQL이 텍스트로만 취급됨
+### 2. CONFLICT 중앙 레이어 ✅
 
-```java
-// 기존: 사용자가 어떤 SQL을 넣어도 시나리오 흐름이 동일
-String t1Sql = sqls.get(0);  // 파싱 없이 텍스트 전달만
-// detail 설명도 SQL 내용과 무관하게 하드코딩
+BLOCKED/DEADLOCK 시나리오 분리:
+
+- `lockZoneBadge` (ConcurrencyTimeline) — 현재 스텝이 `blocked`일 때 타임라인 위에 보라 배지 + 펄스
+- `lockZoneBanner` (ExecutionFlow) — `conflictType === 'LOCK_WAIT'`일 때 보라 중앙 오버레이
+- `deadlockBanner` (ExecutionFlow) — `conflictType === 'DEADLOCK'`일 때 빨강 중앙 오버레이
+
+---
+
+### 3. 재생 애니메이션 BLOCKED 일시정지 ✅
+
+- BLOCKED 스텝 도달 시 `setPlaying(false)` 자동 호출
+- `.opBlocked` `blockedPulse` 애니메이션으로 시각 강조 (50% opacity 점멸)
+- "▶ 재생" 재클릭하면 다음 스텝부터 재개
+
+---
+
+### 4. 격리 수준 모드 스위치 ✅
+
+- 백엔드: `POST /api/sqlviz/preview` — DB 저장 없이 `SimulationResult`만 반환
+- 프론트: 위젯 상세 뷰 상단에 격리 수준 토글 버튼 (READ_UNCOMMITTED / READ_COMMITTED / REPEATABLE_READ / SERIALIZABLE)
+- 저장된 격리 수준: ✓ 표시 / 다른 수준 클릭 → preview API 호출 → "미리보기 모드" 배지 표시
+- 원래 수준 재클릭 시 미리보기 해제, 저장된 시뮬레이션으로 복원
+
+---
+
+### 5. embed 페이지 다크모드 ✅
+
+- `prefers-color-scheme: dark` 미디어 쿼리 자동 감지 + 변경 이벤트 실시간 반영
+- URL `?theme=dark` / `?theme=light` param으로 부모 페이지에서 강제 지정 가능
+- 모든 텍스트/배경/배지에 `var(--text)`, `var(--bg)`, `var(--surface)` CSS 변수 적용
+
+---
+
+### 6. SQL 목록 TX별 컬럼 표시 ✅
+
+**피드백**: embed/위젯 상세의 "SQL 목록"이 단순 번호 나열이라 TX 흐름이 안 보임.
+`widget.sqls`는 `buildSqls()`가 에디터 단위(TX 기준)로 조립하므로 T1 묶음, T2 묶음이 연속 나열되어
+STEP 번호(1, 3, 5 / 2, 4, 6)와 표시 순서(#1~#3 T1, #4~#6 T2)가 달라 혼란스럽게 보임.
+
+**구현**: `SqlTxColumns` 신규 컴포넌트 (`src/components/SqlTxColumns/`)
+
+- `-- STEP:n TX:Tx` 주석 파싱 → TX별로 그루핑 → 각 컬럼 STEP 오름차순 정렬
+- STEP 주석 없는 SQL은 "기타" 컬럼으로 분류
+- `-- STEP/TX` 주석 줄은 렌더링에서 제거, 실제 SQL만 표시
+- TX 컬럼 수에 따라 `grid-template-columns` 동적 계산 (TX 1개면 단일 컬럼)
+
+```
+T1                                T2
+─────────────────────────────     ─────────────────────────────
+STEP 1                            STEP 2
+BEGIN ISOLATION LEVEL ...         BEGIN ISOLATION LEVEL ...
+
+STEP 3                            STEP 4
+SELECT * FROM ... FOR UPDATE;     SELECT * FROM ... FOR SHARE;
+
+STEP 5                            STEP 6
+COMMIT;                           COMMIT;
 ```
 
-**해결:** `SqlParser.java` + `ParsedSql` 레코드 도입 — SQL 타입/테이블/WHERE 파싱 후 detail 동적 생성.
+**적용 위치**:
+- `SqlVizEmbedPage` — "SQL 목록" 섹션 교체
+- `SqlVizPage` 위젯 상세 — "SQL 목록" 탭 신규 추가 (타임라인 / 실행 흐름 / **SQL 목록** / 임베드 코드)
 
-#### 문제 2 — Row 개념 하드코딩
+---
 
-```java
-// 기존: WHERE id=1이든 WHERE id=999이든 동일하게 "Row A", "Row B"로 표현
+## 시뮬레이션 엔진
+
+### 지원 시나리오
+
+| 시나리오                  | 설명               | 핵심 흐름                                                            |
+|-----------------------|------------------|------------------------------------------------------------------|
+| `DEADLOCK`            | T1↔T2 순환 잠금      | T1이 rowA, T2가 rowB 잠금 후 서로 교차 요청 → 데드락 감지, T2 victim 롤백          |
+| `DIRTY_READ`          | 미커밋 값 읽기         | T1 UPDATE 미커밋 → T2 READ_UNCOMMITTED로 읽기 → T1 롤백 → T2가 읽은 값 유령화   |
+| `NON_REPEATABLE_READ` | 같은 쿼리 다른 결과      | T1 첫 번째 SELECT → T2 UPDATE + COMMIT → T1 두 번째 SELECT 결과 달라짐      |
+| `PHANTOM_READ`        | 범위 재조회 시 새 행 등장  | T1 범위 SELECT → T2 INSERT + COMMIT → T1 재조회 시 새 행 보임              |
+| `LOST_UPDATE`         | 변경이 덮어써짐         | T1/T2 동시 읽기 후 각자 UPDATE → T1 변경이 T2에 의해 소실                       |
+| `MVCC`                | 잠금 없는 스냅샷 읽기     | T1 REPEATABLE READ 스냅샷 고정 → T2 UPDATE + COMMIT → T1은 여전히 이전 값 읽음 |
+| `LOCK_WAIT`           | 단순 락 대기 (데드락 없음) | T1 FOR UPDATE 미커밋 → T2 동일 행 잠금 BLOCKED → T1 커밋 → T2 잠금 획득        |
+
+### 지원 시나리오 × 격리 수준 매트릭스
+
+| 시나리오                | READ_UNCOMMITTED | READ_COMMITTED | REPEATABLE_READ | SERIALIZABLE |
+|---------------------|:----------------:|:--------------:|:---------------:|:------------:|
+| DEADLOCK            |      항상 충돌       |     항상 충돌      |      항상 충돌      |    항상 충돌     |
+| DIRTY_READ          |        충돌        |       방지       |       방지        |      방지      |
+| NON_REPEATABLE_READ |        충돌        |       충돌       |       방지        |      방지      |
+| PHANTOM_READ        |        충돌        |       충돌       |       충돌        |      방지      |
+| LOST_UPDATE         |      항상 충돌       |     항상 충돌      |      항상 충돌      |    항상 충돌     |
+| MVCC                |      충돌 없음       |     충돌 없음      |      충돌 없음      |    충돌 없음     |
+| LOCK_WAIT           |      항상 충돌       |     항상 충돌      |      항상 충돌      |    항상 충돌     |
+
+### locking read 지원
+
+`SELECT ... FOR UPDATE / FOR KEY SHARE / FOR SHARE / FOR NO KEY UPDATE` 파싱 후 `acquireLock()` 실제 호출.
+
+- `ParsedSql.lockType` 필드 — SELECT 파싱 시 locking read 타입 추출
+- `runInterleaved()` SELECT case: `lockType != null`이면 `acquireLock()` 호출, BLOCKED 시 `pendingLocks` 기록
+- COMMIT 후 `pendingLocks` 자동 재획득 — T1 커밋 → T2 대기 해소 → T2 success step 자동 생성
+
+**PostgreSQL 락 충돌 규칙 (LockType.conflictsWith)**:
+
+|                   | FOR_KEY_SHARE | FOR_SHARE | FOR_NO_KEY_UPDATE | FOR_UPDATE |
+|-------------------|:-------------:|:---------:|:-----------------:|:----------:|
+| FOR_KEY_SHARE     |     ✅ 공존      |   ✅ 공존    |       ❌ 충돌        |    ❌ 충돌    |
+| FOR_SHARE         |     ✅ 공존      |   ✅ 공존    |       ❌ 충돌        |    ❌ 충돌    |
+| FOR_NO_KEY_UPDATE |     ❌ 충돌      |   ❌ 충돌    |       ❌ 충돌        |    ❌ 충돌    |
+| FOR_UPDATE        |     ❌ 충돌      |   ❌ 충돌    |       ❌ 충돌        |    ❌ 충돌    |
+
+### 알려진 한계 (limitations 필드로 UI에 노출)
+
+- FK 제약, Advisory Lock, Gap Lock 미지원
+- SSI(Serializable Snapshot Isolation) 충돌 감지 범위 밖
+- 3개 이상 트랜잭션 데드락은 2-TX 기준으로만 시뮬레이션
+
+---
+
+## SQL 주석 메타데이터
+
+### STEP 인터리빙 주석
+
+```sql
+-- STEP:1 TX:T1          ← 실행 순서 1번, 트랜잭션 T1
+-- STEP:2 TX:T2          ← 실행 순서 2번, 트랜잭션 T2
+-- STEP:3                ← TX 없음 — 에디터 단위 TX 자동 매핑 (buildSqls()가 처리)
 ```
 
-**해결:** `RowKey = "table:id"` — `"orders:1 vs orders:2"` 처럼 실제 의미 있는 락 대상 표시. 파싱 실패 시 "Row A/B" 폴백.
+- 대괄호 선택적: `-- STEP:[1] TX:[T1]` / `-- STEP:1 TX:T1` 둘 다 인식
+- `TX:` 부분 없으면 `StepMeta(step, null)` → `runInterleaved()`에서 `T{step}` fallback
 
-#### 문제 3 — 시나리오가 고정 스크립트
+### DB 방언 주석
 
-```java
-// 기존: steps.add() 하드코딩 → SELECT * FROM orders 넣어도 DEADLOCK 흐름 고정 출력
+```sql
+-- DB:[mysql]            ← MySQL 락 모델 적용
+-- DB:[postgresql]       ← PostgreSQL 락 모델 적용 (기본값)
 ```
 
-**해결:** Scenario는 `switch` 진입점(힌트) 역할만. 실제 step 흐름은 SQL 파싱 결과에서 동적 생성.
+기본값: `SqlParser.DEFAULT_DB = DbType.POSTGRESQL`
 
-### 구현 로드맵
+---
 
-| 단계  | 내용                                                                                 | 상태 | 파일                                                                   |
-|-----|------------------------------------------------------------------------------------|:--:|----------------------------------------------------------------------|
-| 1단계 | SQL Parser Layer (JSQLParser) — `ParsedSql { type, table, columns, whereClause }`  | ✅  | `SqlParser.java`, `ParsedSql.java`                                   |
-| 2단계 | RowKey 기반 Lock 시스템 — `"table:id"`, `Map<RowKey, LockInfo>`                         | ✅  | `RowKey.java`                                                        |
-| 3단계 | Virtual DB in-memory 실행 엔진 — `VirtualRow`, `TransactionContext`, `VirtualDatabase` | ✅  | `VirtualRow.java`, `TransactionContext.java`, `VirtualDatabase.java` |
-| 4단계 | Scenario → "힌트"로 축소 — 실제 steps는 SQL에서 동적 생성                                        | ✅  | `SqlVizSimulationEngine.java`                                        |
+## AI 프롬프트 연동
 
-> 라이브러리: JSQLParser 5.0 (Maven Central, Apache Calcite보다 경량, Spring Boot 호환)
+### SQLViz 마커 형식
+
+```sql
+--SQLViz: postgresql deadlock
+-- SQL 코드
+```
+
+- `--SQLViz:` 이후 첫 토큰 = dialect, 두 번째 토큰 = 시나리오
+- 대소문자 무시 처리
+- 일반 마크다운 엔진은 SQL 주석으로 무시, 커스텀 파서만 인식 → 안전
+
+**dialect**: `postgresql` / `mysql` / `oracle` / `generic`
+
+**시나리오**: `deadlock`, `lost-update`, `dirty-read`, `non-repeatable`, `phantom-read`, `mvcc`, `locking`, `timeline`
+
+### PromptBuilder 지시문
+
+```
+### SQL 시각화
+- DB, 트랜잭션, 동시성, 격리 수준 관련 내용을 설명할 때는 --SQLViz: 마커를 SQL 블록 첫 줄에 사용한다.
+- 마커 형식: --SQLViz: [dialect] [시나리오]
+- dialect는 항상 첫 번째 위치 (postgresql / mysql / oracle / generic).
+- 마커 블록 바로 아래에 1~2줄의 한국어 설명을 반드시 추가한다.
+- 한 응답당 SQLViz 마커는 최대 3개까지만 사용한다.
+- 실제 DB 실행이 아닌 교육용 가상 시나리오만 생성한다.
+```
+
+### ContentType별 추천 시나리오
+
+| ContentType | 추천 시나리오                      |
+|-------------|------------------------------|
+| CS          | DEADLOCK, MVCC, PHANTOM_READ |
+| CODING      | LOST_UPDATE, DIRTY_READ      |
+| TEST        | NON_REPEATABLE_READ          |
+| ALGORITHM   | 해당 없음                        |
 
 ---
 
 ## ExecutionFlow 시각화 스타일 가이드
-
-> 목표: 락 획득 순서 불일치 패턴을 직관적이고 인터랙티브하게 시각화.
 
 ### 레이아웃 구조
 
@@ -242,7 +254,6 @@ String t1Sql = sqls.get(0);  // 파싱 없이 텍스트 전달만
       T1이 Row B 요청 → 대기 (모래시계)
       T2가 Row A 요청 → 대기 (모래시계)
       ──── DEADLOCK 발생 배너 ────
-하단: 동일 컬럼 반복
 ```
 
 ### React Flow 노드/엣지 명세
@@ -260,271 +271,63 @@ String t1Sql = sqls.get(0);  // 파싱 없이 텍스트 전달만
 
 - Timeline 슬라이더 — 시간 순서대로 단계별 재생/정지/이동
 - 노드 클릭 → txId/operation/sql/result/detail 상세 툴팁 패널
-- Isolation Level 토글 (READ_UNCOMMITTED / READ_COMMITTED / REPEATABLE_READ / SERIALIZABLE)
-
-### 디자인 요구사항
-
-- 다크 모드 최적화 (프로젝트 기본 다크 테마)
-- Hashnode iframe 안에서도 responsive + 자동 height 조정
-- 교육용으로 직관적이고 전문적인 톤
-
-### 확장성
-
-- DEADLOCK 패턴 기준으로 Lost Update / Dirty Read / Phantom Read / MVCC를 동일 컴포넌트 구조로 확장
-- 각 시나리오별 "해결 방법 제안" 텍스트 표시 (예: "락 획득 순서를 통일하세요")
 
 ---
 
-## AI 프롬프트 연동 가이드
+## UX 이슈 기록
 
-> AI가 게시글을 작성/개선할 때 SQL 흐름이 필요한 부분을 SQLViz 위젯으로 유도하는 방법.
-> **기능 추가 없이 기존 시스템만으로 연동 가능.**
+### 문제 1 — 왼쪽 패널 공간 부족 + 위젯 목록 페이징 ✅
 
-### 개념
+- `SqlVizPage.module.css` grid `420px` → `560px` 확대
+- 위젯 목록 `(n/총)` 페이지네이션 + pageSize 10/20/30 버튼
+- 백엔드 `Page<SqlVizWidget>` + `SqlVizPageResponse` 반환
 
-AI(Claude/Grok/GPT)는 텍스트만 반환한다. SQLViz 위젯 자체는 사용자가 `/sqlviz` 페이지에서 직접 생성하고 임베드 코드를 복사해서 게시글에 붙여넣는 흐름이다. AI의 역할은 **"여기에
-SQLViz 위젯을 넣어라"는 마커(placeholder)를 본문에 심어주는 것**이다.
+### 문제 2 — STEP 주석 인터리빙 순서 오작동 ✅
 
-### SQLViz 마커 형식 (확정)
+- UI 패러다임을 TX별 에디터 카드 방식으로 전환 (T1~T4, 최대 4개)
+- `buildSqls()`: `-- STEP:n` 구분자 기준 에디터 내용 분할, TX 없으면 에디터 단위 TX 자동 매핑
+- `SqlParser.STEP_COMMENT` 패턴: 대괄호 선택적 (`\[?(\d+)\]?`)
 
-> 이전 `` ```sql visualize [dialect] `` 형식은 remark/rehype가 `language-sql`만 추출하고 뒤 토큰을 버려서 일반 코드블록으로 렌더링됨 → **`--SQLViz:`
-주석 방식으로 변경 확정.**
+### 문제 3 — ISO 버튼 중복 텍스트 ✅
 
-```sql
---SQLViz: postgresql deadlock
--- SQL 코드
-```
+- `startsWithBegin()` 헬퍼: `--` 주석 줄 건너뛰고 첫 비주석 줄이 `BEGIN`이면 삽입 스킵
+- 삽입 형식: `-- STEP:n\nBEGIN ISOLATION LEVEL ...`, `n`은 최대 STEP+1 자동 계산
 
-- `--SQLViz:` 이후 **첫 토큰 = dialect**, **두 번째 토큰 = 시나리오**
-- 대소문자 무시 처리
-- 일반 마크다운 엔진은 SQL 주석으로 무시, 커스텀 파서만 인식 → 모든 마크다운 환경에서 안전
+### 문제 4 — 에디터 내 STEP별 SQL 분리 안 됨 + 타임라인 주석 노출 ✅
 
-**dialect:** `postgresql` / `mysql` / `oracle` / `generic` (없으면 `postgresql` 기본값 — `SqlParser.DEFAULT_DB`)
+- `buildSqls()` STEP 구분자 기준 분할 + `SqlParser.STEP_COMMENT` 대괄호 선택적 패턴
 
-**시나리오:** `deadlock`, `lost-update`, `dirty-read`, `non-repeatable`, `phantom-read`, `mvcc`, `locking`, `timeline`
+### 문제 5 — TX 정보 없는 STEP 주석 미지원 ✅
 
-### PromptBuilder 지시문 (변경 필요 — `PromptBuilder.java` 다이어그램 섹션 아래)
-
-> `--SQLViz:` 방식 확정으로 기존 지시문 교체 필요. 상세 → `prompt.md` (신규 파일 예정)
-
-```
-### SQL 시각화
-- DB, 트랜잭션, 동시성, 격리 수준 관련 내용을 설명할 때는 --SQLViz: 마커를 SQL 블록 첫 줄에 사용한다.
-- 마커 형식: --SQLViz: [dialect] [시나리오]
-- dialect는 항상 첫 번째 위치 (postgresql / mysql / oracle / generic).
-- 마커 블록 바로 아래에 1~2줄의 한국어 설명을 반드시 추가한다.
-- 한 응답당 SQLViz 마커는 최대 3개까지만 사용한다.
-- 실제 DB 실행이 아닌 교육용 가상 시나리오만 생성한다.
-```
-
-### Few-shot 예시
-
-**PostgreSQL 데드락:**
-
-```sql
---SQLViz: postgresql deadlock
--- T1
-BEGIN;
-UPDATE accounts
-SET balance = balance - 100
-WHERE id = 1;
--- T2
-BEGIN;
-UPDATE accounts
-SET balance = balance - 100
-WHERE id = 2;
-```
-
-→ PostgreSQL에서 두 트랜잭션이 서로의 행을 Lock 잡고 발생하는 데드락 시나리오입니다.
-
-**MySQL Lost Update:**
-
-```sql
---SQLViz: mysql lost-update
-UPDATE accounts
-SET balance = balance + 300
-WHERE id = 1;
-```
-
-→ MySQL의 기본 READ COMMITTED 격리 수준에서 발생하는 Lost Update 현상입니다.
-
-**Oracle Phantom Read:**
-
-```sql
---SQLViz: oracle phantom-read
-SELECT *
-FROM accounts
-WHERE balance > 500;
-```
-
-→ Oracle에서 REPEATABLE READ 격리 수준에서도 Phantom Read가 발생할 수 있는 예시입니다.
-
-### 사용자 흐름
-
-```
-1. 사용자가 게시글 AI 개선 요청
-2. AI가 본문에 --SQLViz: [dialect] [시나리오] 마커 삽입 + 한국어 설명 1~2줄
-3. 사용자가 PostDetailPage/PostEditPage에서 마커 확인
-4. 수동으로 /sqlviz 페이지 이동
-5. 마커의 dialect/시나리오/SQL을 입력창에 채워서 위젯 생성
-6. 생성된 embed URL을 본문의 마커 위치에 교체
-```
-
-### 지원 시나리오 × 격리 수준 매트릭스
-
-| 시나리오                | READ_UNCOMMITTED | READ_COMMITTED | REPEATABLE_READ | SERIALIZABLE |
-|---------------------|:----------------:|:--------------:|:---------------:|:------------:|
-| DEADLOCK            |      항상 충돌       |     항상 충돌      |      항상 충돌      |    항상 충돌     |
-| DIRTY_READ          |        충돌        |       방지       |       방지        |      방지      |
-| NON_REPEATABLE_READ |        충돌        |       충돌       |       방지        |      방지      |
-| PHANTOM_READ        |        충돌        |       충돌       |       충돌        |      방지      |
-| LOST_UPDATE         |      항상 충돌       |     항상 충돌      |      항상 충돌      |    항상 충돌     |
-| MVCC                |      충돌 없음       |     충돌 없음      |      충돌 없음      |    충돌 없음     |
-
-### ContentType별 SQLViz 추천 시나리오
-
-| ContentType | 추천 시나리오                                 |
-|-------------|-----------------------------------------|
-| CS          | DEADLOCK, MVCC, PHANTOM_READ — 개념 설명 시  |
-| CODING      | LOST_UPDATE, DIRTY_READ — 코드 버그 분석 시    |
-| TEST        | NON_REPEATABLE_READ — 트랜잭션 테스트 케이스 설명 시 |
-| ALGORITHM   | 해당 없음                                   |
-| 기타          | 판단에 따라 선택적 사용                           |
-
----
-
-## 시뮬레이션 엔진 v2 설계
-
-> 근본 문제: `VirtualDatabase` / `TransactionContext` / Lock 인프라는 갖춰져 있지만
-> `SqlVizSimulationEngine` 빌더들이 이를 전혀 호출하지 않고 step을 하드코딩으로 생성 중.
-
-### 핵심 문제 5개
-
-| # | 문제                                                   | 현재 코드 위치                                                         |
-|---|------------------------------------------------------|------------------------------------------------------------------|
-| 1 | FOR KEY SHARE 잠금 무시 — T2 DELETE가 block 없이 success    | `buildDeadlock()` step 하드코딩                                      |
-| 2 | FK 제약 미반영 — parent DELETE / child INSERT 둘 다 success | `VirtualDatabase`에 FK 개념 없음                                      |
-| 3 | Non-Repeatable Read 판정: 입력 SQL이 시나리오와 맞지 않으면 잘못 판정   | 시나리오별 입력 SQL 타입 검증 없음                                            |
-| 4 | 트랜잭션 interleaving 순서 하드코딩                            | 모든 빌더가 T1→T2 고정                                                  |
-| 5 | READ COMMITTED = lock 없음처럼 동작                        | `buildDirtyRead()` 격리 수준별 분기만 있고 실제 `VirtualDatabase.read()` 미호출 |
-
-### 설계 방향
-
-#### 1. DbType 지원
-
-- `DbType` enum: `POSTGRESQL`, `MYSQL`, `ORACLE`, `GENERIC`
-- `SqlParser.java` 상단 상수로 기본값 선언 (개발자가 가장 찾기 쉬운 위치):
-  ```java
-  /** -- DB:[...] 주석이 없을 때 적용. 변경 시 이 상수만 수정. */
-  public static final DbType DEFAULT_DB = DbType.POSTGRESQL;
-  ```
-- SQL 입력에 `-- DB:[mysql]` 주석이 있으면 그 값 사용, 없으면 `DEFAULT_DB` 적용
-- `--`로 시작하는 줄은 JSQLParser에 넘기기 전에 raw 스캔으로 메타데이터만 추출, 나머지만 JSQLParser 전달
-
-#### 2. DB별 락 모델
-
-| DbType     | 지원 락 타입                                                          |
-|------------|------------------------------------------------------------------|
-| PostgreSQL | FOR KEY SHARE / FOR SHARE / FOR NO KEY UPDATE / FOR UPDATE (4단계) |
-| MySQL      | FOR UPDATE / LOCK IN SHARE MODE (2단계), gap lock 기본 활성            |
-
-- `VirtualDatabase.acquireLock(tx, key, lockType)` — LockType 파라미터 추가
-- Table Lock: table 이름 단위 별도 `tableLockOwner` 맵
-- Record Lock: 기존 `RowKey` 기반 (이미 구조 있음)
-- Advisory Lock: `advisoryLockOwner: Map<Long, String>` 별도 맵
-
-#### 3. 데드락 / 락 대기 자동 감지
-
-```
-waitFor: Map<String, String>  // txId → 기다리는 상대 txId
-
-acquireLock() 실패
-  → waitFor.put(requester, owner)
-  → detectDeadlock() 호출 (DFS 사이클 탐색)
-  → 사이클 있으면: SimulationStep.status = "deadlock"
-  → 사이클 없으면: SimulationStep.status = "blocked"
-```
-
-빌더가 `acquireLock()` 반환 결과만 보고 blocked/deadlock 자동 구분 가능.
-
-#### 4. `-- STEP:[n] TX:[id]` 인터리빙 런타임
-
-- 사용자가 SQL별로 실행 순서와 트랜잭션을 직접 지정:
-  ```sql
-  -- STEP:1 TX:T1
-  BEGIN ISOLATION LEVEL READ COMMITTED;
-  -- STEP:2 TX:T2
-  BEGIN;
-  -- STEP:3 TX:T1
-  SELECT * FROM orders WHERE id = 1 FOR UPDATE;
-  -- STEP:4 TX:T2
-  DELETE FROM orders WHERE id = 1;
-  -- STEP:5 TX:T1
-  COMMIT;
-  ```
-- `sqls: List<String>` 구조 유지 (Request 변경 없음) — 메타데이터는 주석 안에 포함
-- SqlParser가 STEP/TX 추출 → 엔진이 STEP 순서대로 정렬 후 VirtualDatabase 실제 호출
-- `BEGIN ISOLATION LEVEL ...` 파싱 → `ParsedSql`에 `isolationLevel` 추가 → `TransactionContext` 생성자에 전달
-- `VirtualDatabase.read()`에서 `tx.getIsolationLevel()`에 따라 가시성 분기:
-    - READ COMMITTED → 커밋된 최신 값
-    - REPEATABLE READ → 트랜잭션 시작 시점 스냅샷 고정
-
-#### 5. 한계 명시 UI
-
-- `SimulationResult`에 `limitations: List<String>` 필드 추가
-  → 프론트 결과 하단 회색 작은 텍스트로 표시 (핵심 시각화 방해 안 함)
-  → 예: "SSI 충돌은 시뮬레이터 범위 밖입니다. 실제 DB에서 확인하세요."
-- `SimulationStep`에 `warning: String` (nullable) 필드 추가
-  → race condition 가능 구간 표시: 프론트에서 ⚠️ 아이콘 + 툴팁
-
-#### 6. Hashnode 발행 연동
-
-- 직접 embed 불가 (Hashnode iFrame/스크립트 차단)
-- `GET /api/embed/sqlviz/{id}` 공개 URL 이미 구현됨 — 로그인 불필요
-- `git-ai-blog.kr/embed/sqlviz/{id}` 링크를 글에 삽입하는 방식 사용
-- `ConcurrencyTimeline`이 이미 step별 애니메이션 지원
-
-### 구현 순서 (FK 제외)
-
-| 단계 | 내용                                                                  |
-|----|---------------------------------------------------------------------|
-| 1  | `DbType` enum + `SqlParser.DEFAULT_DB` 상수 선언                        |
-| 2  | `SqlParser.parse()`에서 `-- DB:[...]` / `-- STEP:[n] TX:[id]` 주석 추출   |
-| 3  | `VirtualDatabase`에 `LockType` + `waitFor` 맵 + `detectDeadlock()` 추가 |
-| 4  | `acquireLock()` 실패 시 waitFor 기록 → blocked/deadlock 자동 반환            |
-| 5  | `ParsedSql`에 `isolationLevel` / `dbType` / `stepMeta` 필드 추가         |
-| 6  | `TransactionContext` 생성자에 `IsolationLevel` 추가 + `read()` 가시성 분기     |
-| 7  | `SqlVizSimulationEngine` 빌더들을 VirtualDatabase 실제 호출 방식으로 교체         |
-| 8  | `SimulationResult.limitations` + `SimulationStep.warning` 필드 추가     |
-| 9  | dbType에 따라 lock 충돌 규칙 분기 (PG 4단계 vs MySQL 2단계)                      |
+- `SqlParser.STEP_ONLY` 패턴 추가 — `-- STEP:n` (TX 없음) 인식, `StepMeta(step, null)` 반환
+- `runInterleaved()` null txId → `T{step}` fallback
 
 ---
 
 ## 이슈 해결 기록
 
-### 마커 렌더링 미작동 → 해결 완료 (2026-03-25)
+### DB CHECK 제약 위반 (`sqlviz_widgets_scenario_check`) ✅
 
-**현상**: AI가 생성한 `` ```sql visualize mysql deadlock `` 마커가 `PostDetailPage`에서 SQLViz 위젯으로 렌더링되지 않고 코드 블록 원문 출력.
+- **원인**: `LOCK_WAIT` enum 추가 시 PostgreSQL CHECK 제약이 새 값을 거부
+- **해결**: `DbMigrationRunner`에 `scenario_check` / `isolation_level_check` DROP 추가 — 앱 재시작 시 자동 해소
+- **정책**: Hibernate `ddl-auto: update`는 CHECK 제약을 재생성하지 않으므로 enum 추가 시 이 패턴 반복 사용
 
-**재현 케이스** (`https://jhkoder.hashnode.dev/ai-api-test-db-1` 기준):
+### FOR KEY SHARE locking read 미지원 ✅
 
-- `` ```sql visualize mysql deadlock `` → 원문 출력
-- `` ```sql visualize mysql lost-update `` → `` ``` `` 닫힘 태그 누락 + 다음 코드블록과 충돌
+- **원인**: `runInterleaved()` SELECT case가 `db.read()`만 호출, 잠금 없이 통과
+- **해결**: `ParsedSql.lockType` 추가, `SqlParser` regex locking read 추출, `pendingLocks` 자동 재획득
 
-**원인 분석**:
+### 마커 렌더링 미작동 ✅
 
-1. `MarkdownRenderer.tsx`의 `code` 컴포넌트가 `className`에서 첫 단어만 추출
-   ```
-   language-sql visualize mysql deadlock
-         ↓ 정규식 /language-(\w+)/ 매칭
-   "sql"  ← dialect/옵션 전부 소실
-   ```
-2. `sql` 언어로만 처리되어 SQLViz 분기 로직이 없음 → 일반 코드블록 출력
-3. `` ```sql visualize ... ``` `` 뒤에 다른 코드블록이 이어지면 remark 파서가 닫힘 태그를 잘못 처리하여 블록 병합
+- **원인**: `` ```sql visualize mysql deadlock `` 형식을 remark가 `language-sql`만 추출하고 뒤 토큰 버림
+- **해결**: `--SQLViz:` 주석 방식으로 변경 확정. `MarkdownRenderer` 전처리로 플레이스홀더 치환 → `SqlVizMarker` 컴포넌트 렌더링
 
-**해결 방향**:
+### SQLViz 위젯 중복 생성 ✅
 
-- `MarkdownRenderer`에서 `className` 전체 파싱: `language-sql` + 나머지 토큰에서 `visualize`, dialect, 옵션 추출
-- 추출된 dialect + 옵션으로 `SqlVizInlineWidget` 컴포넌트 렌더링 (시뮬레이션 API 호출 또는 직접 파싱)
-- 또는 remark 커스텀 플러그인으로 마커를 전처리 후 ReactMarkdown에 전달 → 블록 충돌 방지
-- 상세 → [`frontend/CLAUDE.md`](frontend/CLAUDE.md) 미해결 이슈 #1, #3
+- **원인**: AI 개선 시 동일 SQL + 시나리오로 매 요청마다 새 위젯 생성
+- **해결**: `memberId + sqlsJson + scenario` 조합 중복 검사 후 기존 위젯 재사용
+
+### `simulationData` vs `simulation` 필드명 불일치 ✅
+
+- **원인**: 백엔드 `SqlVizResponse.simulationData` vs 프론트 `SqlVizWidget.simulation` 불일치
+- **해결**: 프론트 타입 `simulation`으로 통일

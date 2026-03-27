@@ -6,16 +6,19 @@ import type {
   IsolationLevel,
   SqlVizWidget,
   SqlVizCreateRequest,
+  SimulationResult,
 } from '../../types/sqlviz'
 import {
   SCENARIO_LABEL,
   ISOLATION_LEVEL_LABEL,
 } from '../../types/sqlviz'
+import { sqlvizApi } from '../../api/sqlvizApi'
 import { SqlEditor } from '../../components/Visualization/SqlEditor/SqlEditor'
 import { ConcurrencyTimeline } from '../../components/Visualization/ConcurrencyTimeline/ConcurrencyTimeline'
 import { ExecutionFlow } from '../../components/Visualization/ExecutionFlow/ExecutionFlow'
 import { EmbedGenerator } from '../../components/Visualization/EmbedGenerator/EmbedGenerator'
 import { SqlVizHelpPanel } from '../../components/SqlVizHelpPanel/SqlVizHelpPanel'
+import { SqlTxColumns } from '../../components/SqlTxColumns/SqlTxColumns'
 import styles from './SqlVizPage.module.css'
 
 // ── 타입 ────────────────────────────────────────────────────────────────────
@@ -167,8 +170,10 @@ export function SqlVizPage() {
   const [isolationLevel, setIsolationLevel]   = useState<IsolationLevel>('READ_COMMITTED')
   const [creating, setCreating]               = useState(false)
   const [selectedWidget, setSelectedWidget]   = useState<SqlVizWidget | null>(null)
-  const [activeTab, setActiveTab]             = useState<'timeline' | 'flow' | 'embed'>('timeline')
+  const [activeTab, setActiveTab]             = useState<'timeline' | 'flow' | 'embed' | 'sqls'>('timeline')
   const [previewIsolation, setPreviewIsolation] = useState<IsolationLevel | null>(null)
+  const [previewSimulation, setPreviewSimulation] = useState<SimulationResult | null>(null)
+  const [previewLoading, setPreviewLoading]   = useState(false)
   const [detectHint, setDetectHint]           = useState<DetectResult | null>(null)
 
   useEffect(() => {
@@ -272,6 +277,7 @@ export function SqlVizPage() {
       toast.success('위젯이 생성됐습니다.')
       setSelectedWidget(created)
       setPreviewIsolation(null)
+      setPreviewSimulation(null)
       setActiveTab('timeline')
     } catch {
       toast.error('위젯 생성에 실패했습니다.')
@@ -280,12 +286,46 @@ export function SqlVizPage() {
     }
   }
 
+  // ── 격리 수준 미리보기 ────────────────────────────────────────────────────
+
+  const handleIsolationPreview = async (level: IsolationLevel) => {
+    if (!selectedWidget) return
+    // 원래 격리 수준 선택 시 미리보기 해제
+    if (level === selectedWidget.isolationLevel) {
+      setPreviewIsolation(null)
+      setPreviewSimulation(null)
+      return
+    }
+    setPreviewIsolation(level)
+    setPreviewLoading(true)
+    try {
+      const req: SqlVizCreateRequest = {
+        title: selectedWidget.title,
+        sqls: selectedWidget.sqls,
+        scenario: selectedWidget.scenario,
+        isolationLevel: level,
+      }
+      const result = await sqlvizApi.preview(req)
+      setPreviewSimulation(result)
+    } catch {
+      toast.error('미리보기 실패. 다시 시도해주세요.')
+      setPreviewIsolation(null)
+      setPreviewSimulation(null)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
   const handleDelete = async (id: number) => {
     if (!confirm('위젯을 삭제할까요?')) return
     try {
       await deleteWidget(id)
       toast.success('삭제됐습니다.')
-      if (selectedWidget?.id === id) { setSelectedWidget(null); setPreviewIsolation(null) }
+      if (selectedWidget?.id === id) {
+        setSelectedWidget(null)
+        setPreviewIsolation(null)
+        setPreviewSimulation(null)
+      }
     } catch {
       toast.error('삭제에 실패했습니다.')
     }
@@ -422,34 +462,51 @@ export function SqlVizPage() {
                   onClick={() => setActiveTab('flow')}
                 >실행 흐름</button>
                 <button
+                  className={`${styles.tab} ${activeTab === 'sqls' ? styles.activeTab : ''}`}
+                  onClick={() => setActiveTab('sqls')}
+                >SQL 목록</button>
+                <button
                   className={`${styles.tab} ${activeTab === 'embed' ? styles.activeTab : ''}`}
                   onClick={() => setActiveTab('embed')}
                 >임베드 코드</button>
               </div>
             </div>
 
-            {activeTab !== 'embed' && (
+            {activeTab !== 'embed' && activeTab !== 'sqls' && (
               <div className={styles.isolationToggle}>
                 <span className={styles.isolationLabel}>격리 수준:</span>
                 {ISOLATION_LEVELS.map(l => (
                   <button
                     key={l}
                     className={`${styles.isolationBtn} ${(previewIsolation ?? selectedWidget.isolationLevel) === l ? styles.isolationBtnActive : ''}`}
-                    onClick={() => setPreviewIsolation(l === selectedWidget.isolationLevel ? null : l)}
-                    title={ISOLATION_LEVEL_LABEL[l]}
+                    onClick={() => handleIsolationPreview(l)}
+                    title={l === selectedWidget.isolationLevel ? '현재 저장된 격리 수준' : `${ISOLATION_LEVEL_LABEL[l]}로 미리보기`}
+                    disabled={previewLoading}
                   >
                     {ISOLATION_LEVEL_LABEL[l]}
+                    {l === selectedWidget.isolationLevel && <span className={styles.savedMark}> ✓</span>}
                   </button>
                 ))}
+                {previewLoading && <span className={styles.previewLoadingText}>불러오는 중...</span>}
+                {previewIsolation && previewSimulation && (
+                  <span className={styles.previewBadge}>미리보기 모드</span>
+                )}
               </div>
             )}
 
             <div className={styles.tabContent}>
               {activeTab === 'timeline' && (
-                <ConcurrencyTimeline simulation={selectedWidget.simulation} />
+                <ConcurrencyTimeline
+                  simulation={previewSimulation ?? selectedWidget.simulation}
+                />
               )}
               {activeTab === 'flow' && (
-                <ExecutionFlow simulation={selectedWidget.simulation} />
+                <ExecutionFlow
+                  simulation={previewSimulation ?? selectedWidget.simulation}
+                />
+              )}
+              {activeTab === 'sqls' && (
+                <SqlTxColumns sqls={selectedWidget.sqls} />
               )}
               {activeTab === 'embed' && (
                 <EmbedGenerator widget={selectedWidget} />
@@ -491,7 +548,7 @@ export function SqlVizPage() {
                   <li
                     key={w.id}
                     className={`${styles.listItem} ${selectedWidget?.id === w.id ? styles.selected : ''}`}
-                    onClick={() => { setSelectedWidget(w); setPreviewIsolation(null); setActiveTab('timeline') }}
+                    onClick={() => { setSelectedWidget(w); setPreviewIsolation(null); setPreviewSimulation(null); setActiveTab('timeline') }}
                   >
                     <div className={styles.listItemInfo}>
                       <span className={styles.listItemTitle}>{w.title}</span>

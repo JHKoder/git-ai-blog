@@ -5,6 +5,7 @@ import type { SqlVizWidget } from '../../types/sqlviz'
 import { SCENARIO_LABEL, ISOLATION_LEVEL_LABEL } from '../../types/sqlviz'
 import { ConcurrencyTimeline } from '../../components/Visualization/ConcurrencyTimeline/ConcurrencyTimeline'
 import { ExecutionFlow } from '../../components/Visualization/ExecutionFlow/ExecutionFlow'
+import { SqlTxColumns } from '../../components/SqlTxColumns/SqlTxColumns'
 import styles from './SqlVizEmbedPage.module.css'
 
 export function SqlVizEmbedPage() {
@@ -13,6 +14,27 @@ export function SqlVizEmbedPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [activeTab, setActiveTab] = useState<'timeline' | 'flow'>('timeline')
+
+  // 다크모드: URL ?theme=dark 우선, 없으면 prefers-color-scheme 자동 감지
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const themeParam = params.get('theme')
+
+    const applyTheme = (dark: boolean) => {
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+    }
+
+    if (themeParam === 'dark' || themeParam === 'light') {
+      applyTheme(themeParam === 'dark')
+      return
+    }
+
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    applyTheme(mq.matches)
+    const handler = (e: MediaQueryListEvent) => applyTheme(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -56,12 +78,7 @@ export function SqlVizEmbedPage() {
 
       <div className={styles.sqlList}>
         <h3 className={styles.sqlTitle}>SQL 목록</h3>
-        {widget.sqls.map((sql, idx) => (
-          <pre key={idx} className={styles.sql}>
-            <span className={styles.sqlNum}>#{idx + 1}</span>
-            {sql}
-          </pre>
-        ))}
+        <SqlTxColumns sqls={widget.sqls} />
       </div>
     </div>
   )
