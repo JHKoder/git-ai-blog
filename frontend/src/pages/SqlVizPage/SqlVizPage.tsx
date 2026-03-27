@@ -34,6 +34,7 @@ const SCENARIOS: SqlVizScenario[] = [
   'PHANTOM_READ',
   'LOST_UPDATE',
   'MVCC',
+  'LOCK_WAIT',
 ]
 
 const ISOLATION_LEVELS: IsolationLevel[] = [
@@ -70,13 +71,19 @@ function detectScenario(editors: TxEditor[]): DetectResult | null {
   const hasRangeWhere = sqls.some(s => /WHERE\s+\w+\s*[><!]/.test(s))
   const multiTx       = txCount >= 2
 
-  // DEADLOCK: 여러 TX가 각각 FOR UPDATE, 서로 다른 행
+  // LOCK_WAIT: FOR UPDATE가 같은 행에 집중 (데드락 순환 없음) — 단순 락 대기
   if (multiTx && hasForUpdate) {
     const rowIds = sqls.flatMap(s => {
       const m = s.match(/WHERE\s+ID\s*=\s*(\d+)/g) ?? []
       return m.map(x => x.replace(/\D/g, ''))
     })
-    if (new Set(rowIds).size >= 2) {
+    const uniqueRows = new Set(rowIds)
+    if (uniqueRows.size === 1 && rowIds.length >= 2) {
+      return { scenario: 'LOCK_WAIT', reason: '같은 행에 여러 TX의 FOR UPDATE가 감지됐습니다. 단순 락 대기 시나리오로 추정합니다.' }
+    }
+
+    // DEADLOCK: 서로 다른 행에 교차 FOR UPDATE
+    if (uniqueRows.size >= 2) {
       return { scenario: 'DEADLOCK', reason: '서로 다른 행에 FOR UPDATE 잠금 요청이 감지됐습니다.' }
     }
   }

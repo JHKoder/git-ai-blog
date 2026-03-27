@@ -8,22 +8,95 @@
 
 ---
 
+### 문제 5 — TX 정보 없는 STEP 주석 미지원 (단일 에디터에 여러 TX 혼합) ✅
+
+**요청:** TX 구분 없이 `-- STEP:n`만으로 인터리빙 순서를 지정하고, 어느 TX에 속하는지는 BEGIN 컨텍스트에서 자동 추론해줬으면 함.
+
+**예시:**
+
+```sql
+-- STEP:1
+BEGIN
+ISOLATION LEVEL READ COMMITTED;
+← 이
+BEGIN부터가 T1
+
+-- STEP:3
+SELECT *
+FROM parent
+WHERE id = 1 FOR KEY SHARE;
+
+-- STEP:2
+BEGIN
+ISOLATION LEVEL READ COMMITTED;
+← 이
+BEGIN부터가 T2
+
+-- STEP:4
+DELETE
+FROM parent
+WHERE id = 1;
+```
+
+**피드백:**
+
+현재 구조상 `SqlParser.STEP_COMMENT` 패턴은 `-- STEP:n TX:id` 형식에서 `TX:` 부분이 없으면 `stepMeta`가 `null`로 반환 → `runInterleaved()` 진입
+조건(`hasStepMeta`)을 통과 못 함.
+
+이 방식을 지원하려면 두 가지 선택지가 있음:
+
+- **방안 A (단순)**: 현재처럼 에디터를 TX 단위로 분리하되, `-- STEP:n`만 있어도 `TX:` 없이 동작하도록 `SqlParser`와 `runInterleaved()`를 확장. 단, "같은 에디터
+  안에 두 TX가 혼합"된 케이스는 지원 불가 — 사용자가 에디터를 TX별로 나눠서 입력해야 함.
+- **방안 B (복잡)**: 단일 에디터 안에서 `BEGIN`이 등장할 때마다 새 TX로 간주해 자동 분리. 백엔드 `SqlParser`가 `BEGIN` 앞의 STEP들을 이전 TX에, 이후 STEP들을 새 TX에
+  귀속시키는 상태머신 방식. 구현 복잡도가 높음.
+
+**추천**: 방안 A + TX 에디터 분리 방향 유지. 에디터를 TX 단위(T1, T2 …)로 나누는 현재 UX가 이미 이 문제를 해결하는 가장 명확한 구조임. 단, `-- STEP:n` (TX 없음)만 입력해도
+인식되도록 `SqlParser` 확장은 필요 — `TX:` 부분 없이도 `stepMeta(step, null)`을 반환하고, `runInterleaved()`에서 TX를 에디터 단위로 부여하는 로직 추가.
+추천방식대로 가보자
+
+> **피드백 (방안 A 구현 방향):**
+>
+> `buildSqls()`는 이미 `-- STEP:n` (TX 없음) 블록에 에디터 단위 TX를 자동 매핑(`-- STEP:n TX:T1`)하므로 프론트는 수정 불필요.
+>
+> 백엔드만 수정:
+> - `SqlParser.STEP_COMMENT` 패턴: `TX:` 부분 선택적으로 — `TX:` 없으면 `txId = null`인 `StepMeta(step, null)` 반환
+> - `runInterleaved()`: `meta.txId()`가 `null`이면 해당 STEP 스킵 또는 fallback TX 사용 — 실제로는 프론트가 이미 TX 매핑해서 보내므로 null 케이스는 방어용
+> - `hasStepMeta()`: `TX:` 없는 `-- STEP:n`도 인식하도록 별도 패턴 추가
+>
+> 결과적으로 사용자가 `-- STEP:n`만 쓰고 TX를 에디터로 분리하면 프론트에서 자동 매핑 → 백엔드는 `-- STEP:n TX:T1` 형태로 받아 정상 처리.
+
 ### 문제 4 — 에디터 내 STEP별 SQL 분리 안 됨 + 타임라인 주석 노출 ✅
 
 **증상:**
 T1 에디터 전체가 타임라인 `#3` 한 행으로, T2 전체가 `#4` 한 행으로 묶여서 인터리빙 순서가 무시됨.
 
 **원인:**
+
 - `buildSqls()`가 에디터 내용 전체를 하나의 문자열로 전달 → 백엔드 `runInterleaved()`는 sqls 배열 원소 하나를 SQL 하나로 취급, 내부의 여러 STEP 주석 분리 안 됨
 - `SqlParser.STEP_COMMENT` 패턴이 `-- STEP:[1] TX:[T1]` (대괄호 포함) 형식만 인식 → 사용자가 쓰는 `-- STEP:1 TX:T1` (대괄호 없음) 미인식
 
 **해결:**
+
 - `SqlParser.STEP_COMMENT` 패턴: 대괄호 선택적으로 수정 (`\[?(\d+)\]?` 형식)
-  - `-- STEP:1 TX:T1` / `-- STEP:[1] TX:[T1]` 둘 다 인식
+    - `-- STEP:1 TX:T1` / `-- STEP:[1] TX:[T1]` 둘 다 인식
 - `buildSqls()`: `-- STEP:n` 구분자 기준으로 에디터 내용 분할 → 각 STEP 블록을 독립 원소로 전달
-  - STEP 주석 없는 에디터 → 에디터 전체를 단일 STEP으로 래핑 (기존 동작 유지)
-  - TX 정보 없는 STEP 주석(`-- STEP:n`) → 에디터 단위 TX 자동 매핑 (`-- STEP:n TX:T1`)
+    - STEP 주석 없는 에디터 → 에디터 전체를 단일 STEP으로 래핑 (기존 동작 유지)
+    - TX 정보 없는 STEP 주석(`-- STEP:n`) → 에디터 단위 TX 자동 매핑 (`-- STEP:n TX:T1`)
 - 타임라인 sql 컬럼 주석 노출: `buildSqlLabel()`이 operation명만 반환하므로 주석이 노출되지 않음 — 2번 수정(STEP 분리)으로 함께 해소
+
+다른 트랜잭션에서 커밋을 안할시 데드락이 아닌 락이 걸릴시 (다른트랜잭션이 끝날떄까지 락 상태 유지)
+시나리오는 그냥 "락" 만 잇어도되
+
+> **피드백:**
+>
+> 현재 시나리오 목록: `DEADLOCK`, `DIRTY_READ`, `NON_REPEATABLE_READ`, `PHANTOM_READ`, `LOST_UPDATE`, `MVCC`
+>
+> "다른 TX가 커밋 안 한 채로 락을 보유 → 이쪽 TX는 무한 대기(LOCK_WAIT)" 케이스는 현재 `DEADLOCK` 시나리오에서 BLOCKED 결과로 일부 표현되지만, **데드락 없이 단순 락 대기**만 있는 시나리오가 별도로 없음.
+>
+> **추가 시나리오 `LOCK_WAIT` (또는 `BLOCKED`) 신설 방향:**
+> - 백엔드: `SqlVizScenario` enum에 `LOCK_WAIT` 추가, `buildLockWait()` 빌더 추가 — T1이 행에 `FOR UPDATE` 획득 후 미커밋, T2가 같은 행 잠금 요청 → `LOCK_WAIT` 스텝 생성, T1 커밋 후 T2 잠금 획득으로 이어지는 흐름
+> - 프론트: `SCENARIO_LABEL`에 `LOCK_WAIT: '락 대기'` 추가, 자동 감지 규칙 추가 — `FOR UPDATE` + 같은 행 두 TX, 데드락 아닌 경우
+> - 인터리빙 런타임(`runInterleaved`)은 이미 BLOCKED 케이스를 처리하므로 사용자 SQL 기반으로도 동작 가능
 
 ## UX 이슈 기록
 
@@ -101,7 +174,7 @@ DELETE FROM parent WHERE id = 1;
 | 쿼리 실행 순서 오작동 (행 단위 조립)  | TX별 에디터 카드 + 에디터 내부 `-- STEP:n` 직접 작성 + TX 자동 매핑          | ✅  |
 | 왼쪽 패널 좁음 + 위젯 목록 페이징 없음 | 패널 560px 확대 + `SqlVizPageResponse` + pageSize 10/20/30 UI | ✅  |
 | ISO 버튼 중복 텍스트           | `startsWithBegin()` 중복 방지                                 | ✅  |
-| STEP 분리 안 됨 + 주석 패턴 미인식 | `buildSqls()` STEP 기준 분할 + `SqlParser` 대괄호 선택적 패턴       | ✅  |
+| STEP 분리 안 됨 + 주석 패턴 미인식 | `buildSqls()` STEP 기준 분할 + `SqlParser` 대괄호 선택적 패턴         | ✅  |
 
 ### 현재 상태 평가
 

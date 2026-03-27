@@ -5,6 +5,7 @@ export type SqlVizScenario =
   | 'PHANTOM_READ'
   | 'LOST_UPDATE'
   | 'MVCC'
+  | 'LOCK_WAIT'
 
 export type IsolationLevel =
   | 'READ_UNCOMMITTED'
@@ -19,6 +20,7 @@ export const SCENARIO_LABEL: Record<SqlVizScenario, string> = {
   PHANTOM_READ: 'Phantom Read',
   LOST_UPDATE: 'Lost Update',
   MVCC: 'MVCC',
+  LOCK_WAIT: '락 대기',
 }
 
 export const ISOLATION_LEVEL_LABEL: Record<IsolationLevel, string> = {

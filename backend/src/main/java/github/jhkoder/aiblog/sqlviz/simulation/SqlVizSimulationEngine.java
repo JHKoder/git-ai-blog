@@ -52,6 +52,7 @@ public class SqlVizSimulationEngine {
             case PHANTOM_READ         -> buildPhantomRead(t1Sql, t2Sql, p1, p2, isolationLevel);
             case LOST_UPDATE          -> buildLostUpdate(t1Sql, t2Sql, p1, p2, rowA);
             case MVCC                 -> buildMvcc(t1Sql, t2Sql, p1, p2);
+            case LOCK_WAIT            -> buildLockWait(t1Sql, t2Sql, p1, p2, rowA);
         };
     }
 
@@ -77,7 +78,10 @@ public class SqlVizSimulationEngine {
 
         for (ParsedSql parsed : sorted) {
             ParsedSql.StepMeta meta = parsed.stepMeta();
-            String txId = meta.txId();
+            // txId null 이면 STEP 번호 기반 fallback
+            String txId = (meta.txId() != null && !meta.txId().isBlank())
+                    ? meta.txId()
+                    : "T" + meta.step();
             String sql = buildSqlLabel(parsed);
 
             TransactionContext tx = txMap.get(txId);
@@ -524,6 +528,64 @@ public class SqlVizSimulationEngine {
                         "SSI(Serializable Snapshot Isolation) 충돌 감지는 시뮬레이터 범위 밖입니다."));
     }
 
+    // ── LOCK WAIT ─────────────────────────────────────────────────────────────
+
+    /**
+     * 단순 락 대기 시나리오: 데드락 없이 T1이 커밋할 때까지 T2가 대기하다가 락을 획득하는 흐름.
+     * T1 미커밋 → T2 BLOCKED → T1 COMMIT → T2 락 획득 → T2 COMMIT
+     */
+    private SimulationResult buildLockWait(
+            String t1Sql, String t2Sql,
+            ParsedSql p1, ParsedSql p2,
+            RowKey rowA) {
+
+        VirtualDatabase db = new VirtualDatabase();
+        db.insert(rowA, Map.of("value", 100));
+
+        TransactionContext tx1 = db.begin("T1");
+        TransactionContext tx2 = db.begin("T2");
+
+        String tableLabel = p1.hasTable() ? p1.table() : "대상 테이블";
+        List<SimulationStep> steps = new ArrayList<>();
+        int i = 1;
+
+        steps.add(new SimulationStep(i++, "T1", "BEGIN", "", "success", "T1 트랜잭션 시작", 200));
+        steps.add(new SimulationStep(i++, "T2", "BEGIN", "", "success", "T2 트랜잭션 시작", 200));
+
+        // T1: rowA 잠금 획득
+        db.acquireLock(tx1, rowA, LockType.FOR_UPDATE);
+        db.write(tx1, rowA, Map.of("value", 200));
+        steps.add(new SimulationStep(i++, "T1", "UPDATE", t1Sql, "success",
+                "T1이 " + tableLabel + " (" + rowA + ") UPDATE — 배타 잠금 획득 (미커밋)", 400));
+
+        // T2: rowA 잠금 시도 → BLOCKED (T1이 보유 중)
+        VirtualDatabase.LockResult t2Attempt = db.acquireLock(tx2, rowA, LockType.FOR_UPDATE);
+        String blocker = db.getLockOwner(rowA).orElse("T1");
+        steps.add(new SimulationStep(i++, "T2", "LOCK_WAIT", rowA + " 잠금 요청",
+                "blocked",
+                "T2가 " + rowA + " 잠금 대기 — " + blocker + "이 보유 중. T1 커밋 전까지 블로킹", 600,
+                "락 대기 발생 구간 — T1이 커밋 또는 롤백할 때까지 T2는 진행 불가"));
+
+        // T1 COMMIT → T2가 대기 중인 락 해소
+        int newVersion = db.commit(tx1);
+        steps.add(new SimulationStep(i++, "T1", "COMMIT", "", "success",
+                "T1 커밋 완료 — DB 버전 " + newVersion + ". " + rowA + " 잠금 해제", 300));
+
+        // T2: 락 재획득 성공 (T1 커밋 후)
+        db.acquireLock(tx2, rowA, LockType.FOR_UPDATE);
+        db.write(tx2, rowA, Map.of("value", 300));
+        steps.add(new SimulationStep(i++, "T2", "UPDATE", t2Sql, "success",
+                "T2가 대기 해소 — " + rowA + " 잠금 획득 후 UPDATE (value → 300)", 400));
+
+        db.commit(tx2);
+        steps.add(new SimulationStep(i++, "T2", "COMMIT", "", "success", "T2 커밋 완료", 300));
+
+        String summary = "T1이 " + rowA + " 잠금을 보유하는 동안 T2가 대기. T1 커밋 후 T2가 잠금을 획득하여 정상 완료 (데드락 없음).";
+        return new SimulationResult(steps, summary, true, "LOCK_WAIT",
+                List.of("실제 DB에는 lock_timeout 설정이 있어 대기 시간 초과 시 오류를 반환합니다.",
+                        "락 대기 시간 분석에는 pg_locks, SHOW ENGINE INNODB STATUS 등의 진단 도구를 사용하세요."));
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private String tableLabel(ParsedSql parsed) {
@@ -539,7 +601,10 @@ public class SqlVizSimulationEngine {
     private int countUniqueTx(List<ParsedSql> sorted) {
         return (int) sorted.stream()
                 .filter(p -> p.stepMeta() != null)
-                .map(p -> p.stepMeta().txId())
+                .map(p -> {
+                    String txId = p.stepMeta().txId();
+                    return (txId != null && !txId.isBlank()) ? txId : "T" + p.stepMeta().step();
+                })
                 .distinct()
                 .count();
     }

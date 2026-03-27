@@ -6,5 +6,6 @@ public enum SqlVizScenario {
     NON_REPEATABLE_READ,
     PHANTOM_READ,
     LOST_UPDATE,
-    MVCC
+    MVCC,
+    LOCK_WAIT
 }

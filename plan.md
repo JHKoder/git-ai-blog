@@ -132,6 +132,8 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] 왼쪽 패널 560px 확대 + 위젯 목록 페이지네이션 — 백엔드 `Page<SqlVizWidget>` + `SqlVizPageResponse`, 프론트 pageSize 10/20/30 + `(n/총)`
 - [x] STEP 분리 버그 수정 — `buildSqls()` STEP 구분자 기준 분할, `SqlParser.STEP_COMMENT` 대괄호 선택적 패턴
   UI
+- [x] `LOCK_WAIT` 시나리오 신설 — T1 미커밋 → T2 BLOCKED → T1 커밋 → T2 획득 흐름, `buildLockWait()` 빌더, 프론트 라벨/감지 추가
+- [x] `SqlParser` `-- STEP:n` (TX 없음) 지원 — `STEP_ONLY` 패턴 추가, `StepMeta(step, null)` 반환, `runInterleaved()` null txId fallback (`T{step}`)
 
 ### 운영 / 모니터링
 

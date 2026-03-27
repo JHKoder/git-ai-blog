@@ -31,8 +31,10 @@ public final class SqlParser {
     public static final DbType DEFAULT_DB = DbType.POSTGRESQL;
 
     private static final Pattern DB_COMMENT    = Pattern.compile("--\\s*DB:\\s*\\[?([^]\\s]+)]?", Pattern.CASE_INSENSITIVE);
-    // 대괄호 선택적: -- STEP:1 TX:T1  또는  -- STEP:[1] TX:[T1]  둘 다 인식
+    // TX 포함: -- STEP:1 TX:T1  또는  -- STEP:[1] TX:[T1]  (대괄호 선택적)
     private static final Pattern STEP_COMMENT  = Pattern.compile("--\\s*STEP:\\s*\\[?(\\d+)]?\\s+TX:\\s*\\[?([^]\\s]+)]?", Pattern.CASE_INSENSITIVE);
+    // TX 없음: -- STEP:1  (TX 정보 없이 STEP 번호만 — txId는 null로 반환)
+    private static final Pattern STEP_ONLY     = Pattern.compile("--\\s*STEP:\\s*\\[?(\\d+)]?(?!\\s+TX:)", Pattern.CASE_INSENSITIVE);
     private static final Pattern ISO_LEVEL     = Pattern.compile(
             "BEGIN\\s+(?:TRANSACTION\\s+)?ISOLATION\\s+LEVEL\\s+(READ\\s+UNCOMMITTED|READ\\s+COMMITTED|REPEATABLE\\s+READ|SERIALIZABLE)",
             Pattern.CASE_INSENSITIVE);
@@ -87,10 +89,18 @@ public final class SqlParser {
 
     private static ParsedSql.StepMeta extractStepMeta(String sql) {
         Matcher m = STEP_COMMENT.matcher(sql);
-        if (!m.find()) return null;
-        int step = Integer.parseInt(m.group(1));
-        String txId = m.group(2).trim();
-        return new ParsedSql.StepMeta(step, txId);
+        if (m.find()) {
+            int step = Integer.parseInt(m.group(1));
+            String txId = m.group(2).trim();
+            return new ParsedSql.StepMeta(step, txId);
+        }
+        // TX 없는 -- STEP:n 형식도 인식 (txId = null)
+        Matcher m2 = STEP_ONLY.matcher(sql);
+        if (m2.find()) {
+            int step = Integer.parseInt(m2.group(1));
+            return new ParsedSql.StepMeta(step, null);
+        }
+        return null;
     }
 
     private static IsolationLevel extractIsolationLevel(String sql) {
