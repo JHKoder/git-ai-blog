@@ -93,7 +93,12 @@ export function ConcurrencyTimeline({ simulation }: Props) {
                 <div key={txId} className={styles.cell}>
                   {s && (
                     <div className={`${styles.stepBox} ${getOperationClass(s.operation, styles)}`}>
-                      <div className={styles.operation}>{s.operation}</div>
+                      <div className={styles.operation}>
+                        {s.operation}
+                        {s.warning && (
+                          <span className={styles.warningIcon} title={s.warning}>⚠️</span>
+                        )}
+                      </div>
                       <div className={styles.sql}>{s.sql}</div>
                       <div className={styles.result}>{s.result}</div>
                     </div>
@@ -108,6 +113,17 @@ export function ConcurrencyTimeline({ simulation }: Props) {
       <div className={styles.summary}>
         <strong>요약:</strong> {simulation.summary}
       </div>
+
+      {simulation.limitations && simulation.limitations.length > 0 && (
+        <div className={styles.limitations}>
+          <span className={styles.limitationsLabel}>⚠ 시뮬레이터 한계</span>
+          <ul className={styles.limitationsList}>
+            {simulation.limitations.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

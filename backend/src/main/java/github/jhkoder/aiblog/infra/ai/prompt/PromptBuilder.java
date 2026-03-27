@@ -227,11 +227,13 @@ public class PromptBuilder {
                 - 올바른 예: ` ```sql `  /  잘못된 예: ` ```sql mysql `
 
                 ### SQL 시각화
-                - DB, 트랜잭션, 동시성, 격리 수준 관련 내용을 설명할 때는 반드시 아래 형식의 SQLViz 마커를 사용한다.
-                - 마커 형식: ```sql visualize [dialect] [옵션...]
-                - dialect는 항상 첫 번째 옵션으로 넣는다 (mysql / postgresql / oracle / generic).
-                - 마커 블록 바로 아래에 1~2줄의 자연스러운 한국어 설명을 반드시 추가한다.
+                - DB, 트랜잭션, 동시성, 격리 수준 관련 내용을 설명할 때는 반드시 아래 형식의 SQLViz 마커를 SQL 블록 첫 줄에 사용한다.
+                - 마커 형식: --SQLViz: [dialect] [시나리오]
+                - dialect는 항상 첫 번째 위치 (postgresql / mysql / oracle / generic). 없으면 postgresql.
+                - 시나리오: deadlock / lost-update / dirty-read / non-repeatable / phantom-read / mvcc
+                - 마커 블록 바로 아래에 1~2줄의 한국어 설명을 반드시 추가한다.
                 - 한 응답당 SQLViz 마커는 최대 3개까지만 사용한다.
+                - 실제 DB 실행이 아닌 교육용 가상 시나리오임을 명시한다.
 
                 ### 톤 & 스타일
                 - 전문적이면서 친근한 톤. 독자를 "여러분"으로 호칭.

@@ -12,6 +12,7 @@
 | [`infra.md`](infra.md)                     | 배포 / 인프라 셋업 절차                      |
 | [`monitoring.md`](monitoring.md)           | 운영 / 장애 대응                          |
 | [`research.md`](research.md)               | 리서치 내용                              |
+| [`prompt.md`](prompt.md)                   | PromptBuilder 아키텍처 — 기능/컨벤션/출력 레이어 구조 |
 
 ---
 
@@ -112,9 +113,16 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] 백엔드: `POST/GET/DELETE /api/sqlviz`, `GET /api/embed/sqlviz/{id}` (공개)
 - [x] 시뮬레이션 엔진 — 6개 시나리오, 격리 수준 분기, JSQLParser + RowKey + VirtualDB
 - [x] 프론트: `SqlVizPage`, `SqlVizEmbedPage`, `ConcurrencyTimeline`, `ExecutionFlow`, `EmbedGenerator`
-- [x] PromptBuilder SQLViz 마커 지시문 + `sql visualize` 마커 렌더링
-- [x] SQLViz 시뮬레이션/위젯 목록 미표시 버그 — `SqlVizResponse` 필드명 `simulationData` → `simulation`으로 통일 (프론트 타입 `SqlVizWidget.simulation`과 불일치가 원인)
+- [x] PromptBuilder SQLViz 마커 지시문 + `sql visualize` 마커 렌더링 (→ `--SQLViz:` 방식으로 교체 예정)
+- [x] SQLViz 시뮬레이션/위젯 목록 미표시 버그 — `SqlVizResponse` 필드명 `simulationData` → `simulation`으로 통일 (프론트 타입
+  `SqlVizWidget.simulation`과 불일치가 원인)
 - [x] SQLViz AI 개선 시 위젯 중복 생성 방지 — `CreateSqlVizWidgetUseCase`에서 `memberId + sqlsJson + scenario` 조합 중복 검사 후 기존 위젯 재사용
+- [x] 시뮬레이션 엔진 v2 — VirtualDatabase 실제 호출 (상세 → `sqlviz.md`)
+- [x] `-- STEP:[n] TX:[id]` 주석 기반 인터리빙 런타임 — 사용자 정의 실행 순서 지원
+- [x] `-- DB:[mysql|postgresql]` 주석 파싱 + `DbType` enum + 기본값 `SqlParser.DEFAULT_DB = POSTGRESQL`
+- [x] `SimulationResult.limitations` 필드 + `SimulationStep.warning` 필드 — 한계 명시 UI
+- [x] SQLViz 마커 형식 `--SQLViz:` 방식으로 교체 — `PromptBuilder` 지시문 + few-shot 예시 변경
+- [x] `prompt.md` 신규 파일 — PromptBuilder 3레이어 아키텍처 문서화 (기능/컨벤션/출력)
 
 ### 운영 / 모니터링
 

@@ -36,13 +36,17 @@ export interface SimulationStep {
   result: string
   detail: string
   durationMs: number
+  /** race condition / 시뮬레이터 한계 구간. null이면 정상. 프론트에서 ⚠️ 아이콘 + 툴팁 표시. */
+  warning?: string | null
 }
 
 export interface SimulationResult {
   steps: SimulationStep[]
   summary: string
   hasConflict: boolean
-  conflictType: string
+  conflictType: string | null
+  /** 이 시뮬레이션의 알려진 한계 목록. 빈 배열이면 표시 안 함. */
+  limitations?: string[]
 }
 
 export interface SqlVizWidget {

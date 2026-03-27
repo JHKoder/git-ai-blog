@@ -14,14 +14,14 @@
 
 ### 현재 상태 평가
 
-| 항목 | 현재 | 비고 |
-|------|:----:|------|
-| 교육용 시각화 | ✅ | 강점, 건드리지 않음 |
-| Timeline UX | ✅ | step + delay + 상태값 잘 설계됨 |
-| 격리 수준 분기 | ✅ | 교육용으로 정확 |
-| 실제 SQL 반영 | ✅ | JSQLParser 1단계 완료 |
-| 락 대상 정확도 | ✅ | RowKey 시스템 2단계 완료 |
-| 확장성 | ✅ | Virtual DB 3단계 완료 |
+| 항목          | 현재 | 비고                       |
+|-------------|:--:|--------------------------|
+| 교육용 시각화     | ✅  | 강점, 건드리지 않음              |
+| Timeline UX | ✅  | step + delay + 상태값 잘 설계됨 |
+| 격리 수준 분기    | ✅  | 교육용으로 정확                 |
+| 실제 SQL 반영   | ✅  | JSQLParser 1단계 완료        |
+| 락 대상 정확도    | ✅  | RowKey 시스템 2단계 완료        |
+| 확장성         | ✅  | Virtual DB 3단계 완료        |
 
 ### 문제 분석 (구현 완료)
 
@@ -53,12 +53,12 @@ String t1Sql = sqls.get(0);  // 파싱 없이 텍스트 전달만
 
 ### 구현 로드맵
 
-| 단계 | 내용 | 상태 | 파일 |
-|------|------|:----:|------|
-| 1단계 | SQL Parser Layer (JSQLParser) — `ParsedSql { type, table, columns, whereClause }` | ✅ | `SqlParser.java`, `ParsedSql.java` |
-| 2단계 | RowKey 기반 Lock 시스템 — `"table:id"`, `Map<RowKey, LockInfo>` | ✅ | `RowKey.java` |
-| 3단계 | Virtual DB in-memory 실행 엔진 — `VirtualRow`, `TransactionContext`, `VirtualDatabase` | ✅ | `VirtualRow.java`, `TransactionContext.java`, `VirtualDatabase.java` |
-| 4단계 | Scenario → "힌트"로 축소 — 실제 steps는 SQL에서 동적 생성 | ✅ | `SqlVizSimulationEngine.java` |
+| 단계  | 내용                                                                                 | 상태 | 파일                                                                   |
+|-----|------------------------------------------------------------------------------------|:--:|----------------------------------------------------------------------|
+| 1단계 | SQL Parser Layer (JSQLParser) — `ParsedSql { type, table, columns, whereClause }`  | ✅  | `SqlParser.java`, `ParsedSql.java`                                   |
+| 2단계 | RowKey 기반 Lock 시스템 — `"table:id"`, `Map<RowKey, LockInfo>`                         | ✅  | `RowKey.java`                                                        |
+| 3단계 | Virtual DB in-memory 실행 엔진 — `VirtualRow`, `TransactionContext`, `VirtualDatabase` | ✅  | `VirtualRow.java`, `TransactionContext.java`, `VirtualDatabase.java` |
+| 4단계 | Scenario → "힌트"로 축소 — 실제 steps는 SQL에서 동적 생성                                        | ✅  | `SqlVizSimulationEngine.java`                                        |
 
 > 라이브러리: JSQLParser 5.0 (Maven Central, Apache Calcite보다 경량, Spring Boot 호환)
 
@@ -83,14 +83,14 @@ String t1Sql = sqls.get(0);  // 파싱 없이 텍스트 전달만
 
 ### React Flow 노드/엣지 명세
 
-| 종류 | 스타일 |
-|------|--------|
-| Transaction 노드 (T1, T2) | 파란 박스 |
-| Resource 노드 (Row A, Row B) | 회색 박스 |
-| Lock 획득 성공 엣지 | 초록 실선 + ✅ 아이콘 |
-| Lock 대기 엣지 | 주황 점선 + ⌛ 아이콘 |
-| Deadlock 엣지 | 빨간 실선 + 💀 아이콘 |
-| Deadlock 배너 | 중앙 빨간 오버레이 배너 |
+| 종류                         | 스타일            |
+|----------------------------|----------------|
+| Transaction 노드 (T1, T2)    | 파란 박스          |
+| Resource 노드 (Row A, Row B) | 회색 박스          |
+| Lock 획득 성공 엣지              | 초록 실선 + ✅ 아이콘  |
+| Lock 대기 엣지                 | 주황 점선 + ⌛ 아이콘  |
+| Deadlock 엣지                | 빨간 실선 + 💀 아이콘 |
+| Deadlock 배너                | 중앙 빨간 오버레이 배너  |
 
 ### 필수 인터랙션
 
@@ -118,27 +118,35 @@ String t1Sql = sqls.get(0);  // 파싱 없이 텍스트 전달만
 
 ### 개념
 
-AI(Claude/Grok/GPT)는 텍스트만 반환한다. SQLViz 위젯 자체는 사용자가 `/sqlviz` 페이지에서 직접 생성하고 임베드 코드를 복사해서 게시글에 붙여넣는 흐름이다. AI의 역할은 **"여기에 SQLViz 위젯을 넣어라"는 마커(placeholder)를 본문에 심어주는 것**이다.
+AI(Claude/Grok/GPT)는 텍스트만 반환한다. SQLViz 위젯 자체는 사용자가 `/sqlviz` 페이지에서 직접 생성하고 임베드 코드를 복사해서 게시글에 붙여넣는 흐름이다. AI의 역할은 **"여기에
+SQLViz 위젯을 넣어라"는 마커(placeholder)를 본문에 심어주는 것**이다.
 
-### SQLViz 마커 형식
+### SQLViz 마커 형식 (확정)
 
-````
-```sql visualize [dialect] [옵션...]
+> 이전 `` ```sql visualize [dialect] `` 형식은 remark/rehype가 `language-sql`만 추출하고 뒤 토큰을 버려서 일반 코드블록으로 렌더링됨 → **`--SQLViz:` 주석 방식으로 변경 확정.**
+
+```sql
+--SQLViz: postgresql deadlock
 -- SQL 코드
 ```
-````
 
-**dialect (필수, 첫 번째 위치):** `mysql` / `postgresql` / `oracle` / `generic`
+- `--SQLViz:` 이후 **첫 토큰 = dialect**, **두 번째 토큰 = 시나리오**
+- 대소문자 무시 처리
+- 일반 마크다운 엔진은 SQL 주석으로 무시, 커스텀 파서만 인식 → 모든 마크다운 환경에서 안전
 
-**옵션 (최대 2개):** `deadlock`, `lost-update`, `dirty-read`, `non-repeatable`, `phantom-read`, `mvcc`, `locking`, `timeline`
+**dialect:** `postgresql` / `mysql` / `oracle` / `generic` (없으면 `postgresql` 기본값 — `SqlParser.DEFAULT_DB`)
 
-### PromptBuilder 지시문 (구현 완료 — `PromptBuilder.java` 다이어그램 섹션 아래)
+**시나리오:** `deadlock`, `lost-update`, `dirty-read`, `non-repeatable`, `phantom-read`, `mvcc`, `locking`, `timeline`
+
+### PromptBuilder 지시문 (변경 필요 — `PromptBuilder.java` 다이어그램 섹션 아래)
+
+> `--SQLViz:` 방식 확정으로 기존 지시문 교체 필요. 상세 → `prompt.md` (신규 파일 예정)
 
 ```
 ### SQL 시각화
-- DB, 트랜잭션, 동시성, 격리 수준 관련 내용을 설명할 때는 아래 형식의 SQLViz 마커를 사용한다.
-- 마커 형식: ```sql visualize [dialect] [옵션...]
-- dialect는 항상 첫 번째 옵션으로 넣는다 (mysql / postgresql / oracle / generic).
+- DB, 트랜잭션, 동시성, 격리 수준 관련 내용을 설명할 때는 --SQLViz: 마커를 SQL 블록 첫 줄에 사용한다.
+- 마커 형식: --SQLViz: [dialect] [시나리오]
+- dialect는 항상 첫 번째 위치 (postgresql / mysql / oracle / generic).
 - 마커 블록 바로 아래에 1~2줄의 한국어 설명을 반드시 추가한다.
 - 한 응답당 SQLViz 마커는 최대 3개까지만 사용한다.
 - 실제 DB 실행이 아닌 교육용 가상 시나리오만 생성한다.
@@ -147,8 +155,9 @@ AI(Claude/Grok/GPT)는 텍스트만 반환한다. SQLViz 위젯 자체는 사용
 ### Few-shot 예시
 
 **PostgreSQL 데드락:**
-````
-```sql visualize postgresql deadlock
+
+```sql
+--SQLViz: postgresql deadlock
 -- T1
 BEGIN;
 UPDATE accounts SET balance = balance - 100 WHERE id = 1;
@@ -157,55 +166,161 @@ BEGIN;
 UPDATE accounts SET balance = balance - 100 WHERE id = 2;
 ```
 → PostgreSQL에서 두 트랜잭션이 서로의 행을 Lock 잡고 발생하는 데드락 시나리오입니다.
-````
 
 **MySQL Lost Update:**
-````
-```sql visualize mysql lost-update
+
+```sql
+--SQLViz: mysql lost-update
 UPDATE accounts SET balance = balance + 300 WHERE id = 1;
 ```
 → MySQL의 기본 READ COMMITTED 격리 수준에서 발생하는 Lost Update 현상입니다.
-````
 
 **Oracle Phantom Read:**
-````
-```sql visualize oracle phantom-read
+
+```sql
+--SQLViz: oracle phantom-read
 SELECT * FROM accounts WHERE balance > 500;
 ```
 → Oracle에서 REPEATABLE READ 격리 수준에서도 Phantom Read가 발생할 수 있는 예시입니다.
-````
 
 ### 사용자 흐름
 
 ```
 1. 사용자가 게시글 AI 개선 요청
-2. AI가 본문에 ```sql visualize [dialect] [옵션] 마커 삽입 + 한국어 설명 1~2줄
+2. AI가 본문에 --SQLViz: [dialect] [시나리오] 마커 삽입 + 한국어 설명 1~2줄
 3. 사용자가 PostDetailPage/PostEditPage에서 마커 확인
 4. 수동으로 /sqlviz 페이지 이동
-5. 마커의 dialect/옵션/SQL을 입력창에 채워서 위젯 생성
-6. 생성된 %%[sqlviz-{id}] 또는 iframe 코드를 본문의 마커 위치에 교체
+5. 마커의 dialect/시나리오/SQL을 입력창에 채워서 위젯 생성
+6. 생성된 embed URL을 본문의 마커 위치에 교체
 ```
 
 ### 지원 시나리오 × 격리 수준 매트릭스
 
-| 시나리오 | READ_UNCOMMITTED | READ_COMMITTED | REPEATABLE_READ | SERIALIZABLE |
-|----------|:---:|:---:|:---:|:---:|
-| DEADLOCK | 항상 충돌 | 항상 충돌 | 항상 충돌 | 항상 충돌 |
-| DIRTY_READ | 충돌 | 방지 | 방지 | 방지 |
-| NON_REPEATABLE_READ | 충돌 | 충돌 | 방지 | 방지 |
-| PHANTOM_READ | 충돌 | 충돌 | 충돌 | 방지 |
-| LOST_UPDATE | 항상 충돌 | 항상 충돌 | 항상 충돌 | 항상 충돌 |
-| MVCC | 충돌 없음 | 충돌 없음 | 충돌 없음 | 충돌 없음 |
+| 시나리오                | READ_UNCOMMITTED | READ_COMMITTED | REPEATABLE_READ | SERIALIZABLE |
+|---------------------|:----------------:|:--------------:|:---------------:|:------------:|
+| DEADLOCK            |      항상 충돌       |     항상 충돌      |      항상 충돌      |    항상 충돌     |
+| DIRTY_READ          |        충돌        |       방지       |       방지        |      방지      |
+| NON_REPEATABLE_READ |        충돌        |       충돌       |       방지        |      방지      |
+| PHANTOM_READ        |        충돌        |       충돌       |       충돌        |      방지      |
+| LOST_UPDATE         |      항상 충돌       |     항상 충돌      |      항상 충돌      |    항상 충돌     |
+| MVCC                |      충돌 없음       |     충돌 없음      |      충돌 없음      |    충돌 없음     |
 
 ### ContentType별 SQLViz 추천 시나리오
 
-| ContentType | 추천 시나리오 |
-|-------------|-------------|
-| CS | DEADLOCK, MVCC, PHANTOM_READ — 개념 설명 시 |
-| CODING | LOST_UPDATE, DIRTY_READ — 코드 버그 분석 시 |
-| TEST | NON_REPEATABLE_READ — 트랜잭션 테스트 케이스 설명 시 |
-| ALGORITHM | 해당 없음 |
-| 기타 | 판단에 따라 선택적 사용 |
+| ContentType | 추천 시나리오                                 |
+|-------------|-----------------------------------------|
+| CS          | DEADLOCK, MVCC, PHANTOM_READ — 개념 설명 시  |
+| CODING      | LOST_UPDATE, DIRTY_READ — 코드 버그 분석 시    |
+| TEST        | NON_REPEATABLE_READ — 트랜잭션 테스트 케이스 설명 시 |
+| ALGORITHM   | 해당 없음                                   |
+| 기타          | 판단에 따라 선택적 사용                           |
+
+---
+
+## 시뮬레이션 엔진 v2 설계
+
+> 근본 문제: `VirtualDatabase` / `TransactionContext` / Lock 인프라는 갖춰져 있지만
+> `SqlVizSimulationEngine` 빌더들이 이를 전혀 호출하지 않고 step을 하드코딩으로 생성 중.
+
+### 핵심 문제 5개
+
+| # | 문제                                                   | 현재 코드 위치                                                         |
+|---|------------------------------------------------------|------------------------------------------------------------------|
+| 1 | FOR KEY SHARE 잠금 무시 — T2 DELETE가 block 없이 success    | `buildDeadlock()` step 하드코딩                                      |
+| 2 | FK 제약 미반영 — parent DELETE / child INSERT 둘 다 success | `VirtualDatabase`에 FK 개념 없음                                      |
+| 3 | Non-Repeatable Read 판정: 입력 SQL이 시나리오와 맞지 않으면 잘못 판정   | 시나리오별 입력 SQL 타입 검증 없음                                            |
+| 4 | 트랜잭션 interleaving 순서 하드코딩                            | 모든 빌더가 T1→T2 고정                                                  |
+| 5 | READ COMMITTED = lock 없음처럼 동작                        | `buildDirtyRead()` 격리 수준별 분기만 있고 실제 `VirtualDatabase.read()` 미호출 |
+
+### 설계 방향
+
+#### 1. DbType 지원
+
+- `DbType` enum: `POSTGRESQL`, `MYSQL`, `ORACLE`, `GENERIC`
+- `SqlParser.java` 상단 상수로 기본값 선언 (개발자가 가장 찾기 쉬운 위치):
+  ```java
+  /** -- DB:[...] 주석이 없을 때 적용. 변경 시 이 상수만 수정. */
+  public static final DbType DEFAULT_DB = DbType.POSTGRESQL;
+  ```
+- SQL 입력에 `-- DB:[mysql]` 주석이 있으면 그 값 사용, 없으면 `DEFAULT_DB` 적용
+- `--`로 시작하는 줄은 JSQLParser에 넘기기 전에 raw 스캔으로 메타데이터만 추출, 나머지만 JSQLParser 전달
+
+#### 2. DB별 락 모델
+
+| DbType     | 지원 락 타입                                                          |
+|------------|------------------------------------------------------------------|
+| PostgreSQL | FOR KEY SHARE / FOR SHARE / FOR NO KEY UPDATE / FOR UPDATE (4단계) |
+| MySQL      | FOR UPDATE / LOCK IN SHARE MODE (2단계), gap lock 기본 활성            |
+
+- `VirtualDatabase.acquireLock(tx, key, lockType)` — LockType 파라미터 추가
+- Table Lock: table 이름 단위 별도 `tableLockOwner` 맵
+- Record Lock: 기존 `RowKey` 기반 (이미 구조 있음)
+- Advisory Lock: `advisoryLockOwner: Map<Long, String>` 별도 맵
+
+#### 3. 데드락 / 락 대기 자동 감지
+
+```
+waitFor: Map<String, String>  // txId → 기다리는 상대 txId
+
+acquireLock() 실패
+  → waitFor.put(requester, owner)
+  → detectDeadlock() 호출 (DFS 사이클 탐색)
+  → 사이클 있으면: SimulationStep.status = "deadlock"
+  → 사이클 없으면: SimulationStep.status = "blocked"
+```
+
+빌더가 `acquireLock()` 반환 결과만 보고 blocked/deadlock 자동 구분 가능.
+
+#### 4. `-- STEP:[n] TX:[id]` 인터리빙 런타임
+
+- 사용자가 SQL별로 실행 순서와 트랜잭션을 직접 지정:
+  ```sql
+  -- STEP:1 TX:T1
+  BEGIN ISOLATION LEVEL READ COMMITTED;
+  -- STEP:2 TX:T2
+  BEGIN;
+  -- STEP:3 TX:T1
+  SELECT * FROM orders WHERE id = 1 FOR UPDATE;
+  -- STEP:4 TX:T2
+  DELETE FROM orders WHERE id = 1;
+  -- STEP:5 TX:T1
+  COMMIT;
+  ```
+- `sqls: List<String>` 구조 유지 (Request 변경 없음) — 메타데이터는 주석 안에 포함
+- SqlParser가 STEP/TX 추출 → 엔진이 STEP 순서대로 정렬 후 VirtualDatabase 실제 호출
+- `BEGIN ISOLATION LEVEL ...` 파싱 → `ParsedSql`에 `isolationLevel` 추가 → `TransactionContext` 생성자에 전달
+- `VirtualDatabase.read()`에서 `tx.getIsolationLevel()`에 따라 가시성 분기:
+    - READ COMMITTED → 커밋된 최신 값
+    - REPEATABLE READ → 트랜잭션 시작 시점 스냅샷 고정
+
+#### 5. 한계 명시 UI
+
+- `SimulationResult`에 `limitations: List<String>` 필드 추가
+  → 프론트 결과 하단 회색 작은 텍스트로 표시 (핵심 시각화 방해 안 함)
+  → 예: "SSI 충돌은 시뮬레이터 범위 밖입니다. 실제 DB에서 확인하세요."
+- `SimulationStep`에 `warning: String` (nullable) 필드 추가
+  → race condition 가능 구간 표시: 프론트에서 ⚠️ 아이콘 + 툴팁
+
+#### 6. Hashnode 발행 연동
+
+- 직접 embed 불가 (Hashnode iFrame/스크립트 차단)
+- `GET /api/embed/sqlviz/{id}` 공개 URL 이미 구현됨 — 로그인 불필요
+- `git-ai-blog.kr/embed/sqlviz/{id}` 링크를 글에 삽입하는 방식 사용
+- `ConcurrencyTimeline`이 이미 step별 애니메이션 지원
+
+### 구현 순서 (FK 제외)
+
+| 단계 | 내용                                                                  |
+|----|---------------------------------------------------------------------|
+| 1  | `DbType` enum + `SqlParser.DEFAULT_DB` 상수 선언                        |
+| 2  | `SqlParser.parse()`에서 `-- DB:[...]` / `-- STEP:[n] TX:[id]` 주석 추출   |
+| 3  | `VirtualDatabase`에 `LockType` + `waitFor` 맵 + `detectDeadlock()` 추가 |
+| 4  | `acquireLock()` 실패 시 waitFor 기록 → blocked/deadlock 자동 반환            |
+| 5  | `ParsedSql`에 `isolationLevel` / `dbType` / `stepMeta` 필드 추가         |
+| 6  | `TransactionContext` 생성자에 `IsolationLevel` 추가 + `read()` 가시성 분기     |
+| 7  | `SqlVizSimulationEngine` 빌더들을 VirtualDatabase 실제 호출 방식으로 교체         |
+| 8  | `SimulationResult.limitations` + `SimulationStep.warning` 필드 추가     |
+| 9  | dbType에 따라 lock 충돌 규칙 분기 (PG 4단계 vs MySQL 2단계)                      |
 
 ---
 
@@ -216,6 +331,7 @@ SELECT * FROM accounts WHERE balance > 500;
 **현상**: AI가 생성한 `` ```sql visualize mysql deadlock `` 마커가 `PostDetailPage`에서 SQLViz 위젯으로 렌더링되지 않고 코드 블록 원문 출력.
 
 **재현 케이스** (`https://jhkoder.hashnode.dev/ai-api-test-db-1` 기준):
+
 - `` ```sql visualize mysql deadlock `` → 원문 출력
 - `` ```sql visualize mysql lost-update `` → `` ``` `` 닫힘 태그 누락 + 다음 코드블록과 충돌
 
@@ -231,6 +347,7 @@ SELECT * FROM accounts WHERE balance > 500;
 3. `` ```sql visualize ... ``` `` 뒤에 다른 코드블록이 이어지면 remark 파서가 닫힘 태그를 잘못 처리하여 블록 병합
 
 **해결 방향**:
+
 - `MarkdownRenderer`에서 `className` 전체 파싱: `language-sql` + 나머지 토큰에서 `visualize`, dialect, 옵션 추출
 - 추출된 dialect + 옵션으로 `SqlVizInlineWidget` 컴포넌트 렌더링 (시뮬레이션 API 호출 또는 직접 파싱)
 - 또는 remark 커스텀 플러그인으로 마커를 전처리 후 ReactMarkdown에 전달 → 블록 충돌 방지
