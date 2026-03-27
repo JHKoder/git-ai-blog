@@ -101,6 +101,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] API 키 연동 검증 — 저장 시 실제 API 호출로 유효성 확인
 - [x] 이미지 생성 — `ImageGenButton` 수동 전용
 - [x] Hashnode 태그 매핑 — `hashnodeTags` TEXT 컬럼, ProfilePage 태그명↔ID 매핑 UI
+- [x] Hashnode 태그 등록 버그 수정 — `com.fasterxml.jackson` → `tools.jackson.*` 교체 (`HashnodeGraphqlBuilder`)
 - [x] 반응형 레이아웃 — 모바일/태블릿 미디어 쿼리
 - [x] `durationMs` 컬럼 — AI 응답 소요 시간 저장
 - [x] Swagger UI (`/swagger-ui/index.html`)
