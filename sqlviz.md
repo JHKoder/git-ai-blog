@@ -8,30 +8,39 @@
 
 ---
 
+## 미구현 / 예정 기능
+
+| 기능 | 상태 | 설명 |
+|------|:--:|------|
+| BLOCKED 구간 단계별 수동 진행 버튼 | ✅ | 재생 일시정지(BLOCKED) 상태에서 LOCK ZONE 배지 옆에 "▶ TxN 다음 단계" 버튼 표시 → 클릭 시 블로킹하는 TX 다음 스텝으로 이동 → 커밋 스텝 진행 후 `▶ 재생` 누르면 락 해소된 채 계속 진행 |
+
+---
+
 ## 구현 현황 요약
 
-| 기능                                                                                                    | 상태 | 비고                                |
-|-------------------------------------------------------------------------------------------------------|:--:|-----------------------------------|
-| 시나리오 7개 (DEADLOCK / DIRTY_READ / NON_REPEATABLE_READ / PHANTOM_READ / LOST_UPDATE / MVCC / LOCK_WAIT) | ✅  |                                   |
-| `-- STEP:n TX:id` 인터리빙 런타임                                                                            | ✅  |                                   |
-| `-- STEP:n` (TX 없음) 지원                                                                                | ✅  | null txId fallback `T{step}`      |
-| `-- DB:[mysql\|postgresql]` 파싱 + DbType                                                               | ✅  |                                   |
-| FOR KEY SHARE / FOR UPDATE locking read 파싱                                                            | ✅  | regex 방식 (JSQLParser 5.x API 미지원) |
-| SELECT locking read → acquireLock() + pendingLocks 자동 재획득                                             | ✅  | T1 커밋 후 T2 대기 자동 해소               |
-| DB CHECK 제약 자동 마이그레이션                                                                                 | ✅  | `DbMigrationRunner`               |
-| `SimulationResult.limitations` + `SimulationStep.warning`                                             | ✅  |                                   |
-| TX별 에디터 카드 + buildSqls() STEP 분리                                                                      | ✅  |                                   |
-| 시나리오 자동 감지 + 툴팁                                                                                       | ✅  |                                   |
-| 사용법 패널 + 예시 2개                                                                                        | ✅  |                                   |
-| 위젯 목록 페이지네이션                                                                                          | ✅  | pageSize 10/20/30                 |
-| `--SQLViz:` 마커 렌더링                                                                                    | ✅  |                                   |
-| 색상 규칙 통일 (5단계)                                                                                        | ✅  | `resultColor()` + CSS 변수 5단계      |
-| 실선/점선/굵은 선 구분                                                                                         | ✅  | `strokeDasharray` + `strokeWidth`  |
-| CONFLICT 중앙 레이어                                                                                       | ✅  | `lockZoneBadge` / `lockZoneBanner` |
-| 재생 애니메이션 BLOCKED 일시정지                                                                                 | ✅  | `blockedPulse` CSS 애니메이션          |
-| 격리 수준 모드 스위치 (즉시 재시뮬레이션)                                                                              | ✅  | `POST /api/sqlviz/preview`         |
+| 기능                                                                                                    | 상태 | 비고                                               |
+|-------------------------------------------------------------------------------------------------------|:--:|--------------------------------------------------|
+| 시나리오 7개 (DEADLOCK / DIRTY_READ / NON_REPEATABLE_READ / PHANTOM_READ / LOST_UPDATE / MVCC / LOCK_WAIT) | ✅  |                                                  |
+| `-- STEP:n TX:id` 인터리빙 런타임                                                                            | ✅  |                                                  |
+| `-- STEP:n` (TX 없음) 지원                                                                                | ✅  | null txId fallback `T{step}`                     |
+| `-- DB:[mysql\|postgresql]` 파싱 + DbType                                                               | ✅  |                                                  |
+| FOR KEY SHARE / FOR UPDATE locking read 파싱                                                            | ✅  | regex 방식 (JSQLParser 5.x API 미지원)                |
+| SELECT locking read → acquireLock() + pendingLocks 자동 재획득                                             | ✅  | T1 커밋 후 T2 대기 자동 해소                              |
+| DB CHECK 제약 자동 마이그레이션                                                                                 | ✅  | `DbMigrationRunner`                              |
+| `SimulationResult.limitations` + `SimulationStep.warning`                                             | ✅  |                                                  |
+| TX별 에디터 카드 + buildSqls() STEP 분리                                                                      | ✅  |                                                  |
+| 시나리오 자동 감지 + 툴팁                                                                                       | ✅  |                                                  |
+| 사용법 패널 + 예시 2개                                                                                        | ✅  |                                                  |
+| 위젯 목록 페이지네이션                                                                                          | ✅  | pageSize 10/20/30                                |
+| `--SQLViz:` 마커 렌더링                                                                                    | ✅  |                                                  |
+| 색상 규칙 통일 (5단계)                                                                                        | ✅  | `resultColor()` + CSS 변수 5단계                     |
+| 실선/점선/굵은 선 구분                                                                                         | ✅  | `strokeDasharray` + `strokeWidth`                |
+| CONFLICT 중앙 레이어                                                                                       | ✅  | `lockZoneBadge` / `lockZoneBanner`               |
+| 재생 애니메이션 BLOCKED 일시정지                                                                                 | ✅  | `blockedPulse` CSS 애니메이션                         |
+| 격리 수준 모드 스위치 (즉시 재시뮬레이션)                                                                              | ✅  | `POST /api/sqlviz/preview`                       |
 | embed 페이지 다크모드                                                                                        | ✅  | `prefers-color-scheme` + `?theme=dark` URL param |
-| SQL 목록 TX별 컬럼 표시                                                                                       | ✅  | `SqlTxColumns` 컴포넌트               |
+| SQL 목록 TX별 컬럼 표시                                                                                      | ✅  | `SqlTxColumns` 컴포넌트                              |
+| BLOCKED 구간 수동 진행 버튼                                                                                    | ✅  | LOCK ZONE 배지 옆 `▶ TxN 다음 단계` 버튼                  |
 
 ---
 
@@ -43,15 +52,16 @@
 
 `result` 값 기준 5단계 색상 체계. `getResultColorClass()` 함수 + CSS 클래스 분리.
 
-| 상태      | 색상 | CSS 클래스      | result / operation 조건                                              |
-|---------|----|--------------|---------------------------------------------------------------------|
-| 일반 진행   | 회색 | `.opNormal`  | 기본 (SELECT, INSERT, UPDATE 등 `success`)                           |
-| 커밋 완료   | 초록 | `.opSuccess` | `operation === 'COMMIT' && result === 'success'`                    |
-| 롤백/이상현상 | 주황 | `.opWarning` | `result: rollback, dirty_value, non_repeatable, phantom, lost_update` |
-| 데드락     | 빨강 | `.opDeadlock`| `result === 'deadlock'`                                             |
-| 잠금 대기   | 보라 | `.opBlocked` | `result === 'blocked'` — 펄스 애니메이션(`blockedPulse`) 포함              |
+| 상태      | 색상 | CSS 클래스       | result / operation 조건                                                 |
+|---------|----|---------------|-----------------------------------------------------------------------|
+| 일반 진행   | 회색 | `.opNormal`   | 기본 (SELECT, INSERT, UPDATE 등 `success`)                               |
+| 커밋 완료   | 초록 | `.opSuccess`  | `operation === 'COMMIT' && result === 'success'`                      |
+| 롤백/이상현상 | 주황 | `.opWarning`  | `result: rollback, dirty_value, non_repeatable, phantom, lost_update` |
+| 데드락     | 빨강 | `.opDeadlock` | `result === 'deadlock'`                                               |
+| 잠금 대기   | 보라 | `.opBlocked`  | `result === 'blocked'` — 펄스 애니메이션(`blockedPulse`) 포함                  |
 
 `ExecutionFlow` 노드/엣지도 동일 5단계 기준:
+
 - 데드락: 빨강 굵은 실선 (`strokeWidth: 3`)
 - BLOCKED: 보라 점선 (`strokeDasharray: '6,4'`, `strokeWidth: 2`)
 - COMMIT: 초록 굵은 실선 (`strokeWidth: 2`)
@@ -122,6 +132,7 @@ COMMIT;                           COMMIT;
 ```
 
 **적용 위치**:
+
 - `SqlVizEmbedPage` — "SQL 목록" 섹션 교체
 - `SqlVizPage` 위젯 상세 — "SQL 목록" 탭 신규 추가 (타임라인 / 실행 흐름 / **SQL 목록** / 임베드 코드)
 

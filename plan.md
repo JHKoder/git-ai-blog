@@ -134,10 +134,13 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] STEP 분리 버그 수정 — `buildSqls()` STEP 구분자 기준 분할, `SqlParser.STEP_COMMENT` 대괄호 선택적 패턴
   UI
 - [x] `LOCK_WAIT` 시나리오 신설 — T1 미커밋 → T2 BLOCKED → T1 커밋 → T2 획득 흐름, `buildLockWait()` 빌더, 프론트 라벨/감지 추가
-- [x] `SqlParser` `-- STEP:n` (TX 없음) 지원 — `STEP_ONLY` 패턴 추가, `StepMeta(step, null)` 반환, `runInterleaved()` null txId fallback (`T{step}`)
+- [x] `SqlParser` `-- STEP:n` (TX 없음) 지원 — `STEP_ONLY` 패턴 추가, `StepMeta(step, null)` 반환, `runInterleaved()` null txId
+  fallback (`T{step}`)
 - [x] DB CHECK 제약 자동 마이그레이션 — `DbMigrationRunner`에 `sqlviz_widgets_scenario_check` / `isolation_level_check` DROP 추가
-- [x] `ParsedSql.lockType` 필드 추가 + `SqlParser` locking read 추출 (`FOR KEY SHARE` / `FOR UPDATE` 등) — regex 방식 (JSQLParser 5.x API 미지원)
-- [x] `runInterleaved()` locking SELECT 처리 — lockType 있으면 `acquireLock()` 호출, BLOCKED 시 `pendingLocks` 기록, COMMIT 시 자동 재획득
+- [x] `ParsedSql.lockType` 필드 추가 + `SqlParser` locking read 추출 (`FOR KEY SHARE` / `FOR UPDATE` 등) — regex 방식 (JSQLParser
+  5.x API 미지원)
+- [x] `runInterleaved()` locking SELECT 처리 — lockType 있으면 `acquireLock()` 호출, BLOCKED 시 `pendingLocks` 기록, COMMIT 시 자동
+  재획득
 - [x] `SqlVizSimulationEngineTest` 단위 테스트 5개 — FOR KEY SHARE→DELETE BLOCKED→T1 커밋→T2 획득 인터리빙 시나리오 검증
 - [x] `SqlVizHelpPanel` 예시 코드 2개 추가 — 데드락 / 락 대기 T1·T2 나란히 표시
 - [x] 타임라인 색상 규칙 통일 — 회색/초록/주황/빨강/보라 5단계 (`resultColor()` + CSS 변수)
@@ -147,6 +150,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] 격리 수준 모드 스위치 — `POST /api/sqlviz/preview` (저장 없는 미리보기 API)
 - [x] embed 페이지 다크모드 — `prefers-color-scheme` 자동 감지 + `?theme=dark` URL param 지원
 - [x] SQL 목록 TX별 컬럼 표시 — STEP 번호 기준 정렬, TX1/TX2/TX3 나란히 (상세 → `sqlviz.md`)
+- [x] BLOCKED 구간 단계별 수동 진행 버튼 — 일시정지 중 "다른 TX 다음 단계 실행" → 커밋 시 락 해소 후 애니메이션 재개 (상세 → `sqlviz.md`)
 
 ### 운영 / 모니터링
 

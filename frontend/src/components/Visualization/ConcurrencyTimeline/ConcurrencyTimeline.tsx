@@ -17,6 +17,19 @@ export function ConcurrencyTimeline({ simulation }: Props) {
   // 현재 표시 중인 스텝이 BLOCKED인지 확인
   const isCurrentStepBlocked = steps[currentStep]?.result === 'blocked'
 
+  // BLOCKED 상태에서 블로킹된 TX ID
+  const blockedTxId = isCurrentStepBlocked ? steps[currentStep].txId : null
+
+  // BLOCKED 상태에서 다른 TX의 다음 진행 가능한 스텝 인덱스 계산
+  // (blockedTxId가 아닌 TX 중 currentStep 이후 첫 스텝)
+  const nextOtherTxStepIdx: number | null = (() => {
+    if (!isCurrentStepBlocked || blockedTxId === null) return null
+    for (let i = currentStep + 1; i < steps.length; i++) {
+      if (steps[i].txId !== blockedTxId) return i
+    }
+    return null
+  })()
+
   useEffect(() => {
     // BLOCKED 스텝에 도달하면 자동 일시정지
     if (playing && isCurrentStepBlocked) {
@@ -47,6 +60,13 @@ export function ConcurrencyTimeline({ simulation }: Props) {
   const handlePlay = () => {
     if (currentStep >= steps.length - 1) setCurrentStep(0)
     setPlaying(true)
+  }
+
+  // BLOCKED 구간에서 다른 TX의 다음 스텝으로 이동
+  const handleAdvanceOtherTx = () => {
+    if (nextOtherTxStepIdx === null) return
+    setPlaying(false)
+    setCurrentStep(nextOtherTxStepIdx)
   }
 
   const visibleSteps = steps.slice(0, currentStep + 1)
@@ -93,8 +113,22 @@ export function ConcurrencyTimeline({ simulation }: Props) {
       )}
 
       {hasBlockedAtCurrent && (
-        <div className={styles.lockZoneBadge}>
-          🔒 LOCK ZONE — 잠금 대기 중 (재생이 일시정지됩니다)
+        <div className={styles.lockZoneRow}>
+          <div className={styles.lockZoneBadge}>
+            🔒 LOCK ZONE — 잠금 대기 중 (재생이 일시정지됩니다)
+          </div>
+          {nextOtherTxStepIdx !== null && (
+            <button
+              className={styles.btnAdvance}
+              onClick={handleAdvanceOtherTx}
+              title={`${steps[nextOtherTxStepIdx].txId} 다음 단계 실행`}
+            >
+              ▶ {steps[nextOtherTxStepIdx].txId} 다음 단계
+            </button>
+          )}
+          {nextOtherTxStepIdx === null && (
+            <span className={styles.lockResolved}>락 해소 가능한 다음 단계 없음</span>
+          )}
         </div>
       )}
 

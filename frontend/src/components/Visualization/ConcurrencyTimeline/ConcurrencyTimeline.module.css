@@ -60,6 +60,14 @@
   border-color: #7f1d1d;
 }
 
+/* LOCK ZONE 행 — 배지 + 버튼 나란히 */
+.lockZoneRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* LOCK ZONE 배지 — 보라 계열 */
 .lockZoneBadge {
   background: #f3e8ff;
@@ -81,6 +89,40 @@
 @keyframes lockPulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.6; }
+}
+
+/* BLOCKED 구간 "다른 TX 다음 단계" 버튼 */
+.btnAdvance {
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid #7c3aed;
+  background: #7c3aed;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btnAdvance:hover {
+  background: #6d28d9;
+  border-color: #6d28d9;
+}
+
+[data-theme='dark'] .btnAdvance {
+  background: #6d28d9;
+  border-color: #c4b5fd;
+}
+
+[data-theme='dark'] .btnAdvance:hover {
+  background: #5b21b6;
+}
+
+.lockResolved {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 /* ─── 타임라인 레이아웃 ─────────────────────────── */
