@@ -10,6 +10,39 @@
 
 ## 시뮬레이션 엔진 개선 설계 (피드백 2026-03-25)
 
+시뮬레이션인제 어떻게 사용해야할지 모르겠어 사용법도 안내해줬으면좋겠어
+
+> **피드백**: `/sqlviz` 페이지에 인라인 사용 가이드가 없는 상태.
+> 최소한 (1) 시나리오 선택 → (2) SQL 입력 → (3) 위젯 생성 → (4) 임베드 복사 4단계를 페이지 상단에 안내 텍스트 또는 접을 수 있는 도움말 패널로 노출하면 해결된다.
+> `SqlVizPage` 컴포넌트 상단에 `<HelpPanel />` 신규 컴포넌트로 분리하는 방향이 무난하다.
+
+SQL (1/10) 표시하는데 한페이지 인데 begin ISOLATION LEVEL read committed 이걸 정할 순없는디 나조차 어찌해야할지 감이 안
+
+> **피드백**: `sqls` 배열의 각 항목이 "어떤 트랜잭션의 몇 번째 SQL인지" 맥락이 없기 때문에 발생하는 문제.
+> `-- STEP:[n] TX:[id]` 인터리빙 런타임이 이미 구현되어 있으므로, UI에서 이 주석을 자동으로 앞에 붙여주는 SQL 에디터 헬퍼가 핵심이다.
+> 구체적으로: 에디터 상단에 "TX 이름 입력 + STEP 번호 자동 증가" 버튼을 두고, 클릭 시 `-- STEP:n TX:T1` 주석을 현재 커서 위 줄에 삽입하는 방식.
+> `BEGIN ISOLATION LEVEL READ COMMITTED;` 도 드롭다운으로 선택하면 자동으로 첫 줄에 삽입되도록 하면 사용자가 문법을 외울 필요가 없다.
+>
+> 시나리오 는 자동으로 잡아낼 수없는지
+>
+> **피드백**: SQL만으로 시나리오를 완전 자동 감지하기는 어렵지만, **높은 정확도로 추정**은 가능하다.
+> 규칙 기반으로 구현하면:
+> - SQL 2개가 서로 다른 `id` 행을 `FOR UPDATE` → `DEADLOCK` 추정
+> - 한 TX가 UPDATE 후 미커밋, 다른 TX가 SELECT → `DIRTY_READ` 추정
+> - 같은 행을 두 TX가 각자 SELECT → UPDATE → COMMIT 순서 → `LOST_UPDATE` 추정
+> - 한 TX가 범위 SELECT(WHERE balance > N), 다른 TX가 INSERT → `PHANTOM_READ` 추정
+>
+> `SqlVizPage`에서 sqls 입력 후 "시나리오 자동 감지" 버튼을 별도로 두고, 감지 결과를 드롭다운에 자동 선택 + "추정 근거" 툴팁으로 보여주면 된다.
+> 추정 로직은 백엔드(`SqlVizSimulationEngine` 또는 별도 `ScenarioDetector`)에 두거나, 프론트에서 간단한 키워드 매칭(FOR UPDATE 포함 여부, INSERT/SELECT 패턴)으로만 해도 대부분 커버된다.
+> **완전 자동이 아닌 "추천 + 사용자 확인" 패턴이 UX 측면에서도 적합하다** — 감지 결과가 틀려도 사용자가 바로 수정할 수 있도록.
+현재 쿼리 순서를 정하는게 없음 ui 수정필요
+
+> **피드백**: `-- STEP:[n] TX:[id]` 주석으로 순서를 지정하는 런타임은 구현됐지만 UI가 raw 텍스트 입력 그대로라 직관성이 없다.
+> 가장 실용적인 방향은 "타임라인 방식 UI" 전환: SQL 입력창 대신 행(row) 단위로 `[TX 선택 드롭다운] [SQL 입력 필드]` 를 추가/삭제하는 리스트 UI.
+> 각 행이 STEP 하나에 대응하고, 순서는 드래그 or 위아래 화살표로 변경. 제출 시 각 행을 `-- STEP:n TX:id\nSQL` 형식으로 조립해서 기존 API에 그대로 보내면 백엔드 수정 없이 해결된다.
+
+
+
 > **피드백 결론:** "시각화 엔진으로는 충분히 좋은 수준인데, '사용자 SQL 기반으로 유연하게 동작하는 엔진'으로 보기엔 아직 한 단계 부족하다."
 
 ### 현재 상태 평가
@@ -123,7 +156,8 @@ SQLViz 위젯을 넣어라"는 마커(placeholder)를 본문에 심어주는 것
 
 ### SQLViz 마커 형식 (확정)
 
-> 이전 `` ```sql visualize [dialect] `` 형식은 remark/rehype가 `language-sql`만 추출하고 뒤 토큰을 버려서 일반 코드블록으로 렌더링됨 → **`--SQLViz:` 주석 방식으로 변경 확정.**
+> 이전 `` ```sql visualize [dialect] `` 형식은 remark/rehype가 `language-sql`만 추출하고 뒤 토큰을 버려서 일반 코드블록으로 렌더링됨 → **`--SQLViz:`
+주석 방식으로 변경 확정.**
 
 ```sql
 --SQLViz: postgresql deadlock
@@ -160,27 +194,38 @@ SQLViz 위젯을 넣어라"는 마커(placeholder)를 본문에 심어주는 것
 --SQLViz: postgresql deadlock
 -- T1
 BEGIN;
-UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+UPDATE accounts
+SET balance = balance - 100
+WHERE id = 1;
 -- T2
 BEGIN;
-UPDATE accounts SET balance = balance - 100 WHERE id = 2;
+UPDATE accounts
+SET balance = balance - 100
+WHERE id = 2;
 ```
+
 → PostgreSQL에서 두 트랜잭션이 서로의 행을 Lock 잡고 발생하는 데드락 시나리오입니다.
 
 **MySQL Lost Update:**
 
 ```sql
 --SQLViz: mysql lost-update
-UPDATE accounts SET balance = balance + 300 WHERE id = 1;
+UPDATE accounts
+SET balance = balance + 300
+WHERE id = 1;
 ```
+
 → MySQL의 기본 READ COMMITTED 격리 수준에서 발생하는 Lost Update 현상입니다.
 
 **Oracle Phantom Read:**
 
 ```sql
 --SQLViz: oracle phantom-read
-SELECT * FROM accounts WHERE balance > 500;
+SELECT *
+FROM accounts
+WHERE balance > 500;
 ```
+
 → Oracle에서 REPEATABLE READ 격리 수준에서도 Phantom Read가 발생할 수 있는 예시입니다.
 
 ### 사용자 흐름

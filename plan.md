@@ -123,6 +123,10 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] `SimulationResult.limitations` 필드 + `SimulationStep.warning` 필드 — 한계 명시 UI
 - [x] SQLViz 마커 형식 `--SQLViz:` 방식으로 교체 — `PromptBuilder` 지시문 + few-shot 예시 변경
 - [x] `prompt.md` 신규 파일 — PromptBuilder 3레이어 아키텍처 문서화 (기능/컨벤션/출력)
+- [x] `SqlVizPage` 사용법 안내 — `<HelpPanel />` 컴포넌트 (4단계 플로우 + 접기/펼치기)
+- [x] SQL 에디터 헬퍼 — TX 이름/STEP 번호 자동 삽입 버튼 + `BEGIN ISOLATION LEVEL` 드롭다운
+- [x] 시나리오 자동 감지 — SQL 패턴 기반 추정 + 드롭다운 자동 선택 + 추정 근거 툴팁 ("추천 + 사용자 확인" 패턴)
+- [x] 쿼리 순서 UI 개선 — 행 단위 `[TX 드롭다운] [SQL 입력]` 리스트 + 위아래 이동, 제출 시 `-- STEP:n TX:id` 형식으로 조립
 
 ### 운영 / 모니터링
 

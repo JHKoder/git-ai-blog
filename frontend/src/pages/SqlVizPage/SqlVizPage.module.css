@@ -60,6 +60,39 @@
   outline-offset: 1px;
 }
 
+/* 시나리오 헤더: 라벨 + 자동 감지 버튼 */
+.scenarioHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detectBtn {
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.detectBtn:hover {
+  background: var(--hover);
+  border-color: var(--primary, #3b82f6);
+}
+
+.detectHint {
+  font-size: 11px;
+  color: var(--primary, #3b82f6);
+  padding: 4px 6px;
+  background: var(--surface);
+  border-radius: 4px;
+  border-left: 3px solid var(--primary, #3b82f6);
+  line-height: 1.4;
+}
+
 .sqlHeader {
   display: flex;
   justify-content: space-between;
@@ -92,12 +125,84 @@
   gap: 8px;
 }
 
+/* 순서 이동 버튼 묶음 */
+.orderBtns {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.orderBtn {
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.orderBtn:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.orderBtn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
 .sqlIdx {
   font-size: 11px;
   color: var(--text-muted);
-  padding-top: 8px;
   flex-shrink: 0;
-  width: 20px;
+}
+
+/* TX 드롭다운 */
+.txSelect {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  width: 54px;
+  margin-top: 4px;
+}
+
+/* SQL 에디터 + ISO 삽입 버튼 묶음 */
+.sqlEditorWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.isoInsertRow {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.isoInsertBtn {
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.isoInsertBtn:hover {
+  background: var(--hover);
+  color: var(--text);
+  border-color: var(--primary, #3b82f6);
 }
 
 .sqlEditor {
