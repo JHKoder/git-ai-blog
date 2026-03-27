@@ -6,6 +6,9 @@ import github.jhkoder.aiblog.sqlviz.domain.SqlVizWidgetRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -28,6 +31,11 @@ public class SqlVizWidgetRepositoryImpl implements SqlVizWidgetRepository {
     @Override
     public List<SqlVizWidget> findByMemberId(Long memberId) {
         return jpa.findByMemberId(memberId);
+    }
+
+    @Override
+    public Page<SqlVizWidget> findByMemberId(Long memberId, Pageable pageable) {
+        return jpa.findByMemberId(memberId, pageable);
     }
 
     @Override

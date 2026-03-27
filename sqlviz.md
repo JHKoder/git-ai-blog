@@ -8,42 +8,82 @@
 
 ---
 
+## UX 이슈 기록
+
+### 문제 1 — 왼쪽 패널 공간 부족 + 위젯 목록 페이징 ✅
+
+**증상:** SQL 입력 칸이 좁고, 위젯 목록이 페이징 없이 전부 노출됨.
+
+**해결:**
+
+- `SqlVizPage.module.css` grid `420px` → `560px` 확대
+- 위젯 목록 `(n/총)` 페이지네이션 + pageSize 10/20/30 버튼
+- `sqlvizStore`에 `page`, `pageSize`, `totalPages`, `totalElements` 상태 추가
+- 백엔드 `GetSqlVizListUseCase` + `SqlVizController` → `Page<SqlVizWidget>` + `SqlVizPageResponse` 반환
+- `sqlvizApi.getList(page, size)` 파라미터화
+
+### 문제 2 — STEP 주석 인터리빙 순서 오작동 ✅
+
+**증상:** 사용자가 원하는 방식은 TX별 에디터 안에 `-- STEP:n` 주석으로 글로벌 실행 순서를 지정하는 패러다임이나, 현재 UI는 행(row) 단위로 TX를 지정하고 `-- STEP:n TX:id` 를
+자동 조립하는 방식이라 결과가 맞지 않음.
+
+**사용자 기대 패러다임:**
+
+```
+SQL (#1)[T1]  ← TX 에디터 단위
+{
+-- STEP:1   ← 전역 실행 순서
+BEGIN ISOLATION LEVEL READ COMMITTED;
+-- STEP:3
+SELECT * FROM parent WHERE id = 1 FOR KEY SHARE;
+}
+
+SQL (#2)[T2]
+{
+-- STEP:2
+BEGIN ISOLATION LEVEL READ COMMITTED;
+-- STEP:4
+DELETE FROM parent WHERE id = 1;
+}
+```
+
+**현재 UI 결과:** 행 단위 조립 시 TX 전체가 하나의 STEP(`-- STEP:1 TX:T1`)으로 묶여 전달 → 인터리빙 순서 무시됨.
+
+**해결:**
+
+- UI 패러다임을 **TX별 에디터 카드** 방식으로 전환 (T1~T4, 최대 4개)
+- 각 에디터 내부에 `-- STEP:n` 주석을 직접 작성 (TX ID는 에디터 단위로 지정)
+- `buildSqls()`: `-- STEP:n` 주석에 `TX:id`가 없으면 에디터 단위 TX ID로 자동 매핑 (`-- STEP:n TX:T1` 변환)
+- ISO 삽입 버튼: `-- STEP:n\nBEGIN ISOLATION LEVEL ...` 형식으로 삽입, `-- STEP:n`은 전체 에디터 최대 STEP+1로 자동 계산
+
+### 문제 3 — ISO 버튼 클릭 시 중복 텍스트 ✅
+
+**증상:** `UNCOMMITTED` / `COMMITTED` / `READ` / `SERIALIZABLE` 버튼 클릭 시 `BEGIN ISOLATION LEVEL ...` 텍스트가 중복으로 삽입됨.
+
+**원인:** `insertIsoBegin()` 함수가 현재 에디터 내용과 무관하게 무조건 앞에 삽입함.
+
+**해결:**
+
+- `startsWithBegin()` 헬퍼: `--` 주석 줄 건너뛰고 첫 비주석 줄이 `BEGIN`이면 `true`
+- `insertIsoBegin()` 시작 시 `startsWithBegin()` 체크 → `true`이면 삽입 스킵 + toast 안내
+- 삽입 위치: `-- STEP:n\nBEGIN ISOLATION LEVEL ...` 형식, `n`은 전체 에디터 최대 STEP+1 자동 계산
+
+---
+
 ## 시뮬레이션 엔진 개선 설계 (피드백 2026-03-25)
 
-시뮬레이션인제 어떻게 사용해야할지 모르겠어 사용법도 안내해줬으면좋겠어
-
-> **피드백**: `/sqlviz` 페이지에 인라인 사용 가이드가 없는 상태.
-> 최소한 (1) 시나리오 선택 → (2) SQL 입력 → (3) 위젯 생성 → (4) 임베드 복사 4단계를 페이지 상단에 안내 텍스트 또는 접을 수 있는 도움말 패널로 노출하면 해결된다.
-> `SqlVizPage` 컴포넌트 상단에 `<HelpPanel />` 신규 컴포넌트로 분리하는 방향이 무난하다.
-
-SQL (1/10) 표시하는데 한페이지 인데 begin ISOLATION LEVEL read committed 이걸 정할 순없는디 나조차 어찌해야할지 감이 안
-
-> **피드백**: `sqls` 배열의 각 항목이 "어떤 트랜잭션의 몇 번째 SQL인지" 맥락이 없기 때문에 발생하는 문제.
-> `-- STEP:[n] TX:[id]` 인터리빙 런타임이 이미 구현되어 있으므로, UI에서 이 주석을 자동으로 앞에 붙여주는 SQL 에디터 헬퍼가 핵심이다.
-> 구체적으로: 에디터 상단에 "TX 이름 입력 + STEP 번호 자동 증가" 버튼을 두고, 클릭 시 `-- STEP:n TX:T1` 주석을 현재 커서 위 줄에 삽입하는 방식.
-> `BEGIN ISOLATION LEVEL READ COMMITTED;` 도 드롭다운으로 선택하면 자동으로 첫 줄에 삽입되도록 하면 사용자가 문법을 외울 필요가 없다.
->
-> 시나리오 는 자동으로 잡아낼 수없는지
->
-> **피드백**: SQL만으로 시나리오를 완전 자동 감지하기는 어렵지만, **높은 정확도로 추정**은 가능하다.
-> 규칙 기반으로 구현하면:
-> - SQL 2개가 서로 다른 `id` 행을 `FOR UPDATE` → `DEADLOCK` 추정
-> - 한 TX가 UPDATE 후 미커밋, 다른 TX가 SELECT → `DIRTY_READ` 추정
-> - 같은 행을 두 TX가 각자 SELECT → UPDATE → COMMIT 순서 → `LOST_UPDATE` 추정
-> - 한 TX가 범위 SELECT(WHERE balance > N), 다른 TX가 INSERT → `PHANTOM_READ` 추정
->
-> `SqlVizPage`에서 sqls 입력 후 "시나리오 자동 감지" 버튼을 별도로 두고, 감지 결과를 드롭다운에 자동 선택 + "추정 근거" 툴팁으로 보여주면 된다.
-> 추정 로직은 백엔드(`SqlVizSimulationEngine` 또는 별도 `ScenarioDetector`)에 두거나, 프론트에서 간단한 키워드 매칭(FOR UPDATE 포함 여부, INSERT/SELECT 패턴)으로만 해도 대부분 커버된다.
-> **완전 자동이 아닌 "추천 + 사용자 확인" 패턴이 UX 측면에서도 적합하다** — 감지 결과가 틀려도 사용자가 바로 수정할 수 있도록.
-현재 쿼리 순서를 정하는게 없음 ui 수정필요
-
-> **피드백**: `-- STEP:[n] TX:[id]` 주석으로 순서를 지정하는 런타임은 구현됐지만 UI가 raw 텍스트 입력 그대로라 직관성이 없다.
-> 가장 실용적인 방향은 "타임라인 방식 UI" 전환: SQL 입력창 대신 행(row) 단위로 `[TX 선택 드롭다운] [SQL 입력 필드]` 를 추가/삭제하는 리스트 UI.
-> 각 행이 STEP 하나에 대응하고, 순서는 드래그 or 위아래 화살표로 변경. 제출 시 각 행을 `-- STEP:n TX:id\nSQL` 형식으로 조립해서 기존 API에 그대로 보내면 백엔드 수정 없이 해결된다.
-
-
-
 > **피드백 결론:** "시각화 엔진으로는 충분히 좋은 수준인데, '사용자 SQL 기반으로 유연하게 동작하는 엔진'으로 보기엔 아직 한 단계 부족하다."
+
+### 이전 UX 피드백 요약 (구현 완료)
+
+| 피드백                       | 해결책                                                          | 상태 |
+|---------------------------|--------------------------------------------------------------|:--:|
+| 사용법 안내 없음                 | `SqlVizHelpPanel` 4단계 가이드 (접기/펼치기)                           | ✅  |
+| ISO Level 설정 어려움          | `BEGIN ISOLATION LEVEL ...` 삽입 버튼 (BEGIN 중복 방지 + STEP 자동)   | ✅  |
+| 시나리오 자동 감지 불가             | 규칙 기반 패턴 매칭 + "추천 + 사용자 확인" 드롭다운 자동 선택                       | ✅  |
+| 쿼리 실행 순서 오작동 (행 단위 조립)    | TX별 에디터 카드 + 에디터 내부 `-- STEP:n` 직접 작성 + TX 자동 매핑            | ✅  |
+| 왼쪽 패널 좁음 + 위젯 목록 페이징 없음  | 패널 560px 확대 + `SqlVizPageResponse` + pageSize 10/20/30 UI   | ✅  |
+| ISO 버튼 중복 텍스트              | `startsWithBegin()` 중복 방지                                    | ✅  |
 
 ### 현재 상태 평가
 

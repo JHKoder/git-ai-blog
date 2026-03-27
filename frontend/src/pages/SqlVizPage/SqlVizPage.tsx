@@ -20,7 +20,7 @@ import styles from './SqlVizPage.module.css'
 
 // ── 타입 ────────────────────────────────────────────────────────────────────
 
-interface SqlRow {
+interface TxEditor {
   txId: string
   sql: string
 }
@@ -59,16 +59,16 @@ interface DetectResult {
   reason: string
 }
 
-function detectScenario(rows: SqlRow[]): DetectResult | null {
-  const sqls = rows.map(r => r.sql.toUpperCase())
-  const txIds = Array.from(new Set(rows.map(r => r.txId)))
+function detectScenario(editors: TxEditor[]): DetectResult | null {
+  const sqls = editors.map(e => e.sql.toUpperCase())
+  const txCount = editors.filter(e => e.sql.trim()).length
 
-  const hasForUpdate = sqls.some(s => s.includes('FOR UPDATE'))
-  const hasInsert    = sqls.some(s => /^\s*INSERT/.test(s) || s.includes('\nINSERT'))
-  const hasUpdate    = sqls.some(s => /^\s*UPDATE/.test(s) || s.includes('\nUPDATE'))
-  const hasSelect    = sqls.some(s => /^\s*SELECT/.test(s) || s.includes('\nSELECT'))
+  const hasForUpdate  = sqls.some(s => s.includes('FOR UPDATE'))
+  const hasInsert     = sqls.some(s => /\bINSERT\b/.test(s))
+  const hasUpdate     = sqls.some(s => /\bUPDATE\b/.test(s))
+  const hasSelect     = sqls.some(s => /\bSELECT\b/.test(s))
   const hasRangeWhere = sqls.some(s => /WHERE\s+\w+\s*[><!]/.test(s))
-  const multiTx      = txIds.length >= 2
+  const multiTx       = txCount >= 2
 
   // DEADLOCK: 여러 TX가 각각 FOR UPDATE, 서로 다른 행
   if (multiTx && hasForUpdate) {
@@ -76,8 +76,7 @@ function detectScenario(rows: SqlRow[]): DetectResult | null {
       const m = s.match(/WHERE\s+ID\s*=\s*(\d+)/g) ?? []
       return m.map(x => x.replace(/\D/g, ''))
     })
-    const uniqueIds = new Set(rowIds)
-    if (uniqueIds.size >= 2) {
+    if (new Set(rowIds).size >= 2) {
       return { scenario: 'DEADLOCK', reason: '서로 다른 행에 FOR UPDATE 잠금 요청이 감지됐습니다.' }
     }
   }
@@ -89,40 +88,31 @@ function detectScenario(rows: SqlRow[]): DetectResult | null {
 
   // NON_REPEATABLE_READ: SELECT + UPDATE, 같은 테이블
   if (multiTx && hasSelect && hasUpdate && !hasForUpdate) {
-    const selectTables = sqls.flatMap(s => {
-      const m = s.match(/FROM\s+(\w+)/)
-      return m ? [m[1]] : []
-    })
-    const updateTables = sqls.flatMap(s => {
-      const m = s.match(/UPDATE\s+(\w+)/)
-      return m ? [m[1]] : []
-    })
-    const overlap = selectTables.some(t => updateTables.includes(t))
-    if (overlap) {
+    const selectTables = sqls.flatMap(s => { const m = s.match(/FROM\s+(\w+)/); return m ? [m[1]] : [] })
+    const updateTables = sqls.flatMap(s => { const m = s.match(/UPDATE\s+(\w+)/); return m ? [m[1]] : [] })
+    if (selectTables.some(t => updateTables.includes(t))) {
       return { scenario: 'NON_REPEATABLE_READ', reason: '같은 테이블에 SELECT와 UPDATE가 감지됐습니다.' }
     }
   }
 
-  // DIRTY_READ: UPDATE(미커밋) + SELECT
+  // DIRTY_READ: UPDATE + SELECT
   if (multiTx && hasSelect && hasUpdate) {
     return { scenario: 'DIRTY_READ', reason: 'UPDATE와 SELECT가 다른 TX에서 감지됐습니다.' }
   }
 
   // LOST_UPDATE: 같은 행에 두 UPDATE
   if (multiTx && hasUpdate) {
-    const updateTables = sqls.flatMap(s => {
+    const updateKeys = sqls.flatMap(s => {
       const m = s.match(/UPDATE\s+(\w+)\s+.*WHERE\s+ID\s*=\s*(\d+)/i)
       return m ? [`${m[1]}:${m[2]}`] : []
     })
     const seen = new Set<string>()
     let dup = false
-    for (const t of updateTables) { if (seen.has(t)) { dup = true; break } seen.add(t) }
-    if (dup) {
-      return { scenario: 'LOST_UPDATE', reason: '같은 행에 두 TX의 UPDATE가 감지됐습니다.' }
-    }
+    for (const k of updateKeys) { if (seen.has(k)) { dup = true; break } seen.add(k) }
+    if (dup) return { scenario: 'LOST_UPDATE', reason: '같은 행에 두 TX의 UPDATE가 감지됐습니다.' }
   }
 
-  // MVCC: SELECT만 있고 UPDATE 있음
+  // MVCC
   if (multiTx && hasSelect && hasUpdate) {
     return { scenario: 'MVCC', reason: 'SELECT와 UPDATE 패턴이 감지됐습니다. MVCC 시나리오로 추정합니다.' }
   }
@@ -130,76 +120,117 @@ function detectScenario(rows: SqlRow[]): DetectResult | null {
   return null
 }
 
+// ── 유틸 ─────────────────────────────────────────────────────────────────────
+
+/** 에디터 내용이 이미 BEGIN으로 시작하는지 확인 (-- 주석 줄 건너뜀) */
+function startsWithBegin(sql: string): boolean {
+  const lines = sql.split('\n')
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('--')) continue
+    return trimmed.toUpperCase().startsWith('BEGIN')
+  }
+  return false
+}
+
+/** 다음 STEP 번호를 전체 에디터에서 계산 */
+function nextStepNumber(editors: TxEditor[]): number {
+  let max = 0
+  for (const e of editors) {
+    const matches = e.sql.match(/--\s*STEP\s*:\s*(\d+)/gi) ?? []
+    for (const m of matches) {
+      const n = parseInt(m.replace(/\D/g, ''), 10)
+      if (n > max) max = n
+    }
+  }
+  return max + 1
+}
+
 // ── 컴포넌트 ─────────────────────────────────────────────────────────────────
 
 export function SqlVizPage() {
-  const { widgets, loading, fetchWidgets, createWidget, deleteWidget } = useSqlVizStore()
+  const { widgets, loading, totalPages, page, pageSize, fetchWidgets, createWidget, deleteWidget, setPage, setPageSize } = useSqlVizStore()
 
-  const [title, setTitle]                 = useState('')
-  const [rows, setRows]                   = useState<SqlRow[]>([{ txId: 'T1', sql: 'SELECT * FROM orders WHERE id = 1;' }])
-  const [scenario, setScenario]           = useState<SqlVizScenario>('DEADLOCK')
-  const [isolationLevel, setIsolationLevel] = useState<IsolationLevel>('READ_COMMITTED')
-  const [creating, setCreating]           = useState(false)
-  const [selectedWidget, setSelectedWidget] = useState<SqlVizWidget | null>(null)
-  const [activeTab, setActiveTab]         = useState<'timeline' | 'flow' | 'embed'>('timeline')
+  const [title, setTitle]                     = useState('')
+  const [editors, setEditors]                 = useState<TxEditor[]>([
+    { txId: 'T1', sql: '' },
+    { txId: 'T2', sql: '' },
+  ])
+  const [scenario, setScenario]               = useState<SqlVizScenario>('DEADLOCK')
+  const [isolationLevel, setIsolationLevel]   = useState<IsolationLevel>('READ_COMMITTED')
+  const [creating, setCreating]               = useState(false)
+  const [selectedWidget, setSelectedWidget]   = useState<SqlVizWidget | null>(null)
+  const [activeTab, setActiveTab]             = useState<'timeline' | 'flow' | 'embed'>('timeline')
   const [previewIsolation, setPreviewIsolation] = useState<IsolationLevel | null>(null)
-  const [detectHint, setDetectHint]       = useState<DetectResult | null>(null)
+  const [detectHint, setDetectHint]           = useState<DetectResult | null>(null)
 
   useEffect(() => {
-    fetchWidgets()
-  }, [fetchWidgets])
+    fetchWidgets(page, pageSize)
+  }, [fetchWidgets, page, pageSize])
 
-  // ── 행 관리 ──────────────────────────────────────────────────────────────
+  // ── 에디터 관리 ──────────────────────────────────────────────────────────
 
-  const addRow = () => {
-    if (rows.length >= 10) { toast.error('SQL은 최대 10개까지 입력 가능합니다.'); return }
-    setRows(prev => [...prev, { txId: 'T1', sql: '' }])
+  const addEditor = () => {
+    const used = new Set(editors.map(e => e.txId))
+    const next = TX_OPTIONS.find(t => !used.has(t))
+    if (!next) { toast.error('최대 4개 TX 에디터까지 추가 가능합니다.'); return }
+    setEditors(prev => [...prev, { txId: next, sql: '' }])
     setDetectHint(null)
   }
 
-  const removeRow = (idx: number) => {
-    setRows(prev => prev.filter((_, i) => i !== idx))
+  const removeEditor = (idx: number) => {
+    if (editors.length <= 1) { toast.error('에디터는 최소 1개 필요합니다.'); return }
+    setEditors(prev => prev.filter((_, i) => i !== idx))
     setDetectHint(null)
   }
 
-  const updateRow = (idx: number, field: keyof SqlRow, value: string) => {
-    setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r))
+  const updateEditor = (idx: number, field: keyof TxEditor, value: string) => {
+    setEditors(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e))
     setDetectHint(null)
   }
 
-  const moveRow = (idx: number, dir: -1 | 1) => {
-    const next = idx + dir
-    if (next < 0 || next >= rows.length) return
-    setRows(prev => {
-      const arr = [...prev]
-      const tmp = arr[idx]
-      arr[idx] = arr[next]
-      arr[next] = tmp
-      return arr
-    })
-  }
+  // ── ISO BEGIN 삽입 ────────────────────────────────────────────────────────
 
-  // ── 격리 수준 BEGIN 삽입 ──────────────────────────────────────────────────
-
-  const insertIsoBegin = (iso: IsolationLevel, rowIdx: number) => {
+  const insertIsoBegin = (iso: IsolationLevel, editorIdx: number) => {
+    const current = editors[editorIdx].sql
+    // 이미 BEGIN으로 시작하면 스킵
+    if (startsWithBegin(current)) {
+      toast('이미 BEGIN 구문이 있습니다.')
+      return
+    }
     const isoLabel = ISO_PRESETS.find(p => p.value === iso)?.label ?? iso
-    const beginLine = `BEGIN ISOLATION LEVEL ${isoLabel};`
-    const current = rows[rowIdx].sql
-    const newSql = current.trim() ? `${beginLine}\n${current}` : beginLine
-    updateRow(rowIdx, 'sql', newSql)
+    const stepN = nextStepNumber(editors)
+    const insertLine = `-- STEP:${stepN}\nBEGIN ISOLATION LEVEL ${isoLabel};`
+    const newSql = current.trim() ? `${insertLine}\n${current}` : insertLine
+    updateEditor(editorIdx, 'sql', newSql)
   }
 
-  // ── sqls 조립 (STEP 주석 포함) ──────────────────────────────────────────
+  // ── sqls 조립 ─────────────────────────────────────────────────────────────
+  // 각 에디터 내용을 TX ID 헤더와 함께 합산해서 전달
+  // 백엔드 SqlParser는 -- STEP:n TX:id 또는 -- STEP:n (에디터 레벨 TX 매핑) 파싱
 
   const buildSqls = (): string[] =>
-    rows
-      .filter(r => r.sql.trim())
-      .map((r, i) => `-- STEP:${i + 1} TX:${r.txId}\n${r.sql}`)
+    editors
+      .filter(e => e.sql.trim())
+      .map(e => {
+        // 에디터 내용에 이미 TX 정보가 없으면 에디터 단위 TX 헤더 추가
+        const hasStepWithTx = /--\s*STEP\s*:\s*\d+\s+TX\s*:/i.test(e.sql)
+        if (hasStepWithTx) return e.sql
+        // TX 정보가 없는 STEP 주석이 있으면 각 줄에 TX 매핑 삽입
+        const hasBareStep = /--\s*STEP\s*:\s*\d+/i.test(e.sql)
+        if (hasBareStep) {
+          // -- STEP:n → -- STEP:n TX:T1 으로 변환
+          return e.sql.replace(/(--\s*STEP\s*:\s*\d+)(?!\s*TX)/gi, `$1 TX:${e.txId}`)
+        }
+        // STEP 주석 없으면 단일 STEP으로 래핑
+        const stepN = editors.filter(ed => ed.sql.trim()).indexOf(e) + 1
+        return `-- STEP:${stepN} TX:${e.txId}\n${e.sql}`
+      })
 
   // ── 시나리오 자동 감지 ────────────────────────────────────────────────────
 
   const handleDetect = () => {
-    const result = detectScenario(rows)
+    const result = detectScenario(editors)
     if (result) {
       setDetectHint(result)
       setScenario(result.scenario)
@@ -240,6 +271,13 @@ export function SqlVizPage() {
     } catch {
       toast.error('삭제에 실패했습니다.')
     }
+  }
+
+  // ── 페이지네이션 ──────────────────────────────────────────────────────────
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size)
+    setPage(0)
   }
 
   // ── 렌더 ─────────────────────────────────────────────────────────────────
@@ -301,63 +339,41 @@ export function SqlVizPage() {
           </div>
         </div>
 
-        {/* SQL 행 리스트 */}
+        {/* TX 에디터 그룹 */}
         <div className={styles.field}>
           <div className={styles.sqlHeader}>
-            <label className={styles.label}>SQL ({rows.length}/10)</label>
-            <button className={styles.addBtn} onClick={addRow}>+ 행 추가</button>
+            <label className={styles.label}>TX 에디터 ({editors.length}/4)</label>
+            <button className={styles.addBtn} onClick={addEditor}>+ TX 추가</button>
           </div>
-          <div className={styles.sqlList}>
-            {rows.map((row, idx) => (
-              <div key={idx} className={styles.sqlItem}>
-                {/* 순서 이동 버튼 */}
-                <div className={styles.orderBtns}>
-                  <button
-                    className={styles.orderBtn}
-                    onClick={() => moveRow(idx, -1)}
-                    disabled={idx === 0}
-                    title="위로"
-                  >▲</button>
-                  <span className={styles.sqlIdx}>#{idx + 1}</span>
-                  <button
-                    className={styles.orderBtn}
-                    onClick={() => moveRow(idx, 1)}
-                    disabled={idx === rows.length - 1}
-                    title="아래로"
-                  >▼</button>
-                </div>
-
-                {/* TX 선택 드롭다운 */}
-                <select
-                  className={styles.txSelect}
-                  value={row.txId}
-                  onChange={e => updateRow(idx, 'txId', e.target.value)}
-                >
-                  {TX_OPTIONS.map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-
-                {/* SQL 에디터 + ISO 삽입 */}
-                <div className={styles.sqlEditorWrap}>
+          <p className={styles.editorHint}>
+            각 에디터에 SQL을 작성하고, 실행 순서는 <code>-- STEP:1</code> 형식으로 지정하세요.
+          </p>
+          <div className={styles.txEditorList}>
+            {editors.map((editor, idx) => (
+              <div key={editor.txId} className={styles.txEditorCard}>
+                <div className={styles.txEditorHeader}>
+                  <span className={styles.txBadge}>{editor.txId}</span>
                   <div className={styles.isoInsertRow}>
                     {ISO_PRESETS.map(p => (
                       <button
                         key={p.value}
                         className={styles.isoInsertBtn}
                         onClick={() => insertIsoBegin(p.value, idx)}
-                        title={`BEGIN ISOLATION LEVEL ${p.label} 삽입`}
+                        title={`BEGIN ISOLATION LEVEL ${p.label} 삽입 (-- STEP:n 자동 포함)`}
                       >
                         {p.label.split(' ').slice(-1)[0]}
                       </button>
                     ))}
                   </div>
-                  <SqlEditor value={row.sql} onChange={v => updateRow(idx, 'sql', v)} height="90px" />
+                  {editors.length > 1 && (
+                    <button className={styles.removeEditorBtn} onClick={() => removeEditor(idx)}>✕</button>
+                  )}
                 </div>
-
-                {rows.length > 1 && (
-                  <button className={styles.removeBtn} onClick={() => removeRow(idx)}>✕</button>
-                )}
+                <SqlEditor
+                  value={editor.sql}
+                  onChange={v => updateEditor(idx, 'sql', v)}
+                  height="160px"
+                />
               </div>
             ))}
           </div>
@@ -428,31 +444,66 @@ export function SqlVizPage() {
           </div>
         )}
 
+        {/* 위젯 목록 */}
         <div className={styles.widgetList}>
-          <h3 className={styles.listTitle}>내 위젯 목록</h3>
+          <div className={styles.listHeader}>
+            <h3 className={styles.listTitle}>내 위젯 목록</h3>
+            <div className={styles.pageSizeRow}>
+              <span className={styles.pageSizeLabel}>페이지당</span>
+              {[10, 20, 30].map(n => (
+                <button
+                  key={n}
+                  className={`${styles.pageSizeBtn} ${pageSize === n ? styles.pageSizeBtnActive : ''}`}
+                  onClick={() => handlePageSizeChange(n)}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {loading ? (
             <p className={styles.loading}>불러오는 중...</p>
           ) : widgets.length === 0 ? (
             <p className={styles.empty}>생성된 위젯이 없습니다.</p>
           ) : (
-            <ul className={styles.list}>
-              {widgets.map(w => (
-                <li
-                  key={w.id}
-                  className={`${styles.listItem} ${selectedWidget?.id === w.id ? styles.selected : ''}`}
-                  onClick={() => { setSelectedWidget(w); setPreviewIsolation(null); setActiveTab('timeline') }}
-                >
-                  <div className={styles.listItemInfo}>
-                    <span className={styles.listItemTitle}>{w.title}</span>
-                    <span className={styles.listItemMeta}>{SCENARIO_LABEL[w.scenario]} · {ISOLATION_LEVEL_LABEL[w.isolationLevel]}</span>
-                  </div>
+            <>
+              <ul className={styles.list}>
+                {widgets.map(w => (
+                  <li
+                    key={w.id}
+                    className={`${styles.listItem} ${selectedWidget?.id === w.id ? styles.selected : ''}`}
+                    onClick={() => { setSelectedWidget(w); setPreviewIsolation(null); setActiveTab('timeline') }}
+                  >
+                    <div className={styles.listItemInfo}>
+                      <span className={styles.listItemTitle}>{w.title}</span>
+                      <span className={styles.listItemMeta}>{SCENARIO_LABEL[w.scenario]} · {ISOLATION_LEVEL_LABEL[w.isolationLevel]}</span>
+                    </div>
+                    <button
+                      className={styles.deleteBtn}
+                      onClick={e => { e.stopPropagation(); handleDelete(w.id) }}
+                    >삭제</button>
+                  </li>
+                ))}
+              </ul>
+
+              {/* 페이지네이션 */}
+              {totalPages > 1 && (
+                <div className={styles.pagination}>
                   <button
-                    className={styles.deleteBtn}
-                    onClick={e => { e.stopPropagation(); handleDelete(w.id) }}
-                  >삭제</button>
-                </li>
-              ))}
-            </ul>
+                    className={styles.pageBtn}
+                    onClick={() => setPage(page - 1)}
+                    disabled={page === 0}
+                  >‹</button>
+                  <span className={styles.pageInfo}>{page + 1} / {totalPages}</span>
+                  <button
+                    className={styles.pageBtn}
+                    onClick={() => setPage(page + 1)}
+                    disabled={page >= totalPages - 1}
+                  >›</button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

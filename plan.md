@@ -4,14 +4,14 @@
 
 ## 문서 구조
 
-| 파일                                         | 역할                                  |
-|--------------------------------------------|-------------------------------------|
-| [`backend/claude.md`](backend/claude.md)   | 백엔드 코드 레벨/기능 상세 (API, 도메인, 이슈 기록)   |
-| [`frontend/CLAUDE.md`](frontend/CLAUDE.md) | 프론트엔드 코드 레벨/기능 상세 (컴포넌트, 타입, 이슈 기록) |
-| [`sqlviz.md`](sqlviz.md)                   | SQLViz 설계 / UX / AI 연동 가이드          |
-| [`infra.md`](infra.md)                     | 배포 / 인프라 셋업 절차                      |
-| [`monitoring.md`](monitoring.md)           | 운영 / 장애 대응                          |
-| [`research.md`](research.md)               | 리서치 내용                              |
+| 파일                                         | 역할                                    |
+|--------------------------------------------|---------------------------------------|
+| [`backend/claude.md`](backend/claude.md)   | 백엔드 코드 레벨/기능 상세 (API, 도메인, 이슈 기록)     |
+| [`frontend/CLAUDE.md`](frontend/CLAUDE.md) | 프론트엔드 코드 레벨/기능 상세 (컴포넌트, 타입, 이슈 기록)   |
+| [`sqlviz.md`](sqlviz.md)                   | SQLViz 설계 / UX / AI 연동 가이드            |
+| [`infra.md`](infra.md)                     | 배포 / 인프라 셋업 절차                        |
+| [`monitoring.md`](monitoring.md)           | 운영 / 장애 대응                            |
+| [`research.md`](research.md)               | 리서치 내용                                |
 | [`prompt.md`](prompt.md)                   | PromptBuilder 아키텍처 — 기능/컨벤션/출력 레이어 구조 |
 
 ---
@@ -127,6 +127,10 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] SQL 에디터 헬퍼 — TX 이름/STEP 번호 자동 삽입 버튼 + `BEGIN ISOLATION LEVEL` 드롭다운
 - [x] 시나리오 자동 감지 — SQL 패턴 기반 추정 + 드롭다운 자동 선택 + 추정 근거 툴팁 ("추천 + 사용자 확인" 패턴)
 - [x] 쿼리 순서 UI 개선 — 행 단위 `[TX 드롭다운] [SQL 입력]` 리스트 + 위아래 이동, 제출 시 `-- STEP:n TX:id` 형식으로 조립
+- [x] SqlVizPage UI 패러다임 전환 — TX별 에디터 카드(T1~T4), 각 에디터 내부에 `-- STEP:n` 직접 작성, `buildSqls()`가 TX 매핑 자동 처리
+- [x] ISO 버튼 중복 삽입 방지 — `insertIsoBegin()` 에서 BEGIN 존재 시 스킵 + `-- STEP:n` 자동 포함
+- [x] 왼쪽 패널 560px 확대 + 위젯 목록 페이지네이션 — 백엔드 `Page<SqlVizWidget>` + `SqlVizPageResponse`, 프론트 pageSize 10/20/30 + `(n/총)`
+  UI
 
 ### 운영 / 모니터링
 

@@ -67,3 +67,11 @@ export interface SqlVizCreateRequest {
   scenario: SqlVizScenario
   isolationLevel: IsolationLevel
 }
+
+export interface SqlVizPageResponse {
+  content: SqlVizWidget[]
+  totalPages: number
+  totalElements: number
+  number: number
+  size: number
+}
