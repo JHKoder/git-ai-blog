@@ -30,8 +30,9 @@ public final class SqlParser {
     /** -- DB:[...] 주석이 없을 때 적용되는 기본 DB 방언. 변경 시 이 상수만 수정. */
     public static final DbType DEFAULT_DB = DbType.POSTGRESQL;
 
-    private static final Pattern DB_COMMENT    = Pattern.compile("--\\s*DB:\\s*\\[([^]]+)]", Pattern.CASE_INSENSITIVE);
-    private static final Pattern STEP_COMMENT  = Pattern.compile("--\\s*STEP:\\s*\\[(\\d+)]\\s*TX:\\s*\\[([^]]+)]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DB_COMMENT    = Pattern.compile("--\\s*DB:\\s*\\[?([^]\\s]+)]?", Pattern.CASE_INSENSITIVE);
+    // 대괄호 선택적: -- STEP:1 TX:T1  또는  -- STEP:[1] TX:[T1]  둘 다 인식
+    private static final Pattern STEP_COMMENT  = Pattern.compile("--\\s*STEP:\\s*\\[?(\\d+)]?\\s+TX:\\s*\\[?([^]\\s]+)]?", Pattern.CASE_INSENSITIVE);
     private static final Pattern ISO_LEVEL     = Pattern.compile(
             "BEGIN\\s+(?:TRANSACTION\\s+)?ISOLATION\\s+LEVEL\\s+(READ\\s+UNCOMMITTED|READ\\s+COMMITTED|REPEATABLE\\s+READ|SERIALIZABLE)",
             Pattern.CASE_INSENSITIVE);

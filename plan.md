@@ -130,6 +130,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] SqlVizPage UI 패러다임 전환 — TX별 에디터 카드(T1~T4), 각 에디터 내부에 `-- STEP:n` 직접 작성, `buildSqls()`가 TX 매핑 자동 처리
 - [x] ISO 버튼 중복 삽입 방지 — `insertIsoBegin()` 에서 BEGIN 존재 시 스킵 + `-- STEP:n` 자동 포함
 - [x] 왼쪽 패널 560px 확대 + 위젯 목록 페이지네이션 — 백엔드 `Page<SqlVizWidget>` + `SqlVizPageResponse`, 프론트 pageSize 10/20/30 + `(n/총)`
+- [x] STEP 분리 버그 수정 — `buildSqls()` STEP 구분자 기준 분할, `SqlParser.STEP_COMMENT` 대괄호 선택적 패턴
   UI
 
 ### 운영 / 모니터링

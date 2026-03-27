@@ -206,26 +206,37 @@ export function SqlVizPage() {
   }
 
   // ── sqls 조립 ─────────────────────────────────────────────────────────────
-  // 각 에디터 내용을 TX ID 헤더와 함께 합산해서 전달
-  // 백엔드 SqlParser는 -- STEP:n TX:id 또는 -- STEP:n (에디터 레벨 TX 매핑) 파싱
+  // 에디터 내부의 -- STEP:n 주석을 기준으로 분할 → 각 STEP 블록을 독립 원소로 전달
+  // 백엔드 SqlParser가 -- STEP:n TX:id 형식 하나씩 파싱하므로 원소 단위가 일치해야 함
 
-  const buildSqls = (): string[] =>
-    editors
-      .filter(e => e.sql.trim())
-      .map(e => {
-        // 에디터 내용에 이미 TX 정보가 없으면 에디터 단위 TX 헤더 추가
-        const hasStepWithTx = /--\s*STEP\s*:\s*\d+\s+TX\s*:/i.test(e.sql)
-        if (hasStepWithTx) return e.sql
-        // TX 정보가 없는 STEP 주석이 있으면 각 줄에 TX 매핑 삽입
-        const hasBareStep = /--\s*STEP\s*:\s*\d+/i.test(e.sql)
-        if (hasBareStep) {
-          // -- STEP:n → -- STEP:n TX:T1 으로 변환
-          return e.sql.replace(/(--\s*STEP\s*:\s*\d+)(?!\s*TX)/gi, `$1 TX:${e.txId}`)
-        }
-        // STEP 주석 없으면 단일 STEP으로 래핑
-        const stepN = editors.filter(ed => ed.sql.trim()).indexOf(e) + 1
-        return `-- STEP:${stepN} TX:${e.txId}\n${e.sql}`
-      })
+  const buildSqls = (): string[] => {
+    const result: string[] = []
+    for (const e of editors) {
+      if (!e.sql.trim()) continue
+
+      const STEP_RE = /(?=--\s*STEP\s*:\s*\d+)/i
+      const blocks = e.sql.split(STEP_RE).map(b => b.trim()).filter(b => b)
+
+      if (blocks.length === 0) continue
+
+      if (blocks.length === 1 && !/--\s*STEP\s*:/i.test(blocks[0])) {
+        // STEP 주석 없는 에디터 → 에디터 전체를 단일 STEP으로 래핑
+        const stepN = result.length + 1
+        result.push(`-- STEP:${stepN} TX:${e.txId}\n${e.sql}`)
+        continue
+      }
+
+      for (const block of blocks) {
+        // TX 정보가 없는 STEP 주석(-- STEP:n) → TX 자동 추가
+        const withTx = block.replace(
+          /(--\s*STEP\s*:\s*\d+)(?!\s+TX\s*:)/i,
+          `$1 TX:${e.txId}`
+        )
+        result.push(withTx)
+      }
+    }
+    return result
+  }
 
   // ── 시나리오 자동 감지 ────────────────────────────────────────────────────
 
