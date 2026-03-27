@@ -34,6 +34,67 @@ export function SqlVizHelpPanel() {
               <p>생성된 위젯의 <b>임베드 코드</b> 탭에서 URL 또는 iframe 코드를 복사해 블로그 게시글에 붙여넣습니다.</p>
             </li>
           </ol>
+          <div className={styles.examplesTitle}>예시</div>
+          <div className={styles.examples}>
+            <div className={styles.example}>
+              <div className={styles.exampleLabel}>예시 1 — 데드락 (T1↔T2 순환 잠금)</div>
+              <div className={styles.exampleCols}>
+                <div>
+                  <div className={styles.txLabel}>T1 에디터</div>
+                  <pre className={styles.code}>{`-- STEP:1
+BEGIN;
+-- STEP:3
+UPDATE orders SET status='ok'
+WHERE id = 1;
+-- STEP:5
+UPDATE orders SET status='ok'
+WHERE id = 2;
+-- STEP:7
+COMMIT;`}</pre>
+                </div>
+                <div>
+                  <div className={styles.txLabel}>T2 에디터</div>
+                  <pre className={styles.code}>{`-- STEP:2
+BEGIN;
+-- STEP:4
+UPDATE orders SET status='ok'
+WHERE id = 2;
+-- STEP:6
+UPDATE orders SET status='ok'
+WHERE id = 1;
+-- STEP:8
+COMMIT;`}</pre>
+                </div>
+              </div>
+            </div>
+            <div className={styles.example}>
+              <div className={styles.exampleLabel}>예시 2 — 락 대기 (FOR KEY SHARE → DELETE 블로킹)</div>
+              <div className={styles.exampleCols}>
+                <div>
+                  <div className={styles.txLabel}>T1 에디터</div>
+                  <pre className={styles.code}>{`-- STEP:1
+BEGIN ISOLATION LEVEL READ COMMITTED;
+-- STEP:3
+SELECT * FROM parent
+WHERE id = 1 FOR KEY SHARE;
+-- STEP:5
+INSERT INTO child VALUES (202, 1);
+-- STEP:6
+COMMIT;`}</pre>
+                </div>
+                <div>
+                  <div className={styles.txLabel}>T2 에디터</div>
+                  <pre className={styles.code}>{`-- STEP:2
+BEGIN ISOLATION LEVEL READ COMMITTED;
+-- STEP:4
+DELETE FROM parent
+WHERE id = 1;
+-- STEP:7
+COMMIT;`}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
           <div className={styles.note}>
             ⚠ SQL은 직접 실행되지 않습니다 — 순수 Java 가상 시뮬레이션으로 안전하게 동작합니다.
           </div>
