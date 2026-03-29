@@ -358,27 +358,33 @@
     color: #000 !important;
   }
 
-  /* Mermaid/UML 다이어그램 — 다크모드 색상 강제 오버라이드 */
-  .content svg,
-  .content svg * {
-    background: #fff !important;
-    color: #000 !important;
-    fill: revert !important;
-    stroke: revert !important;
+  /* Mermaid/UML 다이어그램 — 인쇄 시 라이트 색상 강제 */
+  /* 노드 도형: 흰 배경 + 진한 테두리 */
+  .content svg rect,
+  .content svg polygon,
+  .content svg circle,
+  .content svg ellipse {
+    fill: #f8f8f8 !important;
+    stroke: #333 !important;
   }
-  /* SVG 텍스트만 검정으로 */
+  /* 화살표/연결선 경로: 검정 */
+  .content svg path,
+  .content svg line,
+  .content svg polyline {
+    stroke: #333 !important;
+    fill: none !important;
+  }
+  /* 화살표 헤드(marker)는 채움 유지 */
+  .content svg marker path,
+  .content svg marker polygon {
+    fill: #333 !important;
+    stroke: #333 !important;
+  }
+  /* 텍스트 전체 검정 */
   .content svg text,
   .content svg tspan {
     fill: #000 !important;
     color: #000 !important;
-  }
-  /* SVG 노드 배경은 연한 회색 계열 유지 (테두리만 검정) */
-  .content svg rect,
-  .content svg polygon,
-  .content svg circle,
-  .content svg ellipse,
-  .content svg path {
-    stroke: #333 !important;
   }
 
   body {
