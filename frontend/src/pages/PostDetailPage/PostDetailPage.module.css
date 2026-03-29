@@ -330,13 +330,12 @@
 }
 
 @media print {
-  /* 사이드바, 헤더 액션, AI 결과 블록, 네비게이션 전체 숨기기 */
+  /* 사이드바, 헤더 전체(발행상태·조회수·액션), AI 결과, 태그, AI 메타 숨기기 */
   .sidebar,
-  .actions,
+  .header,
   .resultBlock,
   .aiMeta,
-  header,
-  nav {
+  .tags {
     display: none !important;
   }
 
@@ -345,19 +344,41 @@
     display: block !important;
   }
 
-  /* 본문 영역 여백·테두리 제거 */
+  /* 본문 영역 — 테두리/배경 제거, 텍스트 검정 강제 */
   .content {
     border: none !important;
     padding: 0 !important;
     box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
   }
 
-  /* 제목/태그는 그대로 유지 */
-  .title,
-  .tags,
-  .tag {
+  /* 제목 검정 강제 */
+  .title {
     color: #000 !important;
-    background: none !important;
+  }
+
+  /* Mermaid/UML 다이어그램 — 다크모드 색상 강제 오버라이드 */
+  .content svg,
+  .content svg * {
+    background: #fff !important;
+    color: #000 !important;
+    fill: revert !important;
+    stroke: revert !important;
+  }
+  /* SVG 텍스트만 검정으로 */
+  .content svg text,
+  .content svg tspan {
+    fill: #000 !important;
+    color: #000 !important;
+  }
+  /* SVG 노드 배경은 연한 회색 계열 유지 (테두리만 검정) */
+  .content svg rect,
+  .content svg polygon,
+  .content svg circle,
+  .content svg ellipse,
+  .content svg path {
+    stroke: #333 !important;
   }
 
   body {
