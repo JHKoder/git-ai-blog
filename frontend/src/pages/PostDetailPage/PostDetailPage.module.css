@@ -391,4 +391,42 @@
     background: #fff !important;
     color: #000 !important;
   }
+
+  /* ── 페이지 중간 잘림 방지 — 블록 단위로 다음 페이지로 이동 ── */
+
+  /* 코드블록, 표, 인용구, SVG(Mermaid) — 통째로 다음 페이지 */
+  .content pre,
+  .content table,
+  .content blockquote,
+  .content svg,
+  .content figure,
+  .content img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* 단락 — orphan(홀로 남는 첫 줄) / widow(홀로 남는 마지막 줄) 방지 */
+  .content p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* 제목 바로 뒤에서 페이지 안 넘김 — 제목만 달랑 페이지 끝에 남는 현상 방지 */
+  .content h1,
+  .content h2,
+  .content h3,
+  .content h4,
+  .content h5,
+  .content h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* 목록 항목 — 너무 짧은 항목이 잘리지 않도록 */
+  .content li {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }

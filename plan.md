@@ -96,6 +96,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] AI 평가/제안 결과 닫기/열기 토글 버튼 — 화면에서만 숨김, 데이터 유지, 섹션 간격 10px
 - [x] GFM + Mermaid 렌더링, AI 평가 결과 마크다운 완전 렌더링 (SSE `\n` 토큰 처리 포함)
 - [x] PDF 변환 — 사이드바/태그/발행상태/조회수 제외, 제목+본문만 출력. 다크모드 Mermaid 텍스트 강제 검정 처리
+- [x] PDF 페이지 중간 잘림 방지 — `break-inside: avoid` 블록 단위(코드블록·표·Mermaid·목록·제목) 페이지 이동
 
 **기타**
 
