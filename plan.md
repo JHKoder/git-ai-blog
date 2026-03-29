@@ -102,6 +102,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] 이미지 생성 — `ImageGenButton` 수동 전용
 - [x] Hashnode 태그 매핑 — `hashnodeTags` TEXT 컬럼, ProfilePage 태그명↔ID 매핑 UI
 - [x] Hashnode 태그 등록 버그 수정 — `com.fasterxml.jackson` → `tools.jackson.*` 교체 (`HashnodeGraphqlBuilder`)
+- [x] Hashnode `Variable "$input" was not provided` 버그 수정 — `HashnodeClient`도 동일 문제, `tools.jackson.*` + Spring 주입으로 교체
 - [x] 반응형 레이아웃 — 모바일/태블릿 미디어 쿼리
 - [x] `durationMs` 컬럼 — AI 응답 소요 시간 저장
 - [x] Swagger UI (`/swagger-ui/index.html`)
