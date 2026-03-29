@@ -77,7 +77,15 @@ public class StreamAiSuggestionUseCase {
 
         String effectiveExtraPrompt = resolveExtraPrompt(request);
 
-        String prompt = promptBuilder.build(post.getContentType(), contentToImprove, effectiveExtraPrompt);
+        // Claude 200K 컨텍스트 - max_tokens(16000) 예약 → 입력 상한 약 184K 토큰 ≈ 736,000 chars
+        // content가 너무 크면 후반부를 잘라 안전하게 처리 (400 Bad Request 방지)
+        String safeContent = truncateIfTooLong(contentToImprove, 600_000);
+        if (safeContent.length() < contentToImprove.length()) {
+            log.warn("[StreamAI] content 길이 초과로 트리밍 original={}chars truncated={}chars",
+                    contentToImprove.length(), safeContent.length());
+        }
+
+        String prompt = promptBuilder.build(post.getContentType(), safeContent, effectiveExtraPrompt);
         AiClientRouter.RouteResult route = aiClientRouter.route(post.getContentType(), request.getModel(), member);
         log.info("[StreamAI][2] 라우팅 완료 model={} promptLen={}", route.model(), prompt.length());
 
@@ -110,7 +118,7 @@ public class StreamAiSuggestionUseCase {
                 String rawText = accumulated.toString();
                 String parsedTitle = parseTitle(rawText);
                 String parsedTags = parseTags(rawText);
-                String cleanContent = removeTagsLine(removeFirstHeading(rawText));
+                String cleanContent = removeAiAuthorLine(removeTagsLine(removeFirstHeading(rawText)));
                 saveResult(postId, memberId, cleanContent,
                         route.model(), finalEffectiveExtraPrompt, durationMs, prompt.length(), parsedTitle, parsedTags);
                 log.info("[StreamAI][8] DB 저장 완료 → __done__ emit suggestedTitle={} suggestedTags={}", parsedTitle, parsedTags);
@@ -229,6 +237,28 @@ public class StreamAiSuggestionUseCase {
         return text.lines()
                 .filter(line -> !line.trim().startsWith("TAGS:"))
                 .collect(java.util.stream.Collectors.joining("\n"));
+    }
+
+    /**
+     * "이 글은 {모델명}이 작성을 도왔습니다." 형태의 AI 저자 줄을 제거한다.
+     * 인용 형식(> ...) 유무 무관하게 제거.
+     * post.content에 누적되면 재요청 시 프롬프트가 점점 커지는 문제를 방지한다.
+     */
+    private String removeAiAuthorLine(String text) {
+        if (text == null) return null;
+        return text.lines()
+                .filter(line -> !line.trim().matches("^>?\\s*이 글은 .+이 작성을 도왔습니다\\.?\\s*$"))
+                .collect(java.util.stream.Collectors.joining("\n"));
+    }
+
+    /**
+     * content 길이가 maxChars를 초과하면 앞부분 maxChars 문자만 유지한다.
+     * 뒷부분을 잘라내는 이유: 뒤쪽은 AI 저자 줄·태그 줄 등 노이즈가 많고,
+     * 앞부분에 핵심 내용이 집중되는 경향이 있기 때문이다.
+     */
+    private String truncateIfTooLong(String content, int maxChars) {
+        if (content == null || content.length() <= maxChars) return content;
+        return content.substring(0, maxChars);
     }
 
     private String resolveExtraPrompt(AiSuggestionRequest request) {

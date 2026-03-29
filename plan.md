@@ -105,6 +105,7 @@ GitHub 활동(커밋, PR, README 등)을 자동 수집해 Claude / Grok / GPT / 
 - [x] Hashnode 태그 매핑 — `hashnodeTags` TEXT 컬럼, ProfilePage 태그명↔ID 매핑 UI
 - [x] Hashnode 태그 등록 버그 수정 — `com.fasterxml.jackson` → `tools.jackson.*` 교체 (`HashnodeGraphqlBuilder`)
 - [x] Hashnode `Variable "$input" was not provided` 버그 수정 — `HashnodeClient`도 동일 문제, `tools.jackson.*` + Spring 주입으로 교체
+- [x] AI 개선 수락 후 재요청 400 오류 수정 — AI 저자 줄 누적으로 프롬프트 비대화 → 저장 시 저자 줄 제거 + 600K chars 초과 트리밍
 - [x] 반응형 레이아웃 — 모바일/태블릿 미디어 쿼리
 - [x] `durationMs` 컬럼 — AI 응답 소요 시간 저장
 - [x] Swagger UI (`/swagger-ui/index.html`)
