@@ -115,6 +115,7 @@ public class HashnodeGraphqlBuilder {
      * Hashnode에 발행하기 전 우리 블로그 전용 마커를 제거한다.
      * - ```sql visualize ... ``` 블록: Hashnode 파서가 인식 못해 깨져 보임 → 제거
      * - [IMAGE: ...] 플레이스홀더: 이미지 미생성 시 노출됨 → 제거
+     * - "이 글은 {모델명}이 작성을 도왔습니다." AI 저자 줄 → 제거 (인용 형식 유무 무관)
      */
     private String sanitizeForHashnode(String content) {
         if (content == null) return null;
@@ -122,6 +123,10 @@ public class HashnodeGraphqlBuilder {
         String result = content.replaceAll("(?s)```sql visualize[^\\n]*\\n.*?```", "");
         // [IMAGE: ...] 마커 제거
         result = result.replaceAll("\\[IMAGE:[^\\]]*]", "");
+        // AI 저자 줄 제거 ("> 이 글은 ... 이 작성을 도왔습니다." 형태, 인용 유무 무관)
+        result = result.lines()
+                .filter(line -> !line.trim().matches("^>?\\s*이 글은 .+이 작성을 도왔습니다\\.?\\s*$"))
+                .collect(java.util.stream.Collectors.joining("\n"));
         return result;
     }
 
