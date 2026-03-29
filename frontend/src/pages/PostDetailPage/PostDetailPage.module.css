@@ -330,21 +330,38 @@
 }
 
 @media print {
-  /* 버튼, 네비게이션, AI 패널 숨기기 */
-  header, nav,
-  .actions, .aiPanel,
-  button, a[role="button"] {
+  /* 사이드바, 헤더 액션, AI 결과 블록, 네비게이션 전체 숨기기 */
+  .sidebar,
+  .actions,
+  .resultBlock,
+  .aiMeta,
+  header,
+  nav {
     display: none !important;
   }
 
+  /* 2컬럼 → 단일 컬럼으로 전환 */
+  .twoCol {
+    display: block !important;
+  }
+
+  /* 본문 영역 여백·테두리 제거 */
   .content {
-    border: none;
-    padding: 0;
-    box-shadow: none;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* 제목/태그는 그대로 유지 */
+  .title,
+  .tags,
+  .tag {
+    color: #000 !important;
+    background: none !important;
   }
 
   body {
-    background: #fff;
-    color: #000;
+    background: #fff !important;
+    color: #000 !important;
   }
 }
