@@ -3,8 +3,8 @@ package github.jhkoder.aiblog.infra.hashnode;
 import github.jhkoder.aiblog.common.exception.ExternalApiException;
 import github.jhkoder.aiblog.common.exception.RateLimitException;
 import github.jhkoder.aiblog.infra.hashnode.HashnodeGraphqlBuilder.GqlRequest;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.Getter;
@@ -30,7 +30,7 @@ public class HashnodeClient {
     private static final String HASHNODE_API_URL = "https://gql.hashnode.com";
     private final WebClient.Builder webClientBuilder;
     private final HashnodeGraphqlBuilder graphqlBuilder;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @Getter
     public static class PublishResult {

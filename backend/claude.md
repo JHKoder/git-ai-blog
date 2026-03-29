@@ -547,4 +547,5 @@ src/test/java/.../infra/ai/
 | `AuthorizationDeniedException` + `response has already been committed` | SSE 응답 flush 후 예외가 컨테이너로 전파 → Spring이 error page 렌더링 시도하지만 응답이 이미 커밋됨 | `onErrorResume`으로 에러를 `event: error` SSE 이벤트로 클라이언트에 전달 후 스트림 종료 |
 | Hashnode 태그 연동 안 됨 (미해결) | `buildTagsNode()`에서 로컬 태그 문자열로 slug를 임의 생성 — Hashnode API는 자체 DB에 등록된 slug와 정확히 일치해야 연동됨, 임의 slug는 무시 | 단기: `tags: []` 빈 배열 전송 / 장기: 사용자 ProfilePage에서 Hashnode 태그 ID 사전 등록 후 발행 시 매핑 |
 | Hashnode 태그 등록 안 됨 (`buildTagsNode` JSON 파싱 실패) | `HashnodeGraphqlBuilder`가 `com.fasterxml.jackson.*` (`new ObjectMapper()` 직접 생성) 사용 — Spring Boot 4 + Jackson 3.x 환경에서 `TypeReference` 역직렬화 실패 → `catch` 무음 처리 → 빈 배열 전송 | `tools.jackson.core.type.TypeReference` / `tools.jackson.databind.ObjectMapper` 임포트로 교체 + `@RequiredArgsConstructor`로 Spring 주입 (`HashnodeGraphqlBuilder.java`) |
+| Hashnode `Variable "$input" was not provided` | `HashnodeClient`도 `com.fasterxml.jackson` + `new ObjectMapper()` 직접 생성 — `valueToTree(tools.jackson.ObjectNode)`가 빈 객체로 직렬화되어 `variables` 누락 | `tools.jackson.databind.ObjectMapper` + `@RequiredArgsConstructor` Spring 주입으로 교체 (`HashnodeClient.java`) |
 
