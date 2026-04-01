@@ -46,9 +46,13 @@ ai:
   daily-limit: 5
   model:
     claude:
-      sonnet: claude-sonnet-4-6
-      opus: claude-opus-4-5
-      haiku: claude-haiku-4-5-20251001
+      v4:
+        sonnet: claude-sonnet-4-6
+        opus: claude-opus-4-5
+        haiku: claude-haiku-4-5-20251001
+      v3:
+        sonnet: claude-sonnet-3-5-20241022
+        haiku: claude-haiku-3-5-20241022
     grok:
       default: grok-3
     gpt:

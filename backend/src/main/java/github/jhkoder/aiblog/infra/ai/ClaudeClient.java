@@ -33,18 +33,26 @@ public class ClaudeClient implements AiClient {
     @Value("${ai.claude.base-url}")
     private String baseUrl;
 
-    @Value("${ai.model.claude.sonnet}")
+    @Value("${ai.model.claude.v4.sonnet}")
     private String sonnet;
 
-    @Value("${ai.model.claude.opus}")
+    @Value("${ai.model.claude.v4.opus}")
     private String opus;
 
-    @Value("${ai.model.claude.haiku}")
+    @Value("${ai.model.claude.v4.haiku}")
     private String haiku;
 
-    public String getSonnet() { return sonnet; }
-    public String getOpus()   { return opus; }
-    public String getHaiku()  { return haiku; }
+    @Value("${ai.model.claude.v3.sonnet}")
+    private String sonnetV3;
+
+    @Value("${ai.model.claude.v3.haiku}")
+    private String haikuV3;
+
+    public String getSonnet()    { return sonnet; }
+    public String getOpus()      { return opus; }
+    public String getHaiku()     { return haiku; }
+    public String getSonnetV3()  { return sonnetV3; }
+    public String getHaikuV3()   { return haikuV3; }
 
     @Override
     public String complete(String prompt, String model, String apiKey) {
