@@ -8,6 +8,17 @@
 
 ---
 
+## 리뷰 메모 (2026-04-02)
+
+> 상세 → [`reviews/2026-04-02_backend-domain-refactor-flyway.md`](reviews/2026-04-02_backend-domain-refactor-flyway.md)
+
+**즉시 수정 Top 3:**
+- [ ] `Member.disconnectHashnode()` null 직접 할당 제거 (code-style 위반)
+- [ ] `StreamAiSuggestionUseCase` inline `java.util.*` FQN → import 정리
+- [ ] Flyway V4 추가: `posts.member_id`, `ai_suggestions.post_id` 등 FK 제약
+
+---
+
 ## 구현 현황 체크리스트
 
 ### 환경별 설정
