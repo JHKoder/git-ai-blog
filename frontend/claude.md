@@ -6,16 +6,16 @@
 
 ## 기술 스택
 
-| 영역       | 기술                                        |
-|----------|-------------------------------------------|
-| 프레임워크    | React 18 + TypeScript + Vite 5            |
-| 상태관리     | Zustand + immer 미들웨어                      |
-| HTTP     | Axios (JWT interceptor 자동 주입)             |
-| 스타일      | CSS Modules + CSS 변수 (다크/라이트 모드)          |
-| 라우팅      | React Router v7                           |
-| Markdown | react-markdown + remark-gfm + Mermaid     |
-| SQL 에디터  | @monaco-editor/react                      |
-| 플로우 그래프  | @xyflow/react (ReactFlow)                 |
+| 영역       | 기술                                    |
+|----------|-----------------------------------------|
+| 프레임워크    | React 18 + TypeScript + Vite 5          |
+| 상태관리     | Zustand + immer 미들웨어                  |
+| HTTP     | Axios (JWT interceptor 자동 주입)         |
+| 스타일      | CSS Modules + CSS 변수 (다크/라이트 모드)    |
+| 라우팅      | React Router v7                         |
+| Markdown | react-markdown + remark-gfm + Mermaid   |
+| SQL 에디터  | @monaco-editor/react                    |
+| 플로우 그래프  | @xyflow/react (ReactFlow)               |
 
 ---
 
@@ -94,13 +94,13 @@ interface Member {
     hasGithubToken: boolean
     aiDailyLimit: number | null       // 전체 일일 한도 (null이면 서버 기본값 사용)
     claudeDailyLimit: number | null   // Claude 모델별 한도
-    grokDailyLimit: number | null     // Grok 모델별 한도
-    gptDailyLimit: number | null      // GPT 모델별 한도
-    geminiDailyLimit: number | null   // Gemini 모델별 한도
+    grokDailyLimit: number | null
+    gptDailyLimit: number | null
+    geminiDailyLimit: number | null
 }
 
 interface HashnodeConnectRequest {
-    token: string;
+    token: string
     publicationId: string
 }
 
@@ -110,11 +110,11 @@ interface ApiKeyUpdateRequest {
     gptApiKey?: string
     geminiApiKey?: string
     githubToken?: string
-    aiDailyLimit?: number         // 전체 AI 일일 한도
-    claudeDailyLimit?: number     // Claude 모델별 한도
-    grokDailyLimit?: number       // Grok 모델별 한도
-    gptDailyLimit?: number        // GPT 모델별 한도
-    geminiDailyLimit?: number     // Gemini 모델별 한도
+    aiDailyLimit?: number
+    claudeDailyLimit?: number
+    grokDailyLimit?: number
+    gptDailyLimit?: number
+    geminiDailyLimit?: number
 }
 ```
 
@@ -127,46 +127,46 @@ type PostStatus = 'DRAFT' | 'AI_SUGGESTED' | 'ACCEPTED' | 'PUBLISHED'
 type ContentType = 'ALGORITHM' | 'CODING' | 'CS' | 'TEST' | 'AUTOMATION' | 'DOCUMENT' | 'CODE_REVIEW' | 'ETC'
 
 interface Post {
-    id,
-    title,
-    content,
-    contentType,
-    status,
-    hashnodeId?,
-    hashnodeUrl?,
-    tags,
-    viewCount,
-    createdAt,
-    updatedAt
+    id: number
+    title: string
+    content: string
+    contentType: ContentType
+    status: PostStatus
+    hashnodeId?: string
+    hashnodeUrl?: string
+    tags: string[]
+    viewCount: number
+    createdAt: string
+    updatedAt: string
 }
 
 interface PostPage {
-    content: Post[],
-    totalElements,
-    totalPages,
-    number,
-    size
+    content: Post[]
+    totalElements: number
+    totalPages: number
+    number: number
+    size: number
 }
 
 interface AiUsage {
-    used: number;
-    limit: number;
+    used: number
+    limit: number
     remaining: number
-    sonnetInputTokens: number;
+    sonnetInputTokens: number
     sonnetOutputTokens: number
-    claudeTokenLimit: number;
+    claudeTokenLimit: number
     claudeTokenRemaining: number
-    claudeRequestLimit: number;
+    claudeRequestLimit: number
     claudeRequestRemaining: number
-    imageDailyUsed: number;
+    imageDailyUsed: number
     imageDailyLimit: number
-    imageDailyRemaining: number;
+    imageDailyRemaining: number
     imagePerPostLimit: number
-    grokInputTokens: number;
+    grokInputTokens: number
     grokOutputTokens: number
-    grokTokenLimit: number;
+    grokTokenLimit: number
     grokTokenRemaining: number
-    grokRequestLimit: number;
+    grokRequestLimit: number
     grokRequestRemaining: number
 }
 ```
@@ -175,19 +175,19 @@ interface AiUsage {
 
 ```typescript
 interface AiSuggestion {
-    id,
-    postId,
-    suggestedContent,
-    model,
-    extraPrompt?,
-    createdAt
+    id: number
+    postId: number
+    suggestedContent: string
+    model: string
+    extraPrompt?: string
+    createdAt: string
 }
 
 interface AiSuggestionRequest {
-    model?: string;
-    extraPrompt?: string;
-    tempContent?: string;
-    promptId?: number         // 커스텀 프롬프트 ID (선택)
+    model?: string
+    extraPrompt?: string
+    tempContent?: string
+    promptId?: number    // 커스텀 프롬프트 ID (선택)
 }
 ```
 
@@ -197,24 +197,24 @@ interface AiSuggestionRequest {
 type CollectType = 'COMMIT' | 'PR' | 'WIKI' | 'README'
 
 interface Repo {
-    id,
-    owner,
-    repoName,
-    collectType,
-    createdAt
+    id: number
+    owner: string
+    repoName: string
+    collectType: CollectType
+    createdAt: string
 }
 
 interface RepoAddRequest {
-    owner: string;
-    repoName: string;
+    owner: string
+    repoName: string
     collectType: CollectType
 }
 
 interface PrSummary {
-    number,
-    title,
-    hasBlogLabel,
-    alreadyCollected
+    number: number
+    title: string
+    hasBlogLabel: boolean
+    alreadyCollected: boolean
 }
 ```
 
@@ -227,86 +227,61 @@ interface PrSummary {
 - `baseURL: /api`
 - 요청 인터셉터: `Authorization: Bearer <token>` 주입
 - 응답 인터셉터: 401 → `authStore.logout()` + `/login` 리다이렉트
+- **import**: `import api from './axiosInstance'` (default export — named import 오류 주의)
 
 ### postApi.ts
 
 ```typescript
-create(data)
-POST / posts
-getList(page, size, tag ?)
-GET / posts
-getDetail(id)
-GET / posts / {id}
-update(id, data)
-PUT / posts / {id}
-delete (id)
-DELETE / posts / {id}
-publish(id)
-POST / posts / {id}
-/publish
-importFromHashnode()
-POST / posts /
-import
-
--hashnode
-syncHashnode()
-POST / posts / sync - hashnode
-getAiUsage()
-GET / posts / ai - usage
-generateImage(prompt, model)
-POST / posts / {id}
-/generate-image
+create(data)                          POST   /posts
+getList(page, size, tag?)             GET    /posts
+getDetail(id)                         GET    /posts/{id}
+update(id, data)                      PUT    /posts/{id}
+delete(id)                            DELETE /posts/{id}
+publish(id)                           POST   /posts/{id}/publish
+importFromHashnode()                  POST   /posts/import-hashnode
+syncHashnode()                        POST   /posts/sync-hashnode
+getAiUsage()                          GET    /posts/ai-usage
+generateImage(id, prompt, model)      POST   /posts/{id}/generate-image
 ```
 
 ### memberApi.ts
 
 ```typescript
-getMe()
-GET / members / me
-connectHashnode(data)
-POST / members / hashnode - connect
-disconnectHashnode()
-DELETE / members / hashnode - connect
-updateApiKeys(data)
-PATCH / members / api - keys
-getAiUsage()
-GET / posts / ai - usage
+getMe()                               GET    /members/me
+connectHashnode(data)                 POST   /members/hashnode-connect
+disconnectHashnode()                  DELETE /members/hashnode-connect
+updateApiKeys(data)                   PATCH  /members/api-keys
 ```
 
 ### suggestionApi.ts
 
 ```typescript
-request(postId, data)      POST /ai-suggestions/{postId}              // 202 Accepted (비동기)
-getLatest(postId)          GET  /ai-suggestions/{postId}/latest
-getHistory(postId)         GET  /ai-suggestions/{postId}/history
-accept(postId, id)         POST /ai-suggestions/{postId}/{id}/accept
-reject(postId, id)         POST /ai-suggestions/{postId}/{id}/reject
+request(postId, data)                 POST   /ai-suggestions/{postId}           // 202 Accepted (비동기)
+getLatest(postId)                     GET    /ai-suggestions/{postId}/latest
+getHistory(postId)                    GET    /ai-suggestions/{postId}/history
+accept(postId, id)                    POST   /ai-suggestions/{postId}/{id}/accept
+reject(postId, id)                    POST   /ai-suggestions/{postId}/{id}/reject
 ```
 
-**SSE 스트리밍:** `fetch` + `ReadableStream` 직접 사용 (Axios는 SSE 미지원) — `AiSuggestionPanel` 내부에서 직접 호출, 이 파일에 함수 미분리
-- `POST /api/ai-suggestions/{postId}/stream` → `text/event-stream`
-- `event: token` / `data: <토큰>` 수신 시 `streamingText`에 누적
-- `event: done` / `data: [DONE]` 수신 시 스트리밍 종료 → `onSuggestionUpdate()` 호출
+**SSE 스트리밍** — `fetch` + `ReadableStream` 직접 사용 (Axios SSE 미지원)
+
+- 호출 위치: `AiSuggestionPanel` 내부 직접 호출 (이 파일에 함수 미분리)
+- 엔드포인트: `POST /api/ai-suggestions/{postId}/stream` → `text/event-stream`
+- `event: token` / `data: <텍스트>` → `streamingText` 누적
+- `event: done` / `data: [DONE]` → 스트리밍 종료 → `onSuggestionUpdate()` 호출
+- `event: error` → 다음 줄 `data:` 메시지 추출 → `toast.error` + 종료
 - `AbortController`로 컴포넌트 언마운트 시 연결 중단
+- SSE 파싱 주의: `currentEvent`는 **빈 줄(이벤트 구분자)**에서만 초기화, `done` 수신 시 `finished = true` 즉시 루프 탈출
 
 ### repoApi.ts
 
 ```typescript
-getList()
-GET / repos
-add(data)
-POST / repos
-delete (id)
-DELETE / repos / {id}
-collect(id, wikiPage ?)
-POST / repos / {id}
-/collect
-getPrList(id)
-GET / repos / {id}
-/prs
-collectPrs(id, prNumbers)
-POST / repos / {id}
-/collect-prs
+getList()                             GET    /repos
+add(data)                             POST   /repos
+delete(id)                            DELETE /repos/{id}
+collect(id, wikiPage?)                POST   /repos/{id}/collect
+getPrList(id)                         GET    /repos/{id}/prs
+collectPrs(id, prNumbers)             POST   /repos/{id}/collect-prs
 ```
 
 ---
@@ -347,6 +322,20 @@ POST / repos / {id}
 
 ---
 
+## 컴포넌트 사용 규칙
+
+**MarkdownRenderer**
+- `PostDetailPage`, `AiSuggestionPanel` 모두 `<MarkdownRenderer content={...} />` 사용
+- `ReactMarkdown` + `remark-gfm` 직접 사용 금지 — MarkdownRenderer로 통일
+- Mermaid: ` ```mermaid ` 코드블록 → `MermaidBlock` 자동 분기
+- SQL 코드블록: ` ```sql ` 만 사용 — dialect 붙이기 금지 (` ```sql mysql ` → 렌더링 오류)
+
+**Hashnode 발행 전 프론트 검증**
+- 제목 6자 미만 → `toast.error` (Hashnode API 최소 길이 요구사항)
+- 백엔드에서도 동일 검증 후 422 반환 (이중 방어)
+
+---
+
 ## 개발 환경 실행
 
 ```bash
@@ -357,122 +346,60 @@ npm run build                  # 프로덕션 빌드
 
 ---
 
-## 주요 이슈 해결 기록
-
-| 문제                             | 원인                               | 해결                                       |
-|--------------------------------|----------------------------------|------------------------------------------|
-| zustand immer 빌드 실패            | `immer` peer dependency 누락       | `immer: ^10.0.0` 추가                      |
-| rollup 바이너리 누락 (반복)            | npm optional dep 버그              | CI에서 `rm -f package-lock.json` 후 install |
-| QEMU arm64 illegal instruction | `node:20-alpine` musl + QEMU 비호환 | `node:20-slim` (debian)으로 교체             |
-| GHA 캐시로 nginx.conf 누락          | 이전 빌드 캐시 재사용                     | frontend 빌드에 `--no-cache` 추가             |
-| 다크모드 텍스트 안 보임                  | 하드코딩 색상                          | CSS 변수 `var(--text)` 교체                  |
-| Mermaid 다크모드에서 흰 배경·검은 텍스트    | `theme: 'default'` 하드코딩           | 렌더 시점에 `data-theme` 감지 → `'dark'`/`'default'` 동적 적용 (`MermaidBlock.tsx`) |
-| Widget(ConcurrencyTimeline) 다크모드 텍스트 안 보임 | `--surface`, `--hover` CSS 변수 미정의 + `.opNormal` color 누락 | `index.css`에 `--surface`/`--hover` 라이트·다크 변수 추가, `.opNormal`에 `color: var(--text)` 추가 |
-| Hashnode 발행 버튼 위치             | ACCEPTED 상태 하단에만 있어 접근 불편         | PostDetailPage 상단 actions에 추가 (모든 상태), PostEditPage "저장 후 발행" 추가 |
-| GFM 문법 미렌더링                   | `remark-gfm` 플러그인 미설치             | `remark-gfm` 설치 + `MarkdownRenderer` 공통 컴포넌트로 통합 |
-| Mermaid 코드블록 원문 출력             | 렌더링 컴포넌트 없음                       | `MermaidBlock` (동적 import + mermaid.render()) + `MarkdownRenderer` 통합 |
-| npm 캐시 권한 오류 (`EACCES`)        | npm cache 디렉터리 권한 문제              | `npm install --cache /tmp/npm-cache` 로 우회 |
-| `import { api }` named import 오류 | `axiosInstance.ts`가 default export  | `import api from './axiosInstance'` 로 수정 |
-| ` ```sql mysql ` 코드블록 렌더링 오류 | remark가 `language-sql` 뒤 토큰(`mysql` 등)을 className에 그대로 주입 → 하이라이터 오류 | (1) MarkdownRenderer `code` 컴포넌트에서 className 첫 토큰만 추출해 안전하게 처리, (2) PromptBuilder에서 일반 SQL 코드블록에 DB 타입 지정 금지 규칙 추가 |
-
-**Hashnode 발행 전 프론트 검증:**
-- 제목 6자 미만 → `toast.error` (Hashnode API 최소 길이 요구사항)
-- 백엔드에서도 동일 검증 후 422 반환 (이중 방어)
-
-**MarkdownRenderer 사용 패턴:**
-- `PostDetailPage`, `AiSuggestionPanel` 양쪽 모두 `<MarkdownRenderer content={...} />` 사용
-- `ReactMarkdown` + `remark-gfm` 직접 사용 금지 (MarkdownRenderer로 통일)
-- Mermaid 언어 감지: ` ```mermaid ` 코드블록 → `MermaidBlock` 자동 분기
-
----
-
 ## PDF 변환 설계
 
-> `PostDetailPage`에서 게시글을 PDF로 저장할 때 사이드바를 제외하고 본문만 출력한다.
+`PostDetailPage`에서 게시글을 PDF로 저장할 때 사이드바를 제외하고 본문만 출력한다.
 
-**요구사항:**
-- PDF 출력 범위: 제목 + 게시글 본문만 포함
-- 제외 대상: 우측 사이드바 전체 (발행 버튼, AI 제안 패널, AI 평가 패널), 태그, 발행 상태/조회수 메타, AI 작성 정보
-- AI 개선 결과는 사이드바에서만 확인 가능 — PDF에 포함하지 않음
-- 다크모드 인쇄 시 Mermaid(UML) 다이어그램 배경/텍스트를 라이트 테마로 강제 (텍스트 안 보임 방지)
+**출력 범위:** 제목 + 본문만 / **제외:** 사이드바 전체, 태그, 메타, AI 작성 정보
 
 **구현:**
-- `@media print` CSS 미디어 쿼리 (`PostDetailPage.module.css`)
+- `@media print` (`PostDetailPage.module.css`)
   - `.sidebar`, `.actions`, `.resultBlock`, `.aiMeta`, `.tags`, `.meta`, `header`, `nav` → `display: none`
   - `.twoCol` → `display: block` (단일 컬럼)
-  - `.content` 테두리/여백/배경 제거, 텍스트 강제 검정
-  - Mermaid SVG: `filter: invert(0)`, 배경 흰색, 텍스트 검정 강제
+  - Mermaid SVG: 배경 흰색, 텍스트 검정 강제
 - `window.print()` 호출 전 Mermaid를 라이트 테마로 재렌더링 후 복원 (`handleExportPdf`)
-
-**이슈 해결 기록:**
-| 문제 | 해결 |
-|------|------|
-| 다크모드 Mermaid 인쇄 시 텍스트 안 보임 | `@media print` SVG 내부 색상 강제 오버라이드 |
-| 태그/발행상태/조회수 PDF에 노출 | `.tags`, `.header` `display: none` 추가 |
-| 요소가 페이지 중간에서 잘림 | `pre`, `table`, `blockquote`, `svg`, `li` → `break-inside: avoid` / `h1~h6` → `break-after: avoid` / `p` → `orphans: 3; widows: 3` |
+- `pre`, `table`, `blockquote`, `svg`, `li` → `break-inside: avoid` / `h1~h6` → `break-after: avoid`
 
 ---
 
 ## AI 평가 패널 설계 (미구현)
 
-> `PostDetailPage` 우측에 발행 전 AI 평가 결과를 표시한다. Hashnode에 전달하지 않음.
+`PostDetailPage` 우측에 발행 전 AI 평가 결과를 표시한다. Hashnode에 전달하지 않음.
 
 **UX 흐름:**
-1. 우측 패널에 모델 선택 드롭다운 (기존 `AiSuggestionPanel`과 동일)
-2. "AI 평가 요청" 버튼 → `POST /api/ai-suggestions/{postId}/evaluate` SSE 스트리밍
-3. 평가 결과를 `<pre>` → `MarkdownRenderer` 전환 방식으로 표시 (기존 스트리밍 렌더링 패턴 재사용)
-4. 완료 후 "이 내용으로 AI 개선 요청" 버튼 → 평가 결과에서 추출한 개선 요청사항을 `AiSuggestionPanel`의 `extraPrompt`에 자동 주입
+1. 모델 선택 → "AI 평가 요청" 버튼 → `POST /api/ai-suggestions/{postId}/evaluate` SSE 스트리밍
+2. 스트리밍 중 `<pre>` 원문 표시, 완료 후 `MarkdownRenderer` 전환 (기존 패턴 재사용)
+3. 완료 후 "이 내용으로 AI 개선 요청" 버튼 → 추출된 개선 요청사항을 `AiSuggestionPanel.extraPrompt`에 자동 주입
 
-**컴포넌트 설계:**
-- `AiEvaluationPanel` 신규 컴포넌트 — `AiSuggestionPanel`과 분리
-- `PostDetailPage`를 2컬럼 레이아웃으로 변경: 좌측 본문 + 우측 사이드바
+**컴포넌트:**
+- `AiEvaluationPanel` 신규 — `AiSuggestionPanel`과 완전 분리
 - 우측 사이드바에 `AiSuggestionPanel` + `AiEvaluationPanel` 배치
-- 사이드바는 `position: sticky; top: <header높이>` — 스크롤 시에도 우측 고정
-- SSE 파싱 로직은 `AiSuggestionPanel`과 동일한 패턴 사용
+- 사이드바 `position: sticky` — 스크롤 시 고정
 
-**상태:**
-- 평가 결과는 DB 저장 없음 — `useState`로 컴포넌트 내부에만 보관
+**상태 (DB 저장 없음):**
 - `evaluationText: string` — 스트리밍 중 누적
-- `suggestedExtraPrompt: string | null` — 평가 완료 후 추출된 개선 요청사항
+- `suggestedExtraPrompt: string | null` — 완료 후 추출된 개선 요청사항
 
 ---
 
-## 해결된 이슈 (2026-03-26)
+## 주요 이슈 해결 기록
 
-### 7. 스트리밍 중 실시간 텍스트 미표시 / 마크다운 깨짐 ✅
-- **원인 1**: SSE 파싱 — `currentEvent`를 `data:` 처리 후 초기화해 네트워크 청크 분리 시 event 유실, `done` 수신 후 루프 즉시 탈출 안 함
-- **원인 2**: 스트리밍 중 `MarkdownRenderer` 사용 — 불완전한 마크다운(코드블록 미닫힘 등)이 엉뚱하게 파싱됨
-- **해결**: `currentEvent`는 빈 줄(SSE 이벤트 구분자)에서만 초기화, `done` 수신 시 `finished = true` 즉시 루프 탈출, 스트리밍 중에는 `<pre className={styles.streamingPre}>` 로 원문 표시, 완료 후 `MarkdownRenderer` 로 전환
-
-### 6. SSE event: error 미처리 ✅
-- **원인**: 서버에서 `event: error` 이벤트를 전송했지만 프론트에서 파싱하지 않아 무시됨
-- **해결**: `event: error` 감지 시 다음 줄 `data:` 에서 메시지 추출 → `toast.error` + 스트리밍 종료
-
-### 5. AI 요청 클라이언트 연결 끊김 ✅
-- **원인**: AI API 30~60초 동기 처리 → 브라우저/프록시 타임아웃으로 HTTP 연결 먼저 끊김
-- **방안 A** (@Async + 폴링): `POST` 즉시 202 반환, 백엔드 `@Async` 처리, 프론트 3초 폴링
-- **방안 B** (SSE 스트리밍): `POST .../stream` → `fetch + ReadableStream`으로 토큰 실시간 렌더링
-  - 스트리밍 중 `streaming` state = true → `streamingText` 누적 → `MarkdownRenderer` 실시간 표시
-  - 완료(`event: done`) 시 `onSuggestionUpdate()` 호출 → 최신 제안 갱신
-  - `AbortController`로 언마운트 시 스트림 정리
-- **nginx**: `/api/ai-suggestions/*/stream` 경로에 `proxy_buffering off`, `proxy_read_timeout 300s`
-
----
-
-## 해결된 이슈 (2026-03-25)
-
-### 1. `sql visualize` 마커 렌더링 ✅
-- **해결**: `MarkdownRenderer` 전처리(`SQL_VIZ_RE` 정규식)로 마커를 플레이스홀더로 치환 후 `SqlVizMarker` 컴포넌트 렌더링
-- **파일**: `components/SqlVizMarker/SqlVizMarker.tsx` (신규), `MarkdownRenderer.tsx` (수정)
-- 코드블록 연속 파싱 충돌도 전처리 방식으로 함께 해결
-
-### 2. `[IMAGE: ...]` 플레이스홀더 그대로 노출 ✅
-- **해결**: `MarkdownRenderer`의 `removeImagePlaceholders()` 함수로 렌더링 전 제거
-
-### 3. AI 작성 정보 분리 표시 ✅
-- **해결**: `PostDetailPage` 하단 `aiMeta` 카드로 통합 (모델명·최종수정일·개선횟수), 본문 내 `> 이 글은 ...` 인용 줄은 `removeAiAuthorLine()`으로 제거
-- `fetchHistory` 추가 호출로 개선 횟수 집계
-
-### 4. AI 작성 정보 카드 중복 표시 ✅
-- **원인**: AI가 `> 이 글은 ...` 인용 형식 대신 일반 텍스트로 저자 줄을 생성하는 경우, `removeAiAuthorLine()` 정규식이 `>` 없는 줄을 제거 못해 본문에 그대로 노출됨 → `PostDetailPage` `aiMeta` 카드와 중복
-- **해결**: 정규식을 `^>?\s*이 글은 .+이 작성을 도왔습니다\.?\s*$` 로 수정 — `>` 유무 무관하게 제거
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| zustand immer 빌드 실패 | `immer` peer dependency 누락 | `immer: ^10.0.0` 추가 |
+| rollup 바이너리 누락 (반복) | npm optional dep 버그 | CI에서 `rm -f package-lock.json` 후 install |
+| QEMU arm64 illegal instruction | `node:20-alpine` musl + QEMU 비호환 | `node:20-slim` (debian)으로 교체 |
+| GHA 캐시로 nginx.conf 누락 | 이전 빌드 캐시 재사용 | frontend 빌드에 `--no-cache` 추가 |
+| 다크모드 텍스트 안 보임 | 하드코딩 색상 | CSS 변수 `var(--text)` 교체 |
+| Mermaid 다크모드 흰 배경·검은 텍스트 | `theme: 'default'` 하드코딩 | 렌더 시점 `data-theme` 감지 → 동적 적용 (`MermaidBlock.tsx`) |
+| ConcurrencyTimeline 다크모드 텍스트 안 보임 | `--surface`, `--hover` CSS 변수 미정의 | `index.css`에 변수 추가, `.opNormal`에 `color: var(--text)` 추가 |
+| Hashnode 발행 버튼 위치 불편 | ACCEPTED 하단에만 존재 | PostDetailPage 상단 actions에 추가 (모든 상태) |
+| GFM 문법 미렌더링 | `remark-gfm` 미설치 | 설치 + `MarkdownRenderer` 공통 컴포넌트 통합 |
+| Mermaid 코드블록 원문 출력 | 렌더링 컴포넌트 없음 | `MermaidBlock` (동적 import + mermaid.render()) 구현 |
+| npm 캐시 권한 오류 (`EACCES`) | npm cache 디렉터리 권한 문제 | `npm install --cache /tmp/npm-cache` 우회 |
+| `import { api }` named import 오류 | `axiosInstance.ts`가 default export | `import api from './axiosInstance'`로 수정 |
+| ` ```sql mysql ` 코드블록 렌더링 오류 | remark가 dialect 토큰을 className에 그대로 주입 | MarkdownRenderer `code` 컴포넌트에서 첫 토큰만 추출 |
+| SSE 스트리밍 중 마크다운 깨짐 | 불완전한 마크다운을 MarkdownRenderer로 파싱 | 스트리밍 중 `<pre>` 원문 표시, 완료 후 MarkdownRenderer 전환 |
+| SSE `event: error` 미처리 | 서버 에러 이벤트를 프론트에서 무시 | `event: error` 감지 → `toast.error` + 스트리밍 종료 |
+| `sql visualize` 마커 미렌더링 | 렌더링 컴포넌트 없음 | `MarkdownRenderer` 전처리 + `SqlVizMarker` 컴포넌트 |
+| AI 저자 줄 중복 표시 | `removeAiAuthorLine()` 정규식이 `>` 없는 줄 미처리 | 정규식 `^>?\s*이 글은 .+이 작성을 도왔습니다\.?\s*$`로 수정 |
