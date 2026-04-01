@@ -35,16 +35,6 @@ public class AiUsageLimiter {
     @Value("${ai.daily-limit:5}")
     private int defaultDailyLimit;
 
-    // ── 전체 통합 키 (기존 방식 유지) ──────────────────────────────────────────
-    private String key(Long memberId) {
-        return KEY_PREFIX + memberId + ":" + LocalDate.now();
-    }
-
-    // ── 모델별 키 ──────────────────────────────────────────────────────────────
-    private String modelKey(Long memberId, String model) {
-        return KEY_PREFIX + memberId + ":" + model + ":" + LocalDate.now();
-    }
-
     /** 전체 통합 유효 한도 (모델 무관) */
     public int getEffectiveLimit(Long memberId) {
         return memberRepository.findById(memberId)
@@ -59,17 +49,6 @@ public class AiUsageLimiter {
                 .map(member -> modelLimitOf(member, model))
                 .filter(limit -> limit != null && limit > 0)
                 .orElseGet(() -> getEffectiveLimit(memberId));
-    }
-
-    private Integer modelLimitOf(Member member, String model) {
-        if (model == null) return null;
-        return switch (model) {
-            case "claude-sonnet-4-6", "claude-opus-4-5" -> member.getClaudeDailyLimit();
-            case "grok-3" -> member.getGrokDailyLimit();
-            case "gpt-4o", "gpt-4o-mini" -> member.getGptDailyLimit();
-            case "gemini-2.0-flash" -> member.getGeminiDailyLimit();
-            default -> null;
-        };
     }
 
     /** 전체 통합 체크 */
@@ -150,6 +129,25 @@ public class AiUsageLimiter {
     @Deprecated
     public int getDailyLimit() {
         return defaultDailyLimit;
+    }
+
+    // ── 전체 통합 키 (기존 방식 유지) ──────────────────────────────────────────
+    private String key(Long memberId) {
+        return KEY_PREFIX + memberId + ":" + LocalDate.now();
+    }
+
+    // ── 모델별 키 ──────────────────────────────────────────────────────────────
+    private String modelKey(Long memberId, String model) {
+        return KEY_PREFIX + memberId + ":" + model + ":" + LocalDate.now();
+    }
+
+    private Integer modelLimitOf(Member member, String model) {
+        if (model == null) return null;
+        if (model.startsWith("claude")) return member.getClaudeDailyLimit();
+        if (model.startsWith("grok"))   return member.getGrokDailyLimit();
+        if (model.startsWith("gpt"))    return member.getGptDailyLimit();
+        if (model.startsWith("gemini")) return member.getGeminiDailyLimit();
+        return null;
     }
 
     private Duration ttlUntilMidnight() {

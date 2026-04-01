@@ -12,9 +12,222 @@
 | [`infra.md`](infra.md)                     | 배포 / 인프라 셋업 절차                        |
 | [`monitoring.md`](monitoring.md)           | 운영 / 장애 대응                            |
 | [`research.md`](research.md)               | 리서치 내용                                |
+| [`**/code.md`](research.md)                | 코드 규칙                                 |
 | [`prompt.md`](prompt.md)                   | PromptBuilder 아키텍처 — 기능/컨벤션/출력 레이어 구조 |
 
 ---
+
+## 피드백: System Prompt 분리 도입 검토
+
+> Grok 피드백 요약 + 현재 코드 기준 분석
+
+### 현재 구조의 실제 토큰 비용
+
+`PromptBuilder.buildFull()` 기준으로 매 요청마다 전송되는 내용:
+
+| 항목                                      |          대략적 크기 | 비고        |
+|-----------------------------------------|----------------:|-----------|
+| 4단계 파이프라인 지시문                           |         ~600 토큰 | 매 요청 반복   |
+| `getBaseInstruction()` (공통 규칙 + 타입별 규칙) |         ~700 토큰 | 매 요청 반복   |
+| `post.content` (본문)                     | 1,000~10,000 토큰 | 가변        |
+| `extraPrompt` (사용자 요청)                  |        0~200 토큰 | 선택        |
+| **합계 (반복 고정 부분만)**                      |   **~1,300 토큰** | 매 호출마다 낭비 |
+
+하루 100회 기준 → 고정 지시문만으로 **130,000 토큰 소모**.
+
+---
+
+### System Prompt 분리 시 기대 효과
+
+Claude API는 `system` 필드를 별도로 받는다. 현재 `ClaudeClient`는 `messages[0].content`에 전부 넣는 방식이라 System Prompt 캐싱 혜택을 전혀 못 받고 있음.
+
+다른 ai api 는 system 을 가지고있 는가?
+
+> **A.** GPT(OpenAI) · Grok(OpenAI 호환) · Gemini 모두 `system` 역할 메시지를 지원한다. 다만 **Prompt Caching(캐시 과금 절감)은 Claude만** 공식
+> 제공한다. 나머지 모델은 system 분리 자체는 가능하지만 캐시 히트 시 과금 절감 혜택은 없다 — 구조 정리 효과만 있을 뿐 토큰 비용은 동일.
+
+또한 내부 로직 변경으로 system 필드도 최신화를 어떻게 관리하는가?
+
+서비스 내부 system prompt이 변경될때 마다 각 개인의 유저 ai 도 갱신해야하는데 이 방식은 어떤 구조로 해야 절약 을 할수 있는지 아이디어 를 제시해줘
+
+혹은 레디스에서 system prompt 변기 감지시 요청하는 api를 보내는 것도 검토해줘
+
+> **A.** Anthropic Prompt Cache의 실제 동작: `cache_control`은 "이 내용을 캐시해라"는 힌트일 뿐, 클라이언트는 매 요청마다 System Prompt를 그대로 전송한다.
+> Anthropic 서버가 내용이 동일하면 캐시에서 읽고, 내용이 바뀌면 자동으로 새 캐시를 생성한다(TTL 5분). 즉 **코드 배포 = 자동 갱신** — 수동 초기화 불필요.
+>
+> 관리자 페이지에서 캐시 초기화하거나 Redis 변경 감지로 API를 트리거하는 방식은 이 경우엔 **구현할 필요 없다**. 의미가 있는 경우는 DB에 System Prompt를 저장하고 런타임에 동적으로 내용을
+> 바꾸는 구조일 때다. 현재처럼 `PromptBuilder` 코드에 하드코딩된 구조에서는 배포로 충분하다.
+
+Anthropic은 **Prompt Caching** 기능을 제공한다 (`cache_control: {"type": "ephemeral"}`). System Prompt에 `cache_control`을 붙이면 동일
+내용이 재전송돼도 **캐시 토큰(cache read)으로 처리되어 입력 토큰의 약 10%만 과금**된다.
+
+| 항목             | 현재              | System Prompt 분리 + 캐싱                    |
+|----------------|-----------------|------------------------------------------|
+| 고정 지시문 과금      | 매 호출 full price | 첫 호출만 full, 이후 ~90% 절감                   |
+| User Prompt 길이 | 지시문 + 본문 혼합     | 본문 + extraPrompt만                        |
+| 구현 복잡도         | 낮음              | 중간 (`ClaudeClient` + `PromptBuilder` 분리) |
+
+---
+
+### 주의사항 (도입 전 검토 필요)
+
+1. **Prompt Caching은 Claude 전용** — Grok, GPT, Gemini는 동일 구조 미지원. `AiClientRouter`로 라우팅하는 현재 구조에서 클라이언트별 분기가 필요해짐.
+
+grok,gpt,gemini 는 이런 구조를 지원하지않는다면 어떻게 이 토큰 낭비를 방지하는가?
+
+> **A.** 이 세 모델에서 토큰 낭비를 줄이는 현실적인 방법은 캐싱이 아니라 **프롬프트 자체를 짧게 만드는 것**이다. 구체적으로:
+> - `getBaseInstruction()` 내 중복 표현 압축 — 현재 공통 규칙이 산문체로 길게 기술되어 있음. 불릿 키워드로 줄이면 30~40% 절감 가능.
+> - ContentType별 추가 규칙을 핵심 1~2줄로 압축.
+> - `extraPrompt`가 없는 경우 4단계 파이프라인 지시문 일부(1·2단계 설계 지시)를 생략하는 경량 경로 도입.
+    > 이 방법은 Claude에도 동일하게 적용되어 전체 모델에 공통 절감 효과가 있다.
+
+2. **System Prompt 캐시 TTL = 5분** — 5분 내 동일 System Prompt로 재호출해야 캐시 히트. 사용 빈도가 낮으면 효과 미미.
+
+3. **현재 PromptBuilder는 ContentType별로 지시문이 달라짐** — `getBaseInstruction(contentType)`이 타입마다 다른 내용을 반환하므로 System Prompt가
+   8가지 변형이 된다. 캐시 히트율이 낮아질 수 있음.
+
+이를 특정 분야라고해도 가긱 다른 방식이 있거 변형이 되어야 유역하게 잘 돌아감
+
+> **A.** 맞다. 분야별 변형은 품질상 필수이므로 제거할 수 없다. 대신 **공통 규칙(base)만 System Prompt로 분리하고, ContentType별 추가 규칙은 User Prompt에 붙이는 혼합
+전략**이 현실적이다.
+> - System Prompt = 공통 규칙(~700 토큰) → 모든 ContentType에서 동일 → 캐시 히트율 100%
+> - User Prompt = ContentType별 추가 규칙(~100~150 토큰) + 본문 + extraPrompt
+>
+> 이렇게 하면 캐싱 혜택(공통 700 토큰)을 온전히 누리면서 분야별 유연성도 유지된다.
+
+4. **JSON 출력 구조 전환 비용** — Grok 피드백의 JSON 출력 방식은 현재 `parseTitle()` / `parseTags()` / `removeFirstHeading()` 파싱 전략을 전면
+   교체해야 함. 프론트 SSE 렌더링도 영향 받음.
+
+프론트 SSE 렌더링 은 아주 핵심 기능이라 뺄수 없음
+
+> **A.** JSON 출력 방식은 **도입하지 않는다**. SSE 스트리밍은 토큰 단위로 순서대로 흘러와야 하는데, JSON은 닫는 `}`가 와야 파싱 가능 → 스트리밍 실시간 렌더링과 근본적으로 충돌한다. 현재
+`# 제목`, `TAGS:`, 본문 순서로 오는 텍스트 구조가 SSE와 가장 궁합이 좋다. 유지.
+
+5. **Haiku 라우팅** — 단순 수정 요청(`extraPrompt`만 있고 content가 짧은 경우)은 Haiku로 자동 라우팅하는 것도 비용 절감에 효과적. `AiClientRouter`에 조건 추가로
+   구현 가능.
+
+클로드 모델에서 이것도 추가해줘
+
+> **A.** 구현 가능하다. `AiClientRouter.route()`에 아래 조건을 추가하면 된다:
+> - 사용자가 모델을 명시하지 않은 경우(`model == null`)
+> - `content` 길이 1,000자 미만 + `extraPrompt` 존재(단순 수정 요청으로 판단)
+    > → `claude-haiku-4-5`로 자동 라우팅
+>
+> Haiku는 Sonnet 대비 **입력 토큰 ~10배, 출력 토큰 ~8배 저렴**하다. 단 품질이 낮으므로 짧은 요청·빠른 피드백 용도에만 적합하다. 권장 접근 순서 6번으로 추가.
+---
+
+### AI 모델 분류 및 용도 정의
+
+| 등급                    | 모델                            | 용도                                 |
+|-----------------------|-------------------------------|------------------------------------|
+| **가성비** (대량/자동화/반복)   | Claude Haiku 4.5, GPT-4o mini | 로그 분석, 간단 코드 생성, 데이터 가공, 테스트 코드 초안 |
+| **표준** (실무 기본)        | Claude Sonnet 4.6, GPT-4.1    | API 설계, 리팩토링, 코드 리뷰, 문서화           |
+| **고성능** (복잡한 문제/아키텍처) | Claude Opus 4.6, GPT-4.1      | 아키텍처 설계, 성능 튜닝, 복잡한 버그 분석, 시스템 디자인 |
+| **특화** (옵션)           | Grok 3                        | 알고리즘, 빠른 아이디어, 트렌드                 |
+
+> 모델명은 `application.yml`(또는 `prompt.yml`)에서 관리 — 하드코딩 제거 대상.
+> `AiClientRouter`, `ClaudeClient`, `GrokClient`, `GptClient`, `GeminiClient` 상수를 `@Value`로 교체.
+
+---
+
+### `prompt.yml` 관리 설계 (미구현)
+
+현재 각 클라이언트에 하드코딩된 모델명과 수치값을 `prompt.yml`로 분리한다.
+
+**분리 기준**
+
+| `prompt.yml`에 넣을 것 | 코드(`PromptBuilder`)에 유지할 것 |
+|---|---|
+| 모델명 (`claude-sonnet-4-6` 등) | 4단계 파이프라인 지시문 |
+| threshold 숫자값 (1,000자 등) | `getBaseInstruction()` 규칙 텍스트 |
+| 토큰 한도, 청크 크기 상수 | ContentType별 추가 규칙 |
+| Haiku 자동 라우팅 조건값 | — |
+
+> 컨벤션 규칙 텍스트는 yml에 넣지 않는다.
+> yml 블록 스칼라 지옥(`|`) + IDE 마크다운 미리보기 불가 + 오타 검출 불가.
+> 규칙은 자주 바뀌지 않고 코드 리뷰 대상이어야 하므로 코드에 유지.
+
+**`prompt.yml` 구조 (안)**
+
+```yaml
+ai:
+  models:
+    claude:
+      default: claude-sonnet-4-6
+      haiku: claude-haiku-4-5-20251001
+      opus: claude-opus-4-6
+    gpt:
+      default: gpt-4o
+      mini: gpt-4o-mini
+    grok:
+      default: grok-3
+    gemini:
+      default: gemini-2.0-flash
+  routing:
+    haiku-threshold-chars: 1000   # content 이 길이 미만 + extraPrompt 있으면 Haiku 자동 라우팅
+  limits:
+    content-max-chars: 600000     # Claude 컨텍스트 상한 트리밍 기준
+    tag-min-count: 3
+    tag-max-count: 10
+```
+
+**변경 대상 파일**
+
+- `ClaudeClient` — `SONNET`, `OPUS` 상수 → `@Value("${ai.models.claude.default}")` 등으로 교체
+- `GrokClient` — `GROK_3` 상수 → `@Value`
+- `GptClient`, `GeminiClient` 동일
+- `AiClientRouter` — `haiku-threshold-chars` 읽어 자동 라우팅 조건 적용
+- `StreamAiSuggestionUseCase` — `CONTENT_MAX_CHARS`, `TAG_MIN_COUNT`, `TAG_MAX_COUNT` → `@Value` 교체
+
+---
+
+### 프롬프트 토큰 절감 기획안 (미구현)
+
+현재 `PromptBuilder.buildFull()`은 매 요청마다 ~1,300 토큰의 고정 지시문을 전송한다.
+아래 3가지 전략으로 절감한다.
+
+**전략 1 — System Prompt 분리 + Claude Prompt Caching**
+
+- 공통 규칙(base ~700 토큰)을 `system` 필드로 분리
+- `cache_control: {"type": "ephemeral"}` 적용 → 이후 호출은 ~90% 절감
+- ContentType별 추가 규칙은 User Prompt에 유지 (분야별 유연성 보존)
+- Claude 전용. Grok/GPT/Gemini는 아래 전략 2 적용
+
+**전략 2 — 공통 규칙 텍스트 압축**
+
+- `getBaseInstruction()` 산문체 → 불릿 키워드로 압축 (30~40% 절감 예상)
+- ContentType별 추가 규칙도 핵심 1~2줄로 압축
+- 전체 모델에 공통 적용
+
+**전략 3 — 경량 경로 분기**
+
+- content 30자 미만: 이미 `buildSimple()` 분기 존재 (유지)
+- content 1,000자 미만 + extraPrompt 있음: 4단계 파이프라인 1·2단계 설계 지시 생략
+- Claude 모델 미지정 + 경량 조건: Haiku 자동 라우팅 (`AiClientRouter`)
+
+**구현 우선순위**
+
+1. `prompt.yml` 모델명 분리 (코드 변경 최소, 효과 큼)
+2. `getBaseInstruction()` 텍스트 압축 (즉시 적용 가능)
+3. Haiku 자동 라우팅 (`AiClientRouter` 조건 추가)
+4. Claude System Prompt 분리 + Prompt Caching (가장 큰 절감, 구현 비용 중간)
+
+### 권장 접근 순서 (구현 시)
+
+1. ✅ `prompt.yml` 신규 파일 — 모델명 상수 하드코딩 제거, `@Value`로 교체 (`ClaudeClient`, `GrokClient`, `GptClient`, `GeminiClient`,
+   `AiClientRouter`)
+2. ✅ `getBaseInstruction()` 텍스트 압축 — 산문체 → 불릿 키워드화 (전체 모델 공통, 즉시 적용 가능)
+3. ✅ `PromptBuilder` 공통 규칙(base)과 ContentType별 추가 규칙 분리 — base는 System Prompt, 추가 규칙은 User Prompt로 이동
+4. ✅ `ClaudeClient`에 `system` 파라미터 필드 추가 + `cache_control: ephemeral` 헤더 적용 (Claude only)
+5. ✅ Grok/GPT/Gemini는 system+user를 합쳐서 기존 방식 유지 (클라이언트 분기)
+6. ✅ JSON 출력 전환 **제외** — SSE 스트리밍과 충돌, 현재 텍스트 파싱 구조 유지
+7. ✅ `AiClientRouter`에 Haiku 자동 라우팅 조건 추가 (Claude 모델 미지정 + content 1,000자 미만 + extraPrompt 있음)
+
+---
+
+
+
+------------------------------------------------------------------------------------------------------------------------
 
 ## Mermaid 다이어그램 사용 기준
 

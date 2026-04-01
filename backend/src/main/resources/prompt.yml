@@ -1,0 +1,17 @@
+ai:
+  model:
+    claude:
+      sonnet: claude-sonnet-4-6
+      opus: claude-opus-4-5
+      haiku: claude-haiku-4-5-20251001
+    grok:
+      default: grok-3
+    gpt:
+      mini: gpt-4o-mini
+      standard: gpt-4o
+    gemini:
+      flash: gemini-2.0-flash
+
+  haiku:
+    # Haiku 자동 라우팅 조건: Claude + 모델 미지정 + content < threshold + extraPrompt 있음
+    content-length-threshold: 1000

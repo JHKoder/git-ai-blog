@@ -1,3 +1,7 @@
+spring:
+  config:
+    import: "optional:classpath:prompt.yml"
+
 jasypt:
   encryptor:
     password: ${JASYPT_ENCRYPTOR_PASSWORD:local-dummy-jasypt-password}

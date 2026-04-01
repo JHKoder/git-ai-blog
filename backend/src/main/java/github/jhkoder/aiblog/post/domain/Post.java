@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 @Entity
 @Table(name = "posts")
@@ -77,25 +78,8 @@ public class Post {
 
     public static Post create(Long memberId, String title, String content, ContentType contentType, List<String> tags) {
         Post post = create(memberId, title, content, contentType);
-        if (tags != null) post.tags = normalizeTags(tags);
+        Optional.ofNullable(tags).ifPresent(t -> post.tags = normalizeTags(t));
         return post;
-    }
-
-    /**
-     * 태그 정규화: 소문자 변환, 특수문자(영문/숫자/한글/하이픈 외) 제거, 공백 트림, 최대 30자, 빈 태그 제거.
-     */
-    private static List<String> normalizeTags(List<String> raw) {
-        List<String> result = new ArrayList<>();
-        for (String tag : raw) {
-            if (tag == null) continue;
-            String normalized = tag.toLowerCase(Locale.ROOT)
-                    .replaceAll("[^a-z0-9가-힣\\-]", "")
-                    .trim();
-            if (normalized.isEmpty()) continue;
-            if (normalized.length() > 30) normalized = normalized.substring(0, 30);
-            if (!result.contains(normalized)) result.add(normalized);
-        }
-        return result;
     }
 
     public void update(String title, String content, ContentType contentType) {
@@ -107,7 +91,7 @@ public class Post {
     }
 
     public void updateTags(List<String> tags) {
-        this.tags = tags != null ? normalizeTags(tags) : new ArrayList<>();
+        this.tags = Optional.ofNullable(tags).map(Post::normalizeTags).orElseGet(ArrayList::new);
     }
 
     public void markAiSuggested() {
@@ -120,12 +104,12 @@ public class Post {
     public void accept(String suggestedContent, String suggestedTitle, List<String> suggestedTags) {
         // AI_SUGGESTED 외에 DRAFT/ACCEPTED/PUBLISHED에서도 허용 — 거절 후 히스토리 제안 재수락 지원
         this.content = suggestedContent;
-        if (suggestedTitle != null && !suggestedTitle.isBlank()) {
-            this.title = suggestedTitle;
-        }
-        if (suggestedTags != null && !suggestedTags.isEmpty()) {
-            this.tags = normalizeTags(suggestedTags);
-        }
+        Optional.ofNullable(suggestedTitle)
+                .filter(t -> !t.isBlank())
+                .ifPresent(t -> this.title = t);
+        Optional.ofNullable(suggestedTags)
+                .filter(t -> !t.isEmpty())
+                .ifPresent(t -> this.tags = normalizeTags(t));
         this.status = PostStatus.ACCEPTED;
     }
 
@@ -155,5 +139,22 @@ public class Post {
         this.content = content;
         this.hashnodeUrl = hashnodeUrl;
         this.status = PostStatus.PUBLISHED;
+    }
+
+    /**
+     * 태그 정규화: 소문자 변환, 특수문자(영문/숫자/한글/하이픈 외) 제거, 공백 트림, 최대 30자, 빈 태그 제거.
+     */
+    private static List<String> normalizeTags(List<String> raw) {
+        List<String> result = new ArrayList<>();
+        for (String tag : raw) {
+            if (tag == null) continue;
+            String normalized = tag.toLowerCase(Locale.ROOT)
+                    .replaceAll("[^a-z0-9가-힣\\-]", "")
+                    .trim();
+            if (normalized.isEmpty()) continue;
+            if (normalized.length() > 30) normalized = normalized.substring(0, 30);
+            if (!result.contains(normalized)) result.add(normalized);
+        }
+        return result;
     }
 }

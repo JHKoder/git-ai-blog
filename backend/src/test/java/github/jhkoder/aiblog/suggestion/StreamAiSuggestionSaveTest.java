@@ -84,7 +84,10 @@ class StreamAiSuggestionSaveTest {
                 .willAnswer(inv -> mockAiClient.streamComplete(
                         inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
 
+        given(claudeClient.getSonnet()).willReturn("claude-sonnet-4-6");
+
         AiClientRouter router = new AiClientRouter(claudeClient, grokClient, gptClient, geminiClient);
+        ReflectionTestUtils.setField(router, "haikuContentLengthThreshold", 1000);
 
         useCase = new StreamAiSuggestionUseCase(
                 postRepository, memberRepository, aiSuggestionRepository,
@@ -115,7 +118,11 @@ class StreamAiSuggestionSaveTest {
 
         assertThat(suggestions).hasSize(1);
         AiSuggestion saved = suggestions.get(0);
-        assertThat(saved.getSuggestedContent()).isEqualTo(dumpContent);
+        // removeAiAuthorLine과 동일한 방식으로 저자 줄 제거
+        String expectedContent = dumpContent.lines()
+                .filter(line -> !line.trim().matches("^>?\\s*이 글은 .+이 작성을 도왔습니다\\.?\\s*$"))
+                .collect(java.util.stream.Collectors.joining("\n"));
+        assertThat(saved.getSuggestedContent()).isEqualTo(expectedContent);
         assertThat(saved.getModel()).isEqualTo("claude-sonnet-4-6");
         assertThat(saved.getPostId()).isEqualTo(savedPost.getId());
         assertThat(saved.getMemberId()).isEqualTo(savedMember.getId());

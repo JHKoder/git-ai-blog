@@ -44,3 +44,17 @@ ai:
   grok:
     base-url: https://api.x.ai
   daily-limit: 5
+  model:
+    claude:
+      sonnet: claude-sonnet-4-6
+      opus: claude-opus-4-5
+      haiku: claude-haiku-4-5-20251001
+    grok:
+      default: grok-3
+    gpt:
+      mini: gpt-4o-mini
+      standard: gpt-4o
+    gemini:
+      flash: gemini-2.0-flash
+  haiku:
+    content-length-threshold: 1000

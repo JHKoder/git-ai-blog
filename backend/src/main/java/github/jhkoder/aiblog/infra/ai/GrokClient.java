@@ -33,7 +33,10 @@ public class GrokClient implements AiClient {
     @Value("${ai.grok.base-url}")
     private String baseUrl;
 
-    public static final String GROK_3 = "grok-3";
+    @Value("${ai.model.grok.default}")
+    private String defaultModel;
+
+    public String getDefaultModel() { return defaultModel; }
 
     @Override
     public String complete(String prompt, String model, String apiKey) {
@@ -50,7 +53,7 @@ public class GrokClient implements AiClient {
         String responseBody = null;
         try {
             Map<String, Object> body = Map.of(
-                    "model", model != null ? model : GROK_3,
+                    "model", model != null ? model : defaultModel,
                     "messages", List.of(Map.of("role", "user", "content", prompt))
             );
             String jsonBody = objectMapper.writeValueAsString(body);
@@ -102,7 +105,7 @@ public class GrokClient implements AiClient {
         if (apiKey == null || apiKey.isBlank()) {
             return Flux.error(new ExternalApiException("Grok API 키가 설정되지 않았습니다."));
         }
-        String resolvedModel = (model != null && !model.isBlank()) ? model : GROK_3;
+        String resolvedModel = (model != null && !model.isBlank()) ? model : defaultModel;
 
         String jsonBody;
         try {

@@ -2,11 +2,11 @@ package github.jhkoder.aiblog.post.controller;
 
 import github.jhkoder.aiblog.common.ApiResponse;
 import github.jhkoder.aiblog.infra.ai.AiUsageLimiter;
-import github.jhkoder.aiblog.infra.ai.ImageUsageLimiter;
-import github.jhkoder.aiblog.infra.ai.TokenUsageTracker;
-import github.jhkoder.aiblog.infra.ai.RateLimitCache;
 import github.jhkoder.aiblog.infra.ai.ClaudeClient;
 import github.jhkoder.aiblog.infra.ai.GrokClient;
+import github.jhkoder.aiblog.infra.ai.ImageUsageLimiter;
+import github.jhkoder.aiblog.infra.ai.RateLimitCache;
+import github.jhkoder.aiblog.infra.ai.TokenUsageTracker;
 import github.jhkoder.aiblog.post.dto.*;
 import github.jhkoder.aiblog.post.usecase.*;
 import jakarta.validation.Valid;
@@ -36,6 +36,8 @@ public class PostController {
     private final ImageUsageLimiter imageUsageLimiter;
     private final TokenUsageTracker tokenUsageTracker;
     private final RateLimitCache rateLimitCache;
+    private final ClaudeClient claudeClient;
+    private final GrokClient grokClient;
 
     @PostMapping
     public ResponseEntity<ApiResponse<PostResponse>> create(
@@ -112,8 +114,8 @@ public class PostController {
 
     @GetMapping("/ai-usage")
     public ResponseEntity<ApiResponse<AiUsageResponse>> aiUsage(@AuthenticationPrincipal Long memberId) {
-        TokenUsageTracker.ModelUsage sonnet = tokenUsageTracker.getUsage(memberId, ClaudeClient.SONNET);
-        TokenUsageTracker.ModelUsage grok   = tokenUsageTracker.getUsage(memberId, GrokClient.GROK_3);
+        TokenUsageTracker.ModelUsage sonnet = tokenUsageTracker.getUsage(memberId, claudeClient.getSonnet());
+        TokenUsageTracker.ModelUsage grok   = tokenUsageTracker.getUsage(memberId, grokClient.getDefaultModel());
         RateLimitCache.RateLimitInfo claudeRl = rateLimitCache.get(memberId, "claude");
         RateLimitCache.RateLimitInfo grokRl   = rateLimitCache.get(memberId, "grok");
 

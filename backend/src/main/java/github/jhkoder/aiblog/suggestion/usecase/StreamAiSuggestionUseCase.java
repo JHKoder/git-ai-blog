@@ -43,6 +43,11 @@ public class StreamAiSuggestionUseCase {
     private final TokenUsageTracker tokenUsageTracker;
     private final PromptRepository promptRepository;
 
+    private static final int CONTENT_MAX_CHARS = 600_000;
+    private static final int TAG_MIN_COUNT = 3;
+    private static final int TAG_MAX_COUNT = 10;
+    private static final int CHUNK_SIZE = 50;
+
     /** 모델별 예상 시간 fallback (초). durationMs 데이터 없을 때 사용 */
     private static final java.util.Map<String, Long> FALLBACK_SECONDS = java.util.Map.of(
             "claude-sonnet-4-6", 40L,
@@ -71,74 +76,16 @@ public class StreamAiSuggestionUseCase {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다."));
 
-        String contentToImprove = (request.getTempContent() != null && !request.getTempContent().isBlank())
-                ? request.getTempContent()
-                : post.getContent();
-
         String effectiveExtraPrompt = resolveExtraPrompt(request);
-
-        // Claude 200K 컨텍스트 - max_tokens(16000) 예약 → 입력 상한 약 184K 토큰 ≈ 736,000 chars
-        // content가 너무 크면 후반부를 잘라 안전하게 처리 (400 Bad Request 방지)
-        String safeContent = truncateIfTooLong(contentToImprove, 600_000);
-        if (safeContent.length() < contentToImprove.length()) {
-            log.warn("[StreamAI] content 길이 초과로 트리밍 original={}chars truncated={}chars",
-                    contentToImprove.length(), safeContent.length());
-        }
-
+        String safeContent = prepareSafeContent(request, post);
         String prompt = promptBuilder.build(post.getContentType(), safeContent, effectiveExtraPrompt);
         AiClientRouter.RouteResult route = aiClientRouter.route(post.getContentType(), request.getModel(), member);
         log.info("[StreamAI][2] 라우팅 완료 model={} promptLen={}", route.model(), prompt.length());
 
-        // 예상 시간 계산: DB 평균 → 없으면 모델별 fallback
         long estimatedSec = resolveEstimatedSeconds(route.model());
         log.info("[StreamAI][3] estimatedSec={}", estimatedSec);
 
-        StringBuilder accumulated = new StringBuilder();
-        AtomicLong startMs = new AtomicLong(System.currentTimeMillis());
-        AtomicLong tokenCount = new AtomicLong(0);
-
-        String finalEffectiveExtraPrompt = effectiveExtraPrompt;
-        Flux<String> estimatedEvent = Flux.just("__estimated__:" + estimatedSec);
-        Flux<String> tokenStream = route.client().streamComplete(prompt, route.model(), route.apiKey())
-                .doOnSubscribe(s -> log.info("[StreamAI][4] AI API 구독 시작 (streamComplete 호출)"))
-                .doOnNext(token -> {
-                    accumulated.append(token);
-                    long cnt = tokenCount.incrementAndGet();
-                    if (cnt == 1) log.info("[StreamAI][5] 첫 토큰 수신");
-                    if (cnt % 100 == 0) log.info("[StreamAI][5] 토큰 {}개 수신, 누적 {}자", cnt, accumulated.length());
-                })
-                .doOnComplete(() -> log.info("[StreamAI][6] 토큰 스트림 완료 총 {}개, {}자", tokenCount.get(), accumulated.length()))
-                .doOnError(e -> log.error("[StreamAI][ERR] 스트리밍 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e));
-
-        // DB 저장 완료 후 __done__ 신호 emit — 프론트가 done을 받는 시점에 DB에 데이터가 존재함을 보장
-        Flux<String> saveAndDone = Flux.defer(() -> {
-            long durationMs = System.currentTimeMillis() - startMs.get();
-            log.info("[StreamAI][7] DB 저장 시작 durationMs={} textLen={}", durationMs, accumulated.length());
-            try {
-                String rawText = accumulated.toString();
-                String parsedTitle = parseTitle(rawText);
-                String parsedTags = parseTags(rawText);
-                String cleanContent = removeAiAuthorLine(removeTagsLine(removeFirstHeading(rawText)));
-                saveResult(postId, memberId, cleanContent,
-                        route.model(), finalEffectiveExtraPrompt, durationMs, prompt.length(), parsedTitle, parsedTags);
-                log.info("[StreamAI][8] DB 저장 완료 → __done__ emit suggestedTitle={} suggestedTags={}", parsedTitle, parsedTags);
-            } catch (Exception e) {
-                log.error("[StreamAI][ERR] 완료 후 저장 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e);
-            }
-            return Flux.just("__done__");
-        });
-
-        return estimatedEvent.concatWith(tokenStream).concatWith(saveAndDone);
-    }
-
-    private long resolveEstimatedSeconds(String model) {
-        try {
-            Double avg = aiSuggestionRepository.findAvgDurationMsByModel(model);
-            if (avg != null && avg > 0) {
-                return Math.max(1L, avg.longValue() / 1000);
-            }
-        } catch (Exception ignored) {}
-        return FALLBACK_SECONDS.getOrDefault(model, 30L);
+        return buildStream(postId, memberId, prompt, route, effectiveExtraPrompt, estimatedSec);
     }
 
     /**
@@ -174,6 +121,89 @@ public class StreamAiSuggestionUseCase {
                 post.markAiSuggested();
             }
         });
+    }
+
+    private String prepareSafeContent(AiSuggestionRequest request, Post post) {
+        String contentToImprove = (request.getTempContent() != null && !request.getTempContent().isBlank())
+                ? request.getTempContent()
+                : post.getContent();
+        String safe = truncateIfTooLong(contentToImprove, CONTENT_MAX_CHARS);
+        if (safe.length() < contentToImprove.length()) {
+            log.warn("[StreamAI] content 길이 초과로 트리밍 original={}chars truncated={}chars",
+                    contentToImprove.length(), safe.length());
+        }
+        return safe;
+    }
+
+    private Flux<String> buildStream(Long postId, Long memberId, String prompt,
+                                     AiClientRouter.RouteResult route, String effectiveExtraPrompt, long estimatedSec) {
+        StringBuilder accumulated = new StringBuilder();
+        AtomicLong startMs = new AtomicLong(System.currentTimeMillis());
+        AtomicLong tokenCount = new AtomicLong(0);
+
+        Flux<String> estimatedEvent = Flux.just("__estimated__:" + estimatedSec);
+        Flux<String> tokenStream = buildTokenStream(postId, memberId, route, prompt, accumulated, tokenCount);
+        Flux<String> saveAndDone = buildSaveAndDone(postId, memberId, prompt, route, effectiveExtraPrompt, accumulated, startMs);
+
+        return estimatedEvent.concatWith(tokenStream).concatWith(saveAndDone);
+    }
+
+    private Flux<String> buildTokenStream(Long postId, Long memberId, AiClientRouter.RouteResult route,
+                                          String prompt, StringBuilder accumulated, AtomicLong tokenCount) {
+        return route.client().streamComplete(prompt, route.model(), route.apiKey())
+                .doOnSubscribe(s -> log.info("[StreamAI][4] AI API 구독 시작 (streamComplete 호출)"))
+                .doOnNext(token -> {
+                    accumulated.append(token);
+                    long cnt = tokenCount.incrementAndGet();
+                    if (cnt == 1) log.info("[StreamAI][5] 첫 토큰 수신");
+                    if (cnt % 100 == 0) log.info("[StreamAI][5] 토큰 {}개 수신, 누적 {}자", cnt, accumulated.length());
+                })
+                .doOnComplete(() -> log.info("[StreamAI][6] 토큰 스트림 완료 총 {}개, {}자", tokenCount.get(), accumulated.length()))
+                .doOnError(e -> log.error("[StreamAI][ERR] 스트리밍 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e));
+    }
+
+    private Flux<String> buildSaveAndDone(Long postId, Long memberId, String prompt,
+                                          AiClientRouter.RouteResult route, String effectiveExtraPrompt,
+                                          StringBuilder accumulated, AtomicLong startMs) {
+        return Flux.defer(() -> {
+            long durationMs = System.currentTimeMillis() - startMs.get();
+            log.info("[StreamAI][7] DB 저장 시작 durationMs={} textLen={}", durationMs, accumulated.length());
+            try {
+                String rawText = accumulated.toString();
+                String parsedTitle = parseTitle(rawText);
+                String parsedTags = parseTags(rawText);
+                String cleanContent = removeAiAuthorLine(removeTagsLine(removeFirstHeading(rawText)));
+                saveResult(postId, memberId, cleanContent,
+                        route.model(), effectiveExtraPrompt, durationMs, prompt.length(), parsedTitle, parsedTags);
+                log.info("[StreamAI][8] DB 저장 완료 → __done__ emit suggestedTitle={} suggestedTags={}", parsedTitle, parsedTags);
+            } catch (Exception e) {
+                log.error("[StreamAI][ERR] 완료 후 저장 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e);
+            }
+            return Flux.just("__done__");
+        });
+    }
+
+    private long resolveEstimatedSeconds(String model) {
+        try {
+            Double avg = aiSuggestionRepository.findAvgDurationMsByModel(model);
+            if (avg != null && avg > 0) {
+                return Math.max(1L, avg.longValue() / 1000);
+            }
+        } catch (Exception ignored) {}
+        return FALLBACK_SECONDS.getOrDefault(model, 30L);
+    }
+
+    private String resolveExtraPrompt(AiSuggestionRequest request) {
+        String extraPrompt = request.getExtraPrompt();
+        if (request.getPromptId() == null) return extraPrompt;
+
+        Prompt customPrompt = promptRepository.findById(request.getPromptId())
+                .orElseThrow(() -> new NotFoundException("프롬프트를 찾을 수 없습니다."));
+        customPrompt.incrementUsageCount();
+        String customContent = customPrompt.getContent();
+        return (extraPrompt != null && !extraPrompt.isBlank())
+                ? customContent + "\n" + extraPrompt
+                : customContent;
     }
 
     /**
@@ -214,15 +244,14 @@ public class StreamAiSuggestionUseCase {
             if (trimmed.startsWith("TAGS:")) {
                 String raw = trimmed.substring(5).trim();
                 if (raw.isBlank()) return null;
-                // 공백 제거, 소문자 정규화, 3~10개 범위 검증
                 String[] parts = raw.split(",");
                 java.util.List<String> tags = new java.util.ArrayList<>();
                 for (String part : parts) {
                     String tag = part.trim().toLowerCase();
                     if (!tag.isBlank()) tags.add(tag);
                 }
-                if (tags.size() < 3) return null;
-                if (tags.size() > 10) tags = tags.subList(0, 10);
+                if (tags.size() < TAG_MIN_COUNT) return null;
+                if (tags.size() > TAG_MAX_COUNT) tags = tags.subList(0, TAG_MAX_COUNT);
                 return String.join(",", tags);
             }
         }
@@ -253,24 +282,9 @@ public class StreamAiSuggestionUseCase {
 
     /**
      * content 길이가 maxChars를 초과하면 앞부분 maxChars 문자만 유지한다.
-     * 뒷부분을 잘라내는 이유: 뒤쪽은 AI 저자 줄·태그 줄 등 노이즈가 많고,
-     * 앞부분에 핵심 내용이 집중되는 경향이 있기 때문이다.
      */
     private String truncateIfTooLong(String content, int maxChars) {
         if (content == null || content.length() <= maxChars) return content;
         return content.substring(0, maxChars);
-    }
-
-    private String resolveExtraPrompt(AiSuggestionRequest request) {
-        String extraPrompt = request.getExtraPrompt();
-        if (request.getPromptId() == null) return extraPrompt;
-
-        Prompt customPrompt = promptRepository.findById(request.getPromptId())
-                .orElseThrow(() -> new NotFoundException("프롬프트를 찾을 수 없습니다."));
-        customPrompt.incrementUsageCount();
-        String customContent = customPrompt.getContent();
-        return (extraPrompt != null && !extraPrompt.isBlank())
-                ? customContent + "\n" + extraPrompt
-                : customContent;
     }
 }

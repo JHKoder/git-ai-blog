@@ -99,6 +99,12 @@ class PostControllerTest {
     private RateLimitCache rateLimitCache;
 
     @MockitoBean
+    private ClaudeClient claudeClient;
+
+    @MockitoBean
+    private GrokClient grokClient;
+
+    @MockitoBean
     private JwtProvider jwtProvider;
 
     @MockitoBean

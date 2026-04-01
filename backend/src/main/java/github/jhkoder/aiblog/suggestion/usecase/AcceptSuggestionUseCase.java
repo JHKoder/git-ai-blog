@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,9 +34,9 @@ public class AcceptSuggestionUseCase {
             throw new NotFoundException("해당 게시글의 제안이 아닙니다.");
         }
 
-        List<String> tags = suggestion.getSuggestedTags() != null
-                ? Arrays.asList(suggestion.getSuggestedTags().split(","))
-                : null;
+        List<String> tags = Optional.ofNullable(suggestion.getSuggestedTags())
+                .map(t -> Arrays.asList(t.split(",")))
+                .orElse(null);
         post.accept(suggestion.getSuggestedContent(), suggestion.getSuggestedTitle(), tags);
         return AiSuggestionResponse.from(suggestion);
     }

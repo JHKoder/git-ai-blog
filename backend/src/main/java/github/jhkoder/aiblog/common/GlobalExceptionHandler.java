@@ -40,10 +40,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException e) {
-        String message = e.getBindingResult().getFieldErrors().stream()
-                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
-                .findFirst()
-                .orElse("Validation failed");
+        String message = extractFirstFieldError(e);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(message));
     }
 
@@ -55,6 +52,14 @@ public class GlobalExceptionHandler {
         }
         log.error("Unhandled exception", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("서버 오류가 발생했습니다."));
+    }
+
+    private String extractFirstFieldError(MethodArgumentNotValidException e) {
+        var fieldErrors = e.getBindingResult().getFieldErrors();
+        return fieldErrors.stream()
+                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+                .findFirst()
+                .orElse("Validation failed");
     }
 
     private boolean isBrokenPipe(Exception e) {

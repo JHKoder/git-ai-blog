@@ -8,6 +8,7 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,10 +32,11 @@ public class GeminiClient implements AiClient {
 
     private static final String BASE_URL = "https://generativelanguage.googleapis.com";
 
-    public static final String GEMINI_2_FLASH = "gemini-2.0-flash";
-
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
+
+    @Value("${ai.model.gemini.flash}")
+    private String geminiFlash;
 
     @Override
     public String complete(String prompt, String model, String apiKey) {
@@ -48,7 +50,7 @@ public class GeminiClient implements AiClient {
         if (apiKey == null || apiKey.isBlank()) throw new ExternalApiException("Gemini API 키가 설정되지 않았습니다. 마이페이지에서 API 키를 등록해주세요.");
         String key = apiKey;
 
-        String resolvedModel = (model != null && !model.isBlank()) ? model : GEMINI_2_FLASH;
+        String resolvedModel = (model != null && !model.isBlank()) ? model : geminiFlash;
 
         String responseBody = null;
         try {
@@ -96,7 +98,7 @@ public class GeminiClient implements AiClient {
         if (apiKey == null || apiKey.isBlank()) {
             return Flux.error(new ExternalApiException("Gemini API 키가 설정되지 않았습니다."));
         }
-        String resolvedModel = (model != null && !model.isBlank()) ? model : GEMINI_2_FLASH;
+        String resolvedModel = (model != null && !model.isBlank()) ? model : geminiFlash;
 
         String jsonBody;
         try {

@@ -82,7 +82,10 @@ class StreamAiSuggestionUseCaseTest {
         GptClient gptMock = mock(GptClient.class);
         GeminiClient geminiMock = mock(GeminiClient.class);
 
+        given(claudeMock.getSonnet()).willReturn("claude-sonnet-4-6");
+
         AiClientRouter router = new AiClientRouter(claudeMock, grokMock, gptMock, geminiMock);
+        ReflectionTestUtils.setField(router, "haikuContentLengthThreshold", 1000);
 
         useCase = new StreamAiSuggestionUseCase(
                 postRepository, memberRepository, aiSuggestionRepository,

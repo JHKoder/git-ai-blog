@@ -386,6 +386,33 @@ npm run build                  # 프로덕션 빌드
 
 ---
 
+## PDF 변환 설계
+
+> `PostDetailPage`에서 게시글을 PDF로 저장할 때 사이드바를 제외하고 본문만 출력한다.
+
+**요구사항:**
+- PDF 출력 범위: 제목 + 게시글 본문만 포함
+- 제외 대상: 우측 사이드바 전체 (발행 버튼, AI 제안 패널, AI 평가 패널), 태그, 발행 상태/조회수 메타, AI 작성 정보
+- AI 개선 결과는 사이드바에서만 확인 가능 — PDF에 포함하지 않음
+- 다크모드 인쇄 시 Mermaid(UML) 다이어그램 배경/텍스트를 라이트 테마로 강제 (텍스트 안 보임 방지)
+
+**구현:**
+- `@media print` CSS 미디어 쿼리 (`PostDetailPage.module.css`)
+  - `.sidebar`, `.actions`, `.resultBlock`, `.aiMeta`, `.tags`, `.meta`, `header`, `nav` → `display: none`
+  - `.twoCol` → `display: block` (단일 컬럼)
+  - `.content` 테두리/여백/배경 제거, 텍스트 강제 검정
+  - Mermaid SVG: `filter: invert(0)`, 배경 흰색, 텍스트 검정 강제
+- `window.print()` 호출 전 Mermaid를 라이트 테마로 재렌더링 후 복원 (`handleExportPdf`)
+
+**이슈 해결 기록:**
+| 문제 | 해결 |
+|------|------|
+| 다크모드 Mermaid 인쇄 시 텍스트 안 보임 | `@media print` SVG 내부 색상 강제 오버라이드 |
+| 태그/발행상태/조회수 PDF에 노출 | `.tags`, `.header` `display: none` 추가 |
+| 요소가 페이지 중간에서 잘림 | `pre`, `table`, `blockquote`, `svg`, `li` → `break-inside: avoid` / `h1~h6` → `break-after: avoid` / `p` → `orphans: 3; widows: 3` |
+
+---
+
 ## AI 평가 패널 설계 (미구현)
 
 > `PostDetailPage` 우측에 발행 전 AI 평가 결과를 표시한다. Hashnode에 전달하지 않음.

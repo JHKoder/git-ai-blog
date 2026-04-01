@@ -8,6 +8,7 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,14 +32,17 @@ import java.util.concurrent.atomic.AtomicReference;
 @RequiredArgsConstructor
 public class GptClient implements AiClient {
 
-    private static final String BASE_URL = "https://api.openai.com";
-
-    public static final String GPT_4O_MINI = "gpt-4o-mini";
-    public static final String GPT_4O      = "gpt-4o";
-
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
     private final RateLimitCache rateLimitCache;
+
+    @Value("${ai.model.gpt.mini}")
+    private String gptMini;
+
+    @Value("${ai.model.gpt.standard}")
+    private String gptStandard;
+
+    private static final String BASE_URL = "https://api.openai.com";
 
     @Override
     public String complete(String prompt, String model, String apiKey) {
@@ -52,7 +56,7 @@ public class GptClient implements AiClient {
         if (apiKey == null || apiKey.isBlank()) throw new ExternalApiException("GPT API 키가 설정되지 않았습니다. 마이페이지에서 API 키를 등록해주세요.");
         String key = apiKey;
 
-        String resolvedModel = (model != null && !model.isBlank()) ? model : GPT_4O_MINI;
+        String resolvedModel = (model != null && !model.isBlank()) ? model : gptMini;
 
         String responseBody = null;
         try {
@@ -111,7 +115,7 @@ public class GptClient implements AiClient {
         if (apiKey == null || apiKey.isBlank()) {
             return Flux.error(new ExternalApiException("GPT API 키가 설정되지 않았습니다."));
         }
-        String resolvedModel = (model != null && !model.isBlank()) ? model : GPT_4O_MINI;
+        String resolvedModel = (model != null && !model.isBlank()) ? model : gptMini;
 
         String jsonBody;
         try {
