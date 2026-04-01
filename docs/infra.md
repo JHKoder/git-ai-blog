@@ -1,7 +1,7 @@
 # 인프라 / 배포
 
 > 초기 셋업 및 구성 변경 절차.
-> 실시간 운영/장애 대응 → [`monitoring.md`](docs/monitoring.md)
+> 실시간 운영/장애 대응 → [`monitoring.md`](monitoring.md)
 
 ---
 

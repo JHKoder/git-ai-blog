@@ -73,13 +73,13 @@
 - [x] 인덱스 추가 — `posts`, `ai_suggestions`, `repos`, `prompts`, `sqlviz_widgets`, `post_tags` (Critical)
 - [x] ElementCollection N+1 해결 — `PostTag` 별도 엔티티 분리 완료 (High)
 - [x] Flyway 도입 — `ddl-auto: validate` + `db/migration/` 마이그레이션 파일 관리 (High)
-- [ ] 암호화 컬럼 길이 근거 주석 — 각 컬럼에 원문 최대 길이 + 오버헤드 계산 근거 명시 (Medium)
-- [ ] `deleteByPostId` 트랜잭션 안전화 — `@Modifying @Query` 벌크 DELETE로 교체 (Medium)
-- [ ] `findAvgDurationMsByModel` 반환 타입 — `Double` → `Optional<Double>` (Medium)
-- [ ] `findPopularPublic` / `findPopularByMember` 호출 측 LIMIT 강제 확인 — `Pageable.unpaged()` 방지 (Medium)
-- [ ] `SqlVizWidget` TEXT 중복 감지 — `sqls_hash` 컬럼(SHA-256) 추가 + 복합 인덱스 (Low)
-- [ ] `Member` 암호화 컬럼 분리 — `member_credentials` 별도 테이블로 9개 암호화 컬럼 이전 (Low)
-- [ ] HikariCP 운영 설정 추가 — `maximum-pool-size`, `idle-timeout`, `max-lifetime`, `leak-detection-threshold` (Low)
+- [x] 암호화 컬럼 길이 통일 — `Member` 모든 암호화 컬럼 `columnDefinition = "TEXT"` 적용 (Medium)
+- [x] `deleteByPostId` 트랜잭션 안전화 — `@Modifying @Transactional @Query` 벌크 DELETE 교체 (Medium)
+- [x] `findAvgDurationMsByModel` 반환 타입 — `Double` → `Optional<Double>` (Medium)
+- [x] `findPopularPublic` / `findPopularByMember` LIMIT 강제 — `PageRequest.of(0, 20)` 호출 측 확인 완료 (Medium)
+- [x] `SqlVizWidget` 해시 중복 감지 — `sqls_hash` 컬럼(SHA-256) 추가 + `findByMemberIdAndSqlsHashAndScenario` (Low)
+- [ ] `Member` 암호화 컬럼 분리 — `member_credentials` 별도 테이블로 9개 암호화 컬럼 이전 (Low, 중장기)
+- [x] HikariCP 운영 설정 추가 — `maximum-pool-size`, `idle-timeout`, `max-lifetime`, `leak-detection-threshold` (Low)
 
 ### 테스트
 

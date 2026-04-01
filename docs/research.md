@@ -9,12 +9,12 @@
 
 ### 기본 정보
 
-| 항목 | 값 |
-|------|-----|
-| Base URL | `https://api.openai.com/v1` |
-| 인증 | `Authorization: Bearer $OPENAI_API_KEY` 헤더 |
-| 텍스트 엔드포인트 | `POST /v1/chat/completions` |
-| 이미지 엔드포인트 | `POST /v1/images/generations` (DALL-E 3) |
+| 항목        | 값                                          |
+|-----------|--------------------------------------------|
+| Base URL  | `https://api.openai.com/v1`                |
+| 인증        | `Authorization: Bearer $OPENAI_API_KEY` 헤더 |
+| 텍스트 엔드포인트 | `POST /v1/chat/completions`                |
+| 이미지 엔드포인트 | `POST /v1/images/generations` (DALL-E 3)   |
 
 ### Rate Limit 응답 헤더
 
@@ -26,26 +26,31 @@ x-ratelimit-remaining-tokens
 x-ratelimit-reset-requests
 x-ratelimit-reset-tokens
 ```
+
 → 기존 Claude/Grok과 동일하게 `RateLimitCache`에 저장 가능
 
 ### 모델 목록
 
-| 모델 | 입력 | 출력 | 컨텍스트 | 추천 용도 |
-|------|------|------|----------|----------|
-| `gpt-4o` | $2.50/M | $10/M | 128K | 멀티모달, 비전 |
+| 모델            | 입력      | 출력      | 컨텍스트 | 추천 용도                   |
+|---------------|---------|---------|------|-------------------------|
+| `gpt-4o`      | $2.50/M | $10/M   | 128K | 멀티모달, 비전                |
 | `gpt-4o-mini` | $0.15/M | $0.60/M | 128K | **블로그 텍스트 생성 추천** (가성비) |
-| `gpt-4` | $30/M | $60/M | 8K | 고품질 추론 (고비용) |
+| `gpt-4`       | $30/M   | $60/M   | 8K   | 고품질 추론 (고비용)            |
 
 → 텍스트 개선은 `gpt-4o-mini`, 이미지 생성은 DALL-E 3 사용 권장
 
 ### 텍스트 API 요청/응답
 
 **Request:**
+
 ```json
 {
   "model": "gpt-4o-mini",
   "messages": [
-    { "role": "user", "content": "블로그 글을 개선해줘: ..." }
+    {
+      "role": "user",
+      "content": "블로그 글을 개선해줘: ..."
+    }
   ],
   "max_tokens": 2000,
   "temperature": 0.7
@@ -53,9 +58,16 @@ x-ratelimit-reset-tokens
 ```
 
 **Response:**
+
 ```json
 {
-  "choices": [{ "message": { "content": "개선된 내용..." } }],
+  "choices": [
+    {
+      "message": {
+        "content": "개선된 내용..."
+      }
+    }
+  ],
   "usage": {
     "prompt_tokens": 45,
     "completion_tokens": 1234,
@@ -63,11 +75,13 @@ x-ratelimit-reset-tokens
   }
 }
 ```
+
 → `usage.prompt_tokens` = input, `usage.completion_tokens` = output → `TokenUsageTracker`에 기록
 
 ### 이미지 생성 API (DALL-E 3)
 
 **Request:**
+
 ```json
 {
   "model": "dall-e-3",
@@ -81,9 +95,14 @@ x-ratelimit-reset-tokens
 ```
 
 **Response:**
+
 ```json
 {
-  "data": [{ "url": "https://..." }]
+  "data": [
+    {
+      "url": "https://..."
+    }
+  ]
 }
 ```
 
@@ -98,21 +117,21 @@ x-ratelimit-reset-tokens
 ```java
 // GptClient.java 구조 (ClaudeClient와 동일 패턴)
 String responseBody = webClientBuilder.build()
-    .post()
-    .uri(baseUrl + "/v1/chat/completions")
-    .header("Authorization", "Bearer " + key)
-    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-    .bodyValue(jsonBody)
-    .exchangeToMono(res -> {
-        // Rate limit 헤더 파싱
-        headersRef.set(res.headers().asHttpHeaders());
-        return res.bodyToMono(String.class);
-    })
-    .block();
+                .post()
+                .uri(baseUrl + "/v1/chat/completions")
+                .header("Authorization", "Bearer " + key)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .bodyValue(jsonBody)
+                .exchangeToMono(res -> {
+                    // Rate limit 헤더 파싱
+                    headersRef.set(res.headers().asHttpHeaders());
+                    return res.bodyToMono(String.class);
+                })
+                .block();
 
 // 응답 파싱
 String text = response.get("choices").get(0).get("message").get("content").asText();
-long inputTokens  = usage.path("prompt_tokens").asLong(0);
+long inputTokens = usage.path("prompt_tokens").asLong(0);
 long outputTokens = usage.path("completion_tokens").asLong(0);
 ```
 
@@ -120,13 +139,17 @@ long outputTokens = usage.path("completion_tokens").asLong(0);
 
 ```java
 // GptClient 상수
-public static final String GPT_4O       = "gpt-4o";
-public static final String GPT_4O_MINI  = "gpt-4o-mini";
+public static final String GPT_4O = "gpt-4o";
+public static final String GPT_4O_MINI = "gpt-4o-mini";
 
 // AiClientRouter - GPT 라우팅
-if (model.startsWith("gpt")) {
-    return new RouteResult(gptClient, model, member.getGptApiKey());
-}
+if(model.
+
+startsWith("gpt")){
+        return new
+
+RouteResult(gptClient, model, member.getGptApiKey());
+        }
 
 // 이미지 생성은 GPT 모델 선택 시에만 활성화
 // ImageUsageLimiter → GPT 전용으로 변경
@@ -170,7 +193,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --prefer-offline --no-audit
-COPY . .
+COPY .. .
 RUN npm run build
 
 # Stage 2: Nginx 서빙
@@ -215,7 +238,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
     restart: unless-stopped
 
@@ -250,12 +273,13 @@ PR 생성
 ### GitHub Actions — 테스트 검증 (PR 보호)
 
 **`.github/workflows/test.yml`**
+
 ```yaml
 name: Test on PR
 
 on:
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   test-backend:
@@ -284,12 +308,13 @@ jobs:
 ### GitHub Actions — OCI 롤링 배포
 
 **`.github/workflows/deploy.yml`**
+
 ```yaml
 name: Deploy to OCI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   deploy:
@@ -323,13 +348,13 @@ jobs:
 
 ### GitHub Secrets 목록
 
-| Secret | 설명 |
-|--------|------|
-| `OCI_HOST` | OCI 서버 IP |
-| `OCI_SSH_KEY` | SSH 개인키 (`/private` 경로의 키) |
-| `DOCKER_USERNAME` | Docker Hub 유저명 |
-| `DOCKER_PASSWORD` | Docker Hub 토큰 |
-| `JWT_SECRET`, `CLAUDE_API_KEY`, `GROK_API_KEY`, `OPENAI_API_KEY` 등 | 앱 환경변수 |
+| Secret                                                             | 설명                         |
+|--------------------------------------------------------------------|----------------------------|
+| `OCI_HOST`                                                         | OCI 서버 IP                  |
+| `OCI_SSH_KEY`                                                      | SSH 개인키 (`/private` 경로의 키) |
+| `DOCKER_USERNAME`                                                  | Docker Hub 유저명             |
+| `DOCKER_PASSWORD`                                                  | Docker Hub 토큰              |
+| `JWT_SECRET`, `CLAUDE_API_KEY`, `GROK_API_KEY`, `OPENAI_API_KEY` 등 | 앱 환경변수                     |
 
 ---
 
@@ -366,14 +391,20 @@ spring:
 String key = String.format("ai_usage:%d:%s", memberId, LocalDate.now());
 
 // 증가
-redisTemplate.opsForValue().increment(key);
+redisTemplate.
+
+opsForValue().
+
+increment(key);
 
 // TTL 설정 (자정까지 남은 초)
 long secondsUntilMidnight = ChronoUnit.SECONDS.between(
-    LocalDateTime.now(),
-    LocalDate.now().plusDays(1).atStartOfDay()
+        LocalDateTime.now(),
+        LocalDate.now().plusDays(1).atStartOfDay()
 );
-redisTemplate.expire(key, Duration.ofSeconds(secondsUntilMidnight));
+redisTemplate.
+
+expire(key, Duration.ofSeconds(secondsUntilMidnight));
 
 // 조회
 String count = redisTemplate.opsForValue().get(key);
@@ -389,13 +420,25 @@ String count = redisTemplate.opsForValue().get(key);
 // key: "rl_cache:{memberId}:{provider}"
 // TTL: 1분 (rate limit 정보는 짧게 유지)
 String key = String.format("rl_cache:%d:%s", memberId, provider);
-redisTemplate.opsForHash().putAll(key, Map.of(
-    "tokenLimit", info.tokenLimit(),
-    "tokenRemaining", info.tokenRemaining(),
-    "requestLimit", info.requestLimit(),
-    "requestRemaining", info.requestRemaining()
+redisTemplate.
+
+opsForHash().
+
+putAll(key, Map.of(
+        "tokenLimit", info.tokenLimit(),
+    "tokenRemaining",info.
+
+tokenRemaining(),
+    "requestLimit",info.
+
+requestLimit(),
+    "requestRemaining",info.
+
+requestRemaining()
 ));
-redisTemplate.expire(key, Duration.ofMinutes(5));
+        redisTemplate.
+
+expire(key, Duration.ofMinutes(5));
 ```
 
 ### TokenUsageTracker Redis 전환 핵심
@@ -403,10 +446,18 @@ redisTemplate.expire(key, Duration.ofMinutes(5));
 ```java
 // key: "token_usage:{memberId}:{model}:input" / ":output"
 // TTL: 월 1일 초기화 → 월말까지 남은 초
-String inputKey  = String.format("token_usage:%d:%s:input", memberId, model);
+String inputKey = String.format("token_usage:%d:%s:input", memberId, model);
 String outputKey = String.format("token_usage:%d:%s:output", memberId, model);
-redisTemplate.opsForValue().increment(inputKey, inputTokens);
-redisTemplate.opsForValue().increment(outputKey, outputTokens);
+redisTemplate.
+
+opsForValue().
+
+increment(inputKey, inputTokens);
+redisTemplate.
+
+opsForValue().
+
+increment(outputKey, outputTokens);
 ```
 
 ---
@@ -511,38 +562,38 @@ certbot:
 
 ### 라벨 카테고리
 
-| 라벨 | 트리거 조건 |
-|------|------------|
-| `[feature]` | `feature/*` 브랜치, PR 제목에 `feat:` |
-| `[bug]` | `fix/*` 브랜치, PR 제목에 `fix:` |
-| `[hotfix]` | `hotfix/*` 브랜치 |
-| `[release]` | `release/*` 브랜치 |
-| `[security]` | PR 제목/본문에 `security`, `CVE` |
-| `frontend` | `frontend/**` 파일 변경 |
-| `backend` | `backend/**` 파일 변경 |
+| 라벨           | 트리거 조건                          |
+|--------------|---------------------------------|
+| `[feature]`  | `feature/*` 브랜치, PR 제목에 `feat:` |
+| `[bug]`      | `fix/*` 브랜치, PR 제목에 `fix:`      |
+| `[hotfix]`   | `hotfix/*` 브랜치                  |
+| `[release]`  | `release/*` 브랜치                 |
+| `[security]` | PR 제목/본문에 `security`, `CVE`     |
+| `frontend`   | `frontend/**` 파일 변경             |
+| `backend`    | `backend/**` 파일 변경              |
 
 ### `.github/labeler.yml`
 
 ```yaml
 feature:
-  - head-branch: ['^feature/.*']
+  - head-branch: [ '^feature/.*' ]
 
 bug:
-  - head-branch: ['^(bugfix|fix)/.*']
+  - head-branch: [ '^(bugfix|fix)/.*' ]
 
 hotfix:
-  - head-branch: ['^hotfix/.*']
+  - head-branch: [ '^hotfix/.*' ]
 
 release:
-  - head-branch: ['^release/.*']
+  - head-branch: [ '^release/.*' ]
 
 frontend:
   - changed-files:
-      - any-glob-to-any-file: ['frontend/**']
+      - any-glob-to-any-file: [ 'frontend/**' ]
 
 backend:
   - changed-files:
-      - any-glob-to-any-file: ['backend/**']
+      - any-glob-to-any-file: [ 'backend/**' ]
 ```
 
 ### `.github/workflows/auto-label.yml`
@@ -552,7 +603,7 @@ name: Auto Label PR
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
 
 permissions:
   contents: read
@@ -612,55 +663,67 @@ Settings → Branches → main → Add rule
 ## 6. 구현 중 발견한 사항 (2026-03-20 plan.md 일괄 구현)
 
 ### 패키지 명 변경 시 주의사항
+
 - `com.example.aiblog` → `github.jhkoder.aiblog` 변경 시 `application.yml`의 `logging.level` 경로도 함께 변경해야 한다.
 - `build.gradle`의 `group` 필드도 `github.jhkoder`로 변경했다.
 - Java 파일은 `cp -r` 후 sed로 일괄 변경, 기존 디렉토리는 `rm -rf`로 제거.
 
 ### AesGcmEncryptionConverter - Spring @Component + JPA @Converter 동시 사용 문제
+
 - `@Component`와 `@Converter`를 동시에 사용하면 Spring이 Bean으로 관리하면서 `@Value` 주입이 동작한다.
 - 단, JPA가 자동으로 AttributeConverter를 찾는 경우 Spring Context 밖에서 인스턴스화될 수 있음 — `@Convert(converter=...)` 명시 필요.
 - 컬럼 길이를 암호화 후 길이에 맞게 늘려야 한다 (기존 500 → 1000~2000).
 
 ### Jasypt PBEWithHMACSHA512AndAES_256 주의사항
+
 - `iv-generator-classname`을 `RandomIvGenerator`로 변경해야 함. (`NoIvGenerator`는 보안 취약)
 - `StandardPBEStringEncryptor`에서도 `setIvGenerator(new RandomIvGenerator())`를 명시해야 적용됨.
 - 이미 기존 암호화된 값이 있다면 기존 알고리즘으로 복호화 후 새 알고리즘으로 재암호화 필요.
 
 ### RateLimitCache Redis CSV 저장 방식
-- RateLimitInfo record를 Redis에 저장할 때 JSON 라이브러리 대신 CSV(`"tokenLimit,tokenRemaining,requestLimit,requestRemaining"`)로 직렬화.
+
+- RateLimitInfo record를 Redis에 저장할 때 JSON 라이브러리 대신 CSV(`"tokenLimit,tokenRemaining,requestLimit,requestRemaining"`)로
+  직렬화.
 - Jackson ObjectMapper 의존성 없이 처리 가능하고, parse 오류 시 `RateLimitInfo.unknown()` 반환으로 안전하게 처리.
 
 ### ImageUsageLimiter - Monthly 제거
+
 - plan.md에서 GPT 이미지는 daily: 10장, per post: 5장으로 변경됨 (월별 1200장 제거).
 - `AiUsageResponse`와 `ProfilePage.tsx`에서도 monthly 필드를 제거해야 컴파일/TS 오류 없음.
 - `PostController`에서 `imageUsageLimiter.getMonthlyUsed()` 참조 제거 필요.
 
 ### JWT Refresh Token 쿠키 Path 설계
+
 - Refresh Token 쿠키 Path를 `/api/auth`로 제한해 매 요청마다 쿠키가 전송되는 것을 방지.
 - `cookie.setSecure(request.isSecure())`: HTTPS 환경에서만 Secure 속성 설정 (로컬 개발 호환).
 
 ### GeminiClient API 구조
+
 - Gemini REST API는 `/v1beta/models/{model}:generateContent?key={api_key}` 패턴.
 - 응답 구조: `candidates[0].content.parts[0].text`
 - 토큰 사용량: `usageMetadata.promptTokenCount` / `usageMetadata.candidatesTokenCount`
 - Claude/Grok과 달리 Rate Limit 응답 헤더가 없음 — `rateLimitCache` 업데이트 생략.
 
 ### 테스트에서 Lombok @Getter + private 필드 설정
+
 - Lombok으로 생성된 private 필드는 `ReflectionTestUtils.setField()`로 설정.
 - 도메인 엔티티(`Post`, `Member`)의 `id`, `createdAt` 등 `@GeneratedValue` 필드도 동일하게 처리.
 
 ### AiClientRouter CODE_REVIEW 라우팅 변경
+
 - 이전: CODE_REVIEW → Claude Opus
 - 변경: CODE_REVIEW → Claude Sonnet (plan.md 정책 기준 Sonnet이 기본)
 - Claude Opus는 `claude-opus-4-5`로 명시적 모델 선택 시에만 사용.
 
 ### Spring Boot 4.0.3 BOM에 spring-boot-starter-aop 누락
+
 - `spring-boot-starter-aop`는 Spring Boot 4.0.3 BOM에 포함되지 않음.
 - `spring-boot-starter-aop` 대신 `org.springframework:spring-aop`와 `org.springframework:spring-aspects`를 직접 선언해야 함.
 - 두 의존성 모두 Spring BOM에서 버전 관리되므로 별도 버전 명시 불필요.
 - Resilience4j 어노테이션(`@Retry`, `@CircuitBreaker`)이 동작하려면 AOP 관련 의존성이 필요.
 
 ### Resilience4j @Retry + @CircuitBreaker private 메서드 주의사항
+
 - Spring AOP는 프록시 기반이므로 `private` 메서드에 `@Retry`, `@CircuitBreaker`를 붙여도 적용되지 않음.
 - `ClaudeClient.callApi()`는 `private`이므로 어노테이션을 붙여도 실제로 동작하지 않음.
 - 제대로 동작하려면 해당 메서드를 `public`으로 변경하거나, `completeWithUsage()`에 어노테이션을 붙여야 함.
@@ -668,29 +731,31 @@ Settings → Branches → main → Add rule
 - HashnodeClient의 `executeWithRetry()`도 `private`이므로 동일 문제 있음. 수동 retry 로직이 이미 있어 허용.
 
 ### ImageGenerationService — Gemini → GPT 전환
+
 - 이전: `GeminiImageClient`로 이미지 생성 (Gemini 무료 티어 할당량 초과로 실패)
 - 변경: `GptImageClient`로 DALL-E 3 이미지 생성 (GPT 모델 선택 시에만 활성화)
 - `ImageGenerationService.resolveImagePlaceholders(content, model, apiKey)` 오버로드 추가
 - 하위 호환을 위해 `resolveImagePlaceholders(content)`는 자리표시자만 제거하도록 유지
 
 ### ImageGenButton — selectedModel prop 추가
+
 - GPT 모델이 아닐 때 버튼을 disabled 스타일(opacity 0.5)로 표시하고 클릭 시 toast 경고.
 - `postApi.generateImage(prompt, model)` — model 파라미터 추가로 백엔드 model 검증 가능.
 - PostCreatePage, PostEditPage에 이미지 생성 모델 선택 드롭다운 추가 (gpt-4o-mini / gpt-4o).
 
 ## 요약 — 구현 순서 제안
 
-| 순서 | 작업 | 선행 조건 |
-|------|------|----------|
-| 1 | Redis 전환 (`AiUsageLimiter`, `RateLimitCache`, `TokenUsageTracker`) | Redis Docker 설정 |
-| 2 | `GptClient` 구현 + `AiClientRouter` 라우팅 추가 | OpenAI API 키 |
-| 3 | `ImageUsageLimiter` → GPT 전용으로 변경 | GptClient 완료 |
-| 4 | Jasypt 알고리즘 업그레이드 + `/private/.env` 이관 | - |
-| 5 | JWT Refresh Token (30일) 추가 | - |
-| 6 | Dockerfile + Docker Compose 작성 | Redis 전환 완료 |
-| 7 | OCI 서버 세팅 + Nginx + Let's Encrypt | 도메인 준비 |
-| 8 | GitHub Actions 워크플로우 (테스트, 배포, 라벨링) | OCI 세팅 완료 |
-| 9 | Branch Protection Rule 설정 | 워크플로우 완료 |
+| 순서 | 작업                                                                 | 선행 조건           |
+|----|--------------------------------------------------------------------|-----------------|
+| 1  | Redis 전환 (`AiUsageLimiter`, `RateLimitCache`, `TokenUsageTracker`) | Redis Docker 설정 |
+| 2  | `GptClient` 구현 + `AiClientRouter` 라우팅 추가                           | OpenAI API 키    |
+| 3  | `ImageUsageLimiter` → GPT 전용으로 변경                                  | GptClient 완료    |
+| 4  | Jasypt 알고리즘 업그레이드 + `/private/.env` 이관                             | -               |
+| 5  | JWT Refresh Token (30일) 추가                                         | -               |
+| 6  | Dockerfile + Docker Compose 작성                                     | Redis 전환 완료     |
+| 7  | OCI 서버 세팅 + Nginx + Let's Encrypt                                  | 도메인 준비          |
+| 8  | GitHub Actions 워크플로우 (테스트, 배포, 라벨링)                                | OCI 세팅 완료       |
+| 9  | Branch Protection Rule 설정                                          | 워크플로우 완료        |
 
 ---
 
@@ -702,10 +767,10 @@ Settings → Branches → main → Add rule
 
 `PromptBuilder.buildFull()` 기준 매 요청마다 전송되는 고정 지시문:
 
-| 항목                             | 대략적 크기 |
-|--------------------------------|--------:|
-| 4단계 파이프라인 지시문                  | ~600 토큰 |
-| `getBaseInstruction()` (공통 규칙) | ~700 토큰 |
+| 항목                             |        대략적 크기 |
+|--------------------------------|--------------:|
+| 4단계 파이프라인 지시문                  |       ~600 토큰 |
+| `getBaseInstruction()` (공통 규칙) |       ~700 토큰 |
 | **합계 (반복 고정 부분)**              | **~1,300 토큰** |
 
 하루 100회 기준 → 고정 지시문만으로 **130,000 토큰 소모**.
@@ -713,6 +778,7 @@ Settings → Branches → main → Add rule
 ### 채택된 전략
 
 **전략 1 — System Prompt 분리 + Claude Prompt Caching**
+
 - 공통 규칙(base)을 `system` 필드로 분리 (`buildSystemPrompt()`)
 - `cache_control: {"type": "ephemeral"}` + `anthropic-beta: prompt-caching-2024-07-31` 헤더
 - 캐시 히트 시 입력 토큰 **~90% 절감**. TTL = 5분 — 코드 배포 = 자동 캐시 갱신
@@ -720,20 +786,22 @@ Settings → Branches → main → Add rule
 - Claude 전용. Grok/GPT/Gemini는 전략 2로 절감
 
 **전략 2 — 공통 규칙 텍스트 압축**
+
 - 산문체 → 불릿 키워드로 압축 (~35% 절감)
 - 전체 모델 공통 적용
 
 **전략 3 — Haiku 자동 라우팅**
+
 - 조건: 모델 미지정 + content 1,000자 미만 + extraPrompt 있음
 - Haiku: Sonnet 대비 입력 ~10배 저렴. 단 품질 낮으므로 단순 수정 요청에만 적용
 
 ### 주요 결정 사항
 
-| 질문 | 결론 |
-|------|------|
-| GPT/Grok/Gemini도 system 분리 시 캐싱 혜택? | **없음** — Claude만 공식 Prompt Caching 제공. 나머지는 텍스트 압축으로 절감 |
-| ContentType별 변형(8가지) → 캐시 히트율? | 공통 base만 system으로 분리, ContentType별 추가 규칙은 user로 유지 → 히트율 100% 유지 |
-| JSON 출력 방식 도입? | **불가** — SSE 스트리밍과 근본적으로 충돌. 현재 텍스트 파싱 구조 유지 |
-| System Prompt 변경 시 수동 캐시 초기화 필요? | **불필요** — 내용 변경 시 Anthropic 서버가 자동으로 새 캐시 생성 |
-| `prompt.yml` 규칙 텍스트 이관? | **하지 않음** — yml 블록 스칼라 지옥 + 오타 검출 불가. 규칙은 코드에 유지 |
-| 10 | API 유효성 검사 (`@Valid` 전수 적용) | - |
+| 질문                                  | 결론                                                               |
+|-------------------------------------|------------------------------------------------------------------|
+| GPT/Grok/Gemini도 system 분리 시 캐싱 혜택? | **없음** — Claude만 공식 Prompt Caching 제공. 나머지는 텍스트 압축으로 절감          |
+| ContentType별 변형(8가지) → 캐시 히트율?      | 공통 base만 system으로 분리, ContentType별 추가 규칙은 user로 유지 → 히트율 100% 유지 |
+| JSON 출력 방식 도입?                      | **불가** — SSE 스트리밍과 근본적으로 충돌. 현재 텍스트 파싱 구조 유지                     |
+| System Prompt 변경 시 수동 캐시 초기화 필요?    | **불필요** — 내용 변경 시 Anthropic 서버가 자동으로 새 캐시 생성                     |
+| `prompt.yml` 규칙 텍스트 이관?             | **하지 않음** — yml 블록 스칼라 지옥 + 오타 검출 불가. 규칙은 코드에 유지                 |
+| 10                                  | API 유효성 검사 (`@Valid` 전수 적용)                                      | - |

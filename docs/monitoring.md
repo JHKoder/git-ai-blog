@@ -24,6 +24,7 @@ docker ps
 ```
 
 **정상 상태:**
+
 ```
 NAME              STATUS
 app-backend-1     Up X hours (healthy)
@@ -32,6 +33,7 @@ app-redis-1       Up X hours (healthy)
 ```
 
 **비정상 상태 예시:**
+
 - `Restarting (1) X seconds ago` → 컨테이너 시작 실패, 로그 확인 필요
 - `Exited (1)` → 크래시 후 중단
 
@@ -76,12 +78,12 @@ docker compose -f /home/opc/app/docker-compose.yml logs --tail=50 backend
 
 **원인 및 대응:**
 
-| 원인 | 로그 패턴 | 대응 |
-|------|-----------|------|
-| `JASYPT_ENCRYPTOR_PASSWORD` 누락 | `Failed to decrypt...` | 서버 환경변수 설정 확인 (`echo $JASYPT_ENCRYPTOR_PASSWORD`) |
-| DB 연결 실패 | `Connection refused` / `Unable to acquire JDBC Connection` | Supabase 상태 확인 |
-| Redis 연결 실패 | `Unable to connect to Redis` | `docker ps`로 redis 컨테이너 확인 |
-| 설정 파일 없음 | `no configuration file provided` | `/home/opc/app/docker-compose.yml` 존재 여부 확인 |
+| 원인                             | 로그 패턴                                                      | 대응                                                |
+|--------------------------------|------------------------------------------------------------|---------------------------------------------------|
+| `JASYPT_ENCRYPTOR_PASSWORD` 누락 | `Failed to decrypt...`                                     | 서버 환경변수 설정 확인 (`echo $JASYPT_ENCRYPTOR_PASSWORD`) |
+| DB 연결 실패                       | `Connection refused` / `Unable to acquire JDBC Connection` | Supabase 상태 확인                                    |
+| Redis 연결 실패                    | `Unable to connect to Redis`                               | `docker ps`로 redis 컨테이너 확인                        |
+| 설정 파일 없음                       | `no configuration file provided`                           | `/home/opc/app/docker-compose.yml` 존재 여부 확인       |
 
 ### 502 Bad Gateway
 
@@ -154,6 +156,7 @@ docker compose -f /home/opc/app/docker-compose.yml exec frontend nginx -s reload
 ```
 
 **자동 갱신 크론** (매일 03:00):
+
 ```bash
 crontab -l  # 크론 등록 확인
 ```
@@ -167,6 +170,7 @@ echo $JASYPT_ENCRYPTOR_PASSWORD
 ```
 
 **필수 항목:**
+
 ```
 JASYPT_ENCRYPTOR_PASSWORD=...
 SPRING_PROFILES_ACTIVE=prod
