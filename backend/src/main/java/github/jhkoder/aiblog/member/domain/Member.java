@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Entity
 @Table(name = "members")
@@ -96,8 +97,8 @@ public class Member {
     }
 
     public void disconnectHashnode() {
-        this.hashnodeToken = null;
-        this.hashnodePublicationId = null;
+        this.hashnodeToken = "";
+        this.hashnodePublicationId = "";
     }
 
     public void updateClaudeApiKey(String key) {
@@ -117,31 +118,35 @@ public class Member {
     }
 
     public void updateGithubCredentials(String githubToken) {
-        if (githubToken != null) this.githubToken = githubToken;
+        this.githubToken = Optional.ofNullable(githubToken).orElse(this.githubToken);
     }
 
     public boolean hasGithubToken() {
-        return githubToken != null && !githubToken.isBlank();
+        return isPresent(githubToken);
     }
 
     public boolean hasHashnodeConnection() {
-        return hashnodeToken != null && !hashnodeToken.isBlank();
+        return isPresent(hashnodeToken);
     }
 
     public boolean hasClaudeApiKey() {
-        return claudeApiKey != null && !claudeApiKey.isBlank();
+        return isPresent(claudeApiKey);
     }
 
     public boolean hasGrokApiKey() {
-        return grokApiKey != null && !grokApiKey.isBlank();
+        return isPresent(grokApiKey);
     }
 
     public boolean hasGptApiKey() {
-        return gptApiKey != null && !gptApiKey.isBlank();
+        return isPresent(gptApiKey);
     }
 
     public boolean hasGeminiApiKey() {
-        return geminiApiKey != null && !geminiApiKey.isBlank();
+        return isPresent(geminiApiKey);
+    }
+
+    private static boolean isPresent(String value) {
+        return value != null && !value.isBlank();
     }
 
     public void updateHashnodeTags(String hashnodeTagsJson) {

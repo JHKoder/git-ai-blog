@@ -31,9 +31,14 @@ function OAuthCallback() {
     } else {
       navigate('/login', { replace: true })
     }
-  }, [])
+  }, [navigate, setToken])
 
-  return <p>로그인 처리 중...</p>
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
+      <div className="w-10 h-10 rounded-full border-4 border-[#0066FF] border-t-transparent animate-spin" />
+      <p className="text-gray-500 text-sm font-medium">로그인 처리 중...</p>
+    </div>
+  )
 }
 
 export function AppRouter() {

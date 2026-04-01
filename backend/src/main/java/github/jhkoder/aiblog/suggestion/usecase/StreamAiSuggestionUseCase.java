@@ -21,7 +21,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 /**
  * AI 개선 요청을 SSE 스트리밍으로 처리한다.
@@ -49,7 +53,7 @@ public class StreamAiSuggestionUseCase {
     private static final int CHUNK_SIZE = 50;
 
     /** 모델별 예상 시간 fallback (초). durationMs 데이터 없을 때 사용 */
-    private static final java.util.Map<String, Long> FALLBACK_SECONDS = java.util.Map.of(
+    private static final Map<String, Long> FALLBACK_SECONDS = Map.of(
             "claude-sonnet-4-6", 40L,
             "claude-opus-4-5",   60L,
             "grok-3",            20L,
@@ -242,7 +246,7 @@ public class StreamAiSuggestionUseCase {
                 String raw = trimmed.substring(5).trim();
                 if (raw.isBlank()) return null;
                 String[] parts = raw.split(",");
-                java.util.List<String> tags = new java.util.ArrayList<>();
+                List<String> tags = new ArrayList<>();
                 for (String part : parts) {
                     String tag = part.trim().toLowerCase();
                     if (!tag.isBlank()) tags.add(tag);
@@ -262,7 +266,7 @@ public class StreamAiSuggestionUseCase {
         if (text == null) return null;
         return text.lines()
                 .filter(line -> !line.trim().startsWith("TAGS:"))
-                .collect(java.util.stream.Collectors.joining("\n"));
+                .collect(Collectors.joining("\n"));
     }
 
     /**
@@ -274,7 +278,7 @@ public class StreamAiSuggestionUseCase {
         if (text == null) return null;
         return text.lines()
                 .filter(line -> !line.trim().matches("^>?\\s*이 글은 .+이 작성을 도왔습니다\\.?\\s*$"))
-                .collect(java.util.stream.Collectors.joining("\n"));
+                .collect(Collectors.joining("\n"));
     }
 
     /**

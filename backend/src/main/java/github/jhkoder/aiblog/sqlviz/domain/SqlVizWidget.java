@@ -13,7 +13,8 @@ import java.util.HexFormat;
 
 @Entity
 @Table(name = "sqlviz_widgets", indexes = {
-        @Index(name = "idx_sqlviz_member_id", columnList = "memberId")
+        @Index(name = "idx_sqlviz_member_id", columnList = "memberId"),
+        @Index(name = "idx_sqlviz_member_hash_scenario", columnList = "memberId, sqlsHash, scenario")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

@@ -1,6 +1,6 @@
 # AI Blog Automation — 작업 체크리스트
 
-> 최종 수정: 2026-04-01
+> 최종 수정: 2026-04-02
 
 ## 진행중 / 예정 작업
 
@@ -12,10 +12,20 @@
 
 > 상세 → [`reviews/2026-04-02_backend-domain-refactor-flyway.md`](reviews/2026-04-02_backend-domain-refactor-flyway.md)
 
-**즉시 수정 Top 3:**
-- [ ] `Member.disconnectHashnode()` null 직접 할당 제거 (code-style 위반)
-- [ ] `StreamAiSuggestionUseCase` inline `java.util.*` FQN → import 정리
-- [ ] Flyway V4 추가: `posts.member_id`, `ai_suggestions.post_id` 등 FK 제약
+- [x] `Member.disconnectHashnode()` null 직접 할당 → 빈 문자열로 대체 + `isPresent()` 헬퍼 도입
+- [x] `StreamAiSuggestionUseCase` inline `java.util.*` FQN → import 정리 완료
+- [x] Flyway V4 추가: 7개 테이블 FK 제약 + `ai_suggestions.member_id` 인덱스
+- [x] `Post.normalizeTags()` 단위 테스트 6개 추가 — 한글/null원소/특수문자만/하이픈/30자경계/복합케이스
+- [x] `PostStatus` Enum 상태 전이 매트릭스 `canTransitionTo()` + `ACCEPTABLE_FROM` 상수 추가
+- [x] `Post.updateTags()` 동일 태그 조기 반환으로 불필요한 DELETE+INSERT 방지
+- [x] `SqlVizWidget` Entity `@Index`에 복합 인덱스 `(memberId, sqlsHash, scenario)` 추가
+- [x] `ai_suggestions` 테이블 `member_id` 인덱스 추가 (V4 마이그레이션에 포함)
+- [x] `Post.accept()` 상태 전이 허용 범위 테스트 7개 추가 (DRAFT/ACCEPTED/PUBLISHED → ACCEPTED)
+- [x] `OAuthCallback` `useEffect` 의존성 배열에 `navigate`, `setToken` 추가
+- [x] `OAuthCallback` 로딩 UI — 토스 스타일 스피너 (`border-[#0066FF] animate-spin`)로 교체
+- [x] Flyway V5 추가: `repo_collect_history.ref_id` `VARCHAR(255)` → `TEXT`
+- [ ] CI에 `./gradlew flywayValidate` 단계 추가
+- [ ] `parseTags()` / `parseTitle()` / `removeAiAuthorLine()` → `AiResponseParser` 유틸로 분리 (테스트 용이성)
 
 ---
 
@@ -79,7 +89,7 @@
 
 ### DB 개선 (우선순위 순)
 
-> 상세 → [`DBA_Claude.md`](DBA_Claude.md)
+> 상세 → [`research.md`](research.md)
 
 - [x] 인덱스 추가 — `posts`, `ai_suggestions`, `repos`, `prompts`, `sqlviz_widgets`, `post_tags` (Critical)
 - [x] ElementCollection N+1 해결 — `PostTag` 별도 엔티티 분리 완료 (High)

@@ -69,6 +69,88 @@ class PostDomainTest {
     }
 
     @Test
+    @DisplayName("ACCEPTED 상태에서 accept 재호출 성공 — 연속 수락 지원")
+    void accept_fromAccepted_success() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.markAiSuggested();
+        post.accept("첫 번째 AI 내용", null, null);
+
+        post.accept("두 번째 AI 내용", "새 제목", null);
+
+        assertThat(post.getStatus()).isEqualTo(PostStatus.ACCEPTED);
+        assertThat(post.getContent()).isEqualTo("두 번째 AI 내용");
+        assertThat(post.getTitle()).isEqualTo("새 제목");
+    }
+
+    @Test
+    @DisplayName("PUBLISHED 상태에서 accept 호출 성공 — 발행 후 재개선 지원")
+    void accept_fromPublished_success() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.markPublished("hashnode-1", "https://hashnode.com/1");
+
+        post.accept("재개선 내용", null, null);
+
+        assertThat(post.getStatus()).isEqualTo(PostStatus.ACCEPTED);
+        assertThat(post.getContent()).isEqualTo("재개선 내용");
+    }
+
+    @Test
+    @DisplayName("accept 시 suggestedTitle이 null이면 기존 제목을 유지한다")
+    void accept_withNullTitle_keepsPreviousTitle() {
+        Post post = Post.create(1L, "원래 제목", "내용", ContentType.CODING);
+        post.markAiSuggested();
+
+        post.accept("AI 내용", null, null);
+
+        assertThat(post.getTitle()).isEqualTo("원래 제목");
+    }
+
+    @Test
+    @DisplayName("accept 시 suggestedTitle이 blank이면 기존 제목을 유지한다")
+    void accept_withBlankTitle_keepsPreviousTitle() {
+        Post post = Post.create(1L, "원래 제목", "내용", ContentType.CODING);
+        post.markAiSuggested();
+
+        post.accept("AI 내용", "   ", null);
+
+        assertThat(post.getTitle()).isEqualTo("원래 제목");
+    }
+
+    @Test
+    @DisplayName("accept 시 suggestedTags가 있으면 태그가 교체된다")
+    void accept_withSuggestedTags_replacesTags() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING, List.of("java"));
+        post.markAiSuggested();
+
+        post.accept("AI 내용", null, List.of("spring", "jpa"));
+
+        assertThat(post.getTags()).containsExactlyInAnyOrder("spring", "jpa");
+    }
+
+    @Test
+    @DisplayName("PostStatus.canTransitionTo — 허용/거절 전이 매트릭스 검증")
+    void postStatus_canTransitionTo_매트릭스() {
+        assertThat(PostStatus.DRAFT.canTransitionTo(PostStatus.AI_SUGGESTED)).isTrue();
+        assertThat(PostStatus.DRAFT.canTransitionTo(PostStatus.ACCEPTED)).isTrue();
+        assertThat(PostStatus.AI_SUGGESTED.canTransitionTo(PostStatus.DRAFT)).isTrue();
+        assertThat(PostStatus.AI_SUGGESTED.canTransitionTo(PostStatus.ACCEPTED)).isTrue();
+        assertThat(PostStatus.ACCEPTED.canTransitionTo(PostStatus.PUBLISHED)).isTrue();
+        assertThat(PostStatus.PUBLISHED.canTransitionTo(PostStatus.AI_SUGGESTED)).isTrue();
+        assertThat(PostStatus.ACCEPTED.canTransitionTo(PostStatus.DRAFT)).isFalse();
+        assertThat(PostStatus.PUBLISHED.canTransitionTo(PostStatus.DRAFT)).isFalse();
+    }
+
+    @Test
+    @DisplayName("updateTags — 동일한 태그 목록을 전달하면 결과가 유지된다")
+    void updateTags_sameTags_noChange() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING, List.of("java", "spring"));
+
+        post.updateTags(List.of("java", "spring"));
+
+        assertThat(post.getTags()).containsExactly("java", "spring");
+    }
+
+    @Test
     @DisplayName("AI_SUGGESTED → DRAFT 복원 성공 (제안 거절)")
     void revertFromAiSuggested_fromAiSuggested_backToDraft() {
         Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
@@ -166,5 +248,58 @@ class PostDomainTest {
     void create_withTags_normalizesOnCreation() {
         Post post = Post.create(1L, "제목", "내용", ContentType.CODING, List.of("Java", "SPRING!"));
         assertThat(post.getTags()).containsExactly("java", "spring");
+    }
+
+    @Test
+    @DisplayName("한글 태그가 정상적으로 보존된다")
+    void normalizeTags_한글태그_보존() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.updateTags(List.of("데이터베이스", "자바-스프링", "백엔드"));
+        assertThat(post.getTags()).containsExactly("데이터베이스", "자바-스프링", "백엔드");
+    }
+
+    @Test
+    @DisplayName("태그 목록에 null 원소가 포함되면 건너뛴다")
+    void normalizeTags_null원소_무시() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        java.util.List<String> tagsWithNull = new java.util.ArrayList<>();
+        tagsWithNull.add("java");
+        tagsWithNull.add(null);
+        tagsWithNull.add("spring");
+        post.updateTags(tagsWithNull);
+        assertThat(post.getTags()).containsExactly("java", "spring");
+    }
+
+    @Test
+    @DisplayName("태그 정규화 후 빈 문자열이 되는 특수문자만 있는 태그는 제거된다")
+    void normalizeTags_특수문자만_있는_태그_제거() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.updateTags(List.of("@#$%", "!!!", "java"));
+        assertThat(post.getTags()).containsExactly("java");
+    }
+
+    @Test
+    @DisplayName("하이픈이 포함된 태그가 정상적으로 보존된다")
+    void normalizeTags_하이픈_보존() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.updateTags(List.of("spring-boot", "vue-js", "node-js"));
+        assertThat(post.getTags()).containsExactly("spring-boot", "vue-js", "node-js");
+    }
+
+    @Test
+    @DisplayName("정확히 30자 태그는 잘리지 않는다")
+    void normalizeTags_정확히30자_유지() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        String exactTag = "a".repeat(30);
+        post.updateTags(List.of(exactTag));
+        assertThat(post.getTags()).containsExactly(exactTag);
+    }
+
+    @Test
+    @DisplayName("대소문자 혼합 중복 태그 + 특수문자 조합이 올바르게 정규화된다")
+    void normalizeTags_복합케이스_정규화() {
+        Post post = Post.create(1L, "제목", "내용", ContentType.CODING);
+        post.updateTags(List.of("Spring-Boot!", "spring-boot", "SPRING_BOOT"));
+        assertThat(post.getTags()).containsExactly("spring-boot", "springboot");
     }
 }

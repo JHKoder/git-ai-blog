@@ -98,8 +98,12 @@ public class Post {
     }
 
     public void updateTags(List<String> tags) {
-        this.postTags.clear();
         List<String> normalized = Optional.ofNullable(tags).map(Post::normalizeTags).orElseGet(ArrayList::new);
+        List<String> current = getTags();
+        if (current.equals(normalized)) {
+            return;
+        }
+        this.postTags.clear();
         for (String tag : normalized) {
             this.postTags.add(PostTag.of(this, tag));
         }
