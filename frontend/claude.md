@@ -2,6 +2,11 @@
 
 > React 18 · TypeScript · Vite 5
 
+## 핵심 제약
+
+- **`any` / `unknown` 타입 사용 금지**
+- **기술 변경금지**
+
 ---
 
 ## 기술 스택

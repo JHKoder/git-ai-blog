@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { Layout } from '../components/Layout/Layout'
 import { LoginPage } from '../pages/LoginPage/LoginPage'
@@ -18,12 +18,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function OAuthCallback() {
-  const [params] = useSearchParams()
   const navigate = useNavigate()
   const { setToken } = useAuthStore()
 
   useEffect(() => {
-    const token = params.get('token')
+    // fragment(#token=...)는 서버 로그에 기록되지 않음
+    const hash = window.location.hash.slice(1) // '#' 제거
+    const token = new URLSearchParams(hash).get('token')
     if (token) {
       setToken(token)
       navigate('/', { replace: true })
