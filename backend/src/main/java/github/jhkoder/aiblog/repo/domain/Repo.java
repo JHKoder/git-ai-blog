@@ -8,7 +8,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "repos")
+@Table(name = "repos", indexes = {
+        @Index(name = "idx_repos_member_id", columnList = "memberId")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Repo {

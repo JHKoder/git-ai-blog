@@ -9,7 +9,10 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "prompts")
+@Table(name = "prompts", indexes = {
+        @Index(name = "idx_prompts_member_usage", columnList = "memberId, usageCount"),
+        @Index(name = "idx_prompts_public_usage", columnList = "isPublic, usageCount")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Prompt {

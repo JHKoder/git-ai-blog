@@ -21,7 +21,7 @@ public interface PostJpaRepository extends JpaRepository<Post, Long>, PostReposi
     @Query("SELECT p FROM Post p WHERE p.memberId = :memberId AND p.status = 'PUBLISHED' AND p.hashnodeId IS NOT NULL")
     List<Post> findPublishedByMemberId(Long memberId);
 
-    @Query("SELECT DISTINCT p FROM Post p JOIN p.tags t WHERE p.memberId = :memberId AND t = :tag")
+    @Query("SELECT DISTINCT p FROM Post p JOIN p.postTags pt WHERE p.memberId = :memberId AND pt.tag = :tag")
     Page<Post> findByMemberIdAndTag(Long memberId, String tag, Pageable pageable);
 
     default void deletePost(Long id) {

@@ -39,8 +39,8 @@ public class SqlVizWidgetRepositoryImpl implements SqlVizWidgetRepository {
     }
 
     @Override
-    public Optional<SqlVizWidget> findByMemberIdAndSqlsJsonAndScenario(Long memberId, String sqlsJson, SqlVizScenario scenario) {
-        return jpa.findByMemberIdAndSqlsJsonAndScenario(memberId, sqlsJson, scenario);
+    public Optional<SqlVizWidget> findByMemberIdAndSqlsHashAndScenario(Long memberId, String sqlsHash, SqlVizScenario scenario) {
+        return jpa.findByMemberIdAndSqlsHashAndScenario(memberId, sqlsHash, scenario);
     }
 
     @Override

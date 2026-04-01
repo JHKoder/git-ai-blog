@@ -58,6 +58,7 @@ public class AuthController {
         cookie.setSecure(request.isSecure());
         cookie.setPath("/api/auth");
         cookie.setMaxAge((int) REFRESH_TTL.toSeconds());
+        cookie.setAttribute("SameSite", "Strict");
         response.addCookie(cookie);
 
         return ResponseEntity.ok(ApiResponse.ok(Map.of("accessToken", newAccessToken)));
@@ -77,6 +78,7 @@ public class AuthController {
         cookie.setSecure(request.isSecure());
         cookie.setPath("/api/auth");
         cookie.setMaxAge(0);
+        cookie.setAttribute("SameSite", "Strict");
         response.addCookie(cookie);
 
         return ResponseEntity.ok(ApiResponse.ok());

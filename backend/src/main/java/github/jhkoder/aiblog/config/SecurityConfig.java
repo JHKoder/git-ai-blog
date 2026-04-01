@@ -36,7 +36,6 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/oauth2/**",
                                 "/login/oauth2/**",
-                                "/h2-console/**",
                                 "/api/webhook/github",
                                 "/api/auth/refresh",
                                 "/api/auth/logout",

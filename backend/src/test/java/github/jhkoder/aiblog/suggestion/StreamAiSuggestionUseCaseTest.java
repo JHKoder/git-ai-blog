@@ -147,7 +147,7 @@ class StreamAiSuggestionUseCaseTest {
     @Test
     @DisplayName("DB 평균 30,000ms 있으면 estimated가 30초로 계산된다")
     void stream_estimatedFromDbAvg() {
-        given(aiSuggestionRepository.findAvgDurationMsByModel(anyString())).willReturn(30_000.0);
+        given(aiSuggestionRepository.findAvgDurationMsByModel(anyString())).willReturn(Optional.of(30_000.0));
         given(postRepository.findByIdAndMemberId(POST_ID, MEMBER_ID)).willReturn(Optional.of(post));
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
         given(promptBuilder.build(any(), anyString(), any())).willReturn("프롬프트");
@@ -167,7 +167,7 @@ class StreamAiSuggestionUseCaseTest {
         given(postRepository.findByIdAndMemberId(POST_ID, MEMBER_ID)).willReturn(Optional.of(post));
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
         given(promptBuilder.build(any(), anyString(), any())).willReturn("프롬프트");
-        given(aiSuggestionRepository.findAvgDurationMsByModel(anyString())).willReturn(null);
+        given(aiSuggestionRepository.findAvgDurationMsByModel(anyString())).willReturn(Optional.empty());
         given(aiSuggestionRepository.save(any(AiSuggestion.class))).willAnswer(inv -> inv.getArgument(0));
     }
 }

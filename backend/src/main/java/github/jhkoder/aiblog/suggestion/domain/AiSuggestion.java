@@ -8,7 +8,11 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ai_suggestions")
+@Table(name = "ai_suggestions", indexes = {
+        @Index(name = "idx_ai_suggestions_post_id", columnList = "postId"),
+        @Index(name = "idx_ai_suggestions_post_created", columnList = "postId, createdAt"),
+        @Index(name = "idx_ai_suggestions_model", columnList = "model")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AiSuggestion {

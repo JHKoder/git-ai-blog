@@ -36,10 +36,11 @@ public class CreateSqlVizWidgetUseCase {
 
         try {
             String sqlsJson = objectMapper.writeValueAsString(req.sqls());
+            String sqlsHash = SqlVizWidget.sha256Hex(sqlsJson);
 
-            // 동일 SQL + 시나리오 조합이 이미 존재하면 재사용 (중복 생성 방지)
+            // 동일 SQL + 시나리오 조합이 이미 존재하면 재사용 (중복 생성 방지 — 해시 기반)
             Optional<SqlVizWidget> existing = widgetRepository
-                    .findByMemberIdAndSqlsJsonAndScenario(memberId, sqlsJson, req.scenario());
+                    .findByMemberIdAndSqlsHashAndScenario(memberId, sqlsHash, req.scenario());
             if (existing.isPresent()) {
                 SqlVizWidget widget = existing.get();
                 SimulationResult cached = objectMapper.readValue(

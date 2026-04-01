@@ -2,6 +2,8 @@
 spring:
   main:
     allow-bean-definition-overriding: true
+  flyway:
+    enabled: false
   autoconfigure:
     exclude:
       - org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration

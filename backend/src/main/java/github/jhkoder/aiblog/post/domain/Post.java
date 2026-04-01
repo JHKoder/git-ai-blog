@@ -11,9 +11,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Entity
-@Table(name = "posts")
+@Table(name = "posts", indexes = {
+        @Index(name = "idx_posts_member_id", columnList = "memberId"),
+        @Index(name = "idx_posts_member_status", columnList = "memberId, status"),
+        @Index(name = "idx_posts_member_created", columnList = "memberId, createdAt")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Post {
@@ -42,10 +47,8 @@ public class Post {
     private String hashnodeId;
     private String hashnodeUrl;
 
-    @ElementCollection
-    @CollectionTable(name = "post_tags", joinColumns = @JoinColumn(name = "post_id"))
-    @Column(name = "tag")
-    private List<String> tags = new ArrayList<>();
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PostTag> postTags = new ArrayList<>();
 
     private int viewCount;
 
@@ -78,7 +81,11 @@ public class Post {
 
     public static Post create(Long memberId, String title, String content, ContentType contentType, List<String> tags) {
         Post post = create(memberId, title, content, contentType);
-        Optional.ofNullable(tags).ifPresent(t -> post.tags = normalizeTags(t));
+        Optional.ofNullable(tags).ifPresent(t -> {
+            for (String tag : normalizeTags(t)) {
+                post.postTags.add(PostTag.of(post, tag));
+            }
+        });
         return post;
     }
 
@@ -91,7 +98,16 @@ public class Post {
     }
 
     public void updateTags(List<String> tags) {
-        this.tags = Optional.ofNullable(tags).map(Post::normalizeTags).orElseGet(ArrayList::new);
+        this.postTags.clear();
+        List<String> normalized = Optional.ofNullable(tags).map(Post::normalizeTags).orElseGet(ArrayList::new);
+        for (String tag : normalized) {
+            this.postTags.add(PostTag.of(this, tag));
+        }
+    }
+
+    /** 태그 문자열 목록 반환. 호출 측 변경 없이 기존 API를 유지한다. */
+    public List<String> getTags() {
+        return postTags.stream().map(PostTag::getTag).collect(Collectors.toList());
     }
 
     public void markAiSuggested() {
@@ -109,7 +125,7 @@ public class Post {
                 .ifPresent(t -> this.title = t);
         Optional.ofNullable(suggestedTags)
                 .filter(t -> !t.isEmpty())
-                .ifPresent(t -> this.tags = normalizeTags(t));
+                .ifPresent(this::updateTags);
         this.status = PostStatus.ACCEPTED;
     }
 

@@ -184,13 +184,10 @@ public class StreamAiSuggestionUseCase {
     }
 
     private long resolveEstimatedSeconds(String model) {
-        try {
-            Double avg = aiSuggestionRepository.findAvgDurationMsByModel(model);
-            if (avg != null && avg > 0) {
-                return Math.max(1L, avg.longValue() / 1000);
-            }
-        } catch (Exception ignored) {}
-        return FALLBACK_SECONDS.getOrDefault(model, 30L);
+        return aiSuggestionRepository.findAvgDurationMsByModel(model)
+                .filter(avg -> avg > 0)
+                .map(avg -> Math.max(1L, avg.longValue() / 1000))
+                .orElseGet(() -> FALLBACK_SECONDS.getOrDefault(model, 30L));
     }
 
     private String resolveExtraPrompt(AiSuggestionRequest request) {

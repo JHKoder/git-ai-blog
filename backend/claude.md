@@ -2,6 +2,15 @@
 
 > Spring Boot 4.0.3 · Java 25 · Gradle 9.3.1
 
+## 핵심 제약
+
+- **기술 변경금지**
+- **백엔드 실행**: 항상 `dev` 프로파일로 실행 (`JASYPT_ENCRYPTOR_PASSWORD`는 각 PC 환경변수로 직접 설정)
+- **Dockerfile**: `-x test || true` 패턴 제거 금지 (의존성 캐싱 트릭)
+- **Claude Prompt Caching**: `cache_control: ephemeral` 적용 완료 — 구조 변경 시 캐시 히트율 영향 검토
+- **SSE 스트리밍**: 토큰 단위 실시간 렌더링 핵심 기능 — JSON 출력 방식 도입 불가
+- **Jasypt 암호화**: AI가 직접 수행하지 않음 — jasypt online tool에서 수동 암호화 후 yml에 붙여넣기
+
 ---
 
 ## 기술 스택
@@ -143,56 +152,10 @@ DRAFT → AI_SUGGESTED → ACCEPTED → PUBLISHED
 
 ---
 
-### PromptBuilder 설계 정책 (미구현 — 설계 확정)
+### PromptBuilder 설계 정책
 
 > 파일: `infra/ai/prompt/PromptBuilder.java`
-
-#### 제목 생성
-
-- AI 개선 시 제목도 함께 생성. 현재 `suggestedContent`(본문만)에서 `suggestedTitle` 분리 필드로 변경 예정.
-- 제목 형식: "~의(는) ~다" 스타일. "완전 정복" 같은 광범위 표현 금지.
-- 후보 나열 금지 — 하나의 제목만 직접 결정해서 반환.
-- 제목이 본문 내에 포함되면 안 됨 (`## 제목 후보` 섹션 제거 예정).
-- `accept` 액션 시 `Post.title`도 함께 교체.
-- **구현 주의**: GPT-4o 등 일부 모델이 후보 나열 지시를 무시할 수 있음 → 파싱 단계에서 "후보" "다음 중" 포함 시 fallback 처리 고려.
-
-#### 4단계 글쓰기 파이프라인 (단일 프롬프트 통합)
-
-현재 단일 `extraPrompt + content` 구조를 유지하되, 아래 4단계 로직을 하나의 프롬프트로 통합:
-
-| 단계 | 역할 | 핵심 |
-|------|------|------|
-| 1단계: 설계 | "문제 → 원인 → 해결 → 검증" 구조 설계 | 글 전체 목차 + Hook 문장 3개 + 실무 사례 1개 |
-| 2단계: 작성 | 설계 기반 초안 생성 | 이론 최소화, 장애 시나리오 중심, Before/After 비교 |
-| 3단계: 리뷰 | 평가 기준 6개로 점수화 + 필수 피드백 5개 | 치명적 문제 TOP 3, 삭제·추가 항목, 전문가 한 줄 |
-| 4단계: 압축 | 20~30% 분량 축소, 정보량 유지 | 코드블록·수치·Before/After 표 절대 삭제 금지 |
-
-**예외 조건**: `content` 길이 30자 미만 (예: "데드락" 같은 짧은 요청) → 게시글 개선이 아닌 설명 의도로 판단 → 4단계 파이프라인 미적용, 기존 단순 개선 프롬프트 사용.
-
-#### 평가 기준 6개 (3단계 리뷰 적용)
-
-| 기준 | 설명 |
-|------|------|
-| Structure | 문제→원인→해결→검증 흐름이 논리적으로 이어지는가 |
-| Practicality | 실제 장애 상황에서 바로 적용 가능한가 |
-| Depth | "왜 그렇게 되는지"까지 설명하는가 (Thread/Queue/OS/JVM 연결) |
-| Evidence | 수치, 실험, Before/After가 충분한가 |
-| Readability | 불필요하게 긴 구간, 반복, 난독 구간이 없는가 |
-| Originality | 구글 검색 결과와 차별화되는 경험 기반 인사이트가 있는가 |
-
-각 기준: 점수(10점 만점) + 이유 + 개선안 출력.
-
-**필수 피드백 항목 (5개):**
-1. 가장 치명적인 문제 TOP 3
-2. 반드시 추가해야 할 내용
-3. 삭제하거나 줄여야 할 부분
-4. 전문가 느낌을 만드는 핵심 한 줄
-5. 구조 개선안 (목차 재구성)
-
-**ContentType별 평가 가중치 차이** (구현 시 고려):
-- `ALGORITHM`: Evidence(벤치마크, 복잡도) 가중
-- `CS`: Depth(내부 동작 설명) 가중
-- `CODING`/`CODE_REVIEW`: Practicality 가중
+> 상세 → [`prompt.md`](../prompt.md)
 
 ---
 
@@ -515,6 +478,20 @@ src/test/java/.../infra/ai/
 | `test` (단위) | 0ms          | 5개        | 즉시   |
 
 > `MockAiClient`의 fake 토큰 개수와 delay를 분리하면 "빠른 단위 테스트 / 느린 통합 테스트" 두 가지 시나리오를 하나의 구현으로 커버할 수 있음.
+
+---
+
+## 보안 설정 현황 (2026-04-01 검토 완료)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| prod Swagger 비활성화 | ✅ 완료 | `application-prod.yml` `springdoc.*.enabled: false` |
+| H2 콘솔 경로 제거 | ✅ 완료 | `SecurityConfig.java` permitAll에서 제거 |
+| Access Token URL 노출 제거 | ✅ 완료 | `?token=` → `#token=` (fragment, 서버 로그 미기록) |
+| SameSite=Strict 쿠키 | ✅ 완료 | `OAuth2SuccessHandler`, `AuthController` refresh/logout |
+| Jasypt 알고리즘 (`PBEWithMD5AndDES`) | ⚠️ 미완료 | ENC() 전체 재암호화 필요 — 별도 작업 |
+| JWT HS256, HttpOnly, Rotation, Blacklist | ✅ 원래 안전 | 변경 없음 |
+| AES-256-GCM 컬럼 암호화, IV 재생성 | ✅ 원래 안전 | 변경 없음 |
 
 ---
 

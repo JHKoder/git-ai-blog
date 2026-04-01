@@ -42,9 +42,10 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         refreshCookie.setSecure(request.isSecure());
         refreshCookie.setPath("/api/auth");
         refreshCookie.setMaxAge((int) REFRESH_TTL.toSeconds());
+        refreshCookie.setAttribute("SameSite", "Strict");
         response.addCookie(refreshCookie);
 
-        // JWT 값은 URL 파라미터로만 전달, 로그에 출력하지 않음
-        response.sendRedirect(frontendUrl + "/oauth/callback?token=" + accessToken);
+        // fragment(#)는 서버 로그·브라우저 히스토리에 기록되지 않음
+        response.sendRedirect(frontendUrl + "/oauth/callback#token=" + accessToken);
     }
 }

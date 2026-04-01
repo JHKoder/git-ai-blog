@@ -12,6 +12,6 @@ import java.util.Optional;
 public interface JpaSqlVizWidgetRepository extends JpaRepository<SqlVizWidget, Long> {
     List<SqlVizWidget> findByMemberId(Long memberId);
     Page<SqlVizWidget> findByMemberId(Long memberId, Pageable pageable);
-    Optional<SqlVizWidget> findByMemberIdAndSqlsJsonAndScenario(Long memberId, String sqlsJson, SqlVizScenario scenario);
+    Optional<SqlVizWidget> findByMemberIdAndSqlsHashAndScenario(Long memberId, String sqlsHash, SqlVizScenario scenario);
     boolean existsByIdAndMemberId(Long id, Long memberId);
 }

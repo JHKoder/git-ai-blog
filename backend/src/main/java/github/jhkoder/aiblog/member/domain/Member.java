@@ -26,11 +26,11 @@ public class Member {
 
     private String avatarUrl;
 
-    @Column(length = 2000)
+    @Column(columnDefinition = "TEXT")
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String hashnodeToken;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String hashnodePublicationId;
 
@@ -42,23 +42,23 @@ public class Member {
     @Column(columnDefinition = "TEXT")
     private String hashnodeTags;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String claudeApiKey;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String grokApiKey;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String gptApiKey;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String geminiApiKey;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     @Convert(converter = AesGcmEncryptionConverter.class)
     private String githubToken;
 
