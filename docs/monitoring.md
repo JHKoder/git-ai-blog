@@ -78,7 +78,7 @@ docker compose -f /home/opc/app/docker-compose.yml logs --tail=50 backend
 
 | 원인 | 로그 패턴 | 대응 |
 |------|-----------|------|
-| `JASYPT_ENCRYPTOR_PASSWORD` 누락 | `Failed to decrypt...` | `/home/opc/private/.env` 확인 |
+| `JASYPT_ENCRYPTOR_PASSWORD` 누락 | `Failed to decrypt...` | 서버 환경변수 설정 확인 (`echo $JASYPT_ENCRYPTOR_PASSWORD`) |
 | DB 연결 실패 | `Connection refused` / `Unable to acquire JDBC Connection` | Supabase 상태 확인 |
 | Redis 연결 실패 | `Unable to connect to Redis` | `docker ps`로 redis 컨테이너 확인 |
 | 설정 파일 없음 | `no configuration file provided` | `/home/opc/app/docker-compose.yml` 존재 여부 확인 |
@@ -160,10 +160,10 @@ crontab -l  # 크론 등록 확인
 
 ---
 
-## 8. `/home/opc/private/.env` 확인
+## 8. `JASYPT_ENCRYPTOR_PASSWORD` 확인
 
 ```bash
-cat /home/opc/private/.env
+echo $JASYPT_ENCRYPTOR_PASSWORD
 ```
 
 **필수 항목:**

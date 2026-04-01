@@ -1,7 +1,7 @@
 # 인프라 / 배포
 
 > 초기 셋업 및 구성 변경 절차.
-> 실시간 운영/장애 대응 → [`monitoring.md`](monitoring.md)
+> 실시간 운영/장애 대응 → [`monitoring.md`](docs/monitoring.md)
 
 ---
 
@@ -34,11 +34,11 @@ certbot  — 12시간마다 certbot renew --webroot (frontend 무중단)
 
 ## 환경변수 정책
 
-| 프로파일 | 방식 |
-|---------|------|
-| `local` | 환경변수 없음, H2, CI도 local |
-| `dev` | 해당 PC에 `JASYPT_ENCRYPTOR_PASSWORD` 직접 설정, Docker PostgreSQL + Redis |
-| `prod` | 원격 서버에 `JASYPT_ENCRYPTOR_PASSWORD` + `SPRING_PROFILES_ACTIVE=prod` 직접 설정 |
+| 프로파일    | 방식                                                                       |
+|---------|--------------------------------------------------------------------------|
+| `local` | 환경변수 없음, H2, CI도 local                                                   |
+| `dev`   | 해당 PC에 `JASYPT_ENCRYPTOR_PASSWORD` 직접 설정, Docker PostgreSQL + Redis      |
+| `prod`  | 원격 서버에 `JASYPT_ENCRYPTOR_PASSWORD` + `SPRING_PROFILES_ACTIVE=prod` 직접 설정 |
 
 - `.env` 파일 사용 금지 — 각 PC/서버에서 직접 환경변수 설정
 - `JASYPT_ENCRYPTOR_PASSWORD` 미설정 시 backend 기동 실패로 배포 차단 (fail-fast)
@@ -58,12 +58,12 @@ sub branch push → PR 생성
 
 ### 스마트 재빌드 정책 (`check-prev-result` job)
 
-| 이전 결과 | 이번 실행 |
-|---------|---------|
-| 실패 | 파일 변경 없어도 강제 재빌드 |
+| 이전 결과   | 이번 실행               |
+|---------|---------------------|
+| 실패      | 파일 변경 없어도 강제 재빌드    |
 | skipped | 가장 최근 실제 결과 조회 후 판단 |
-| 성공 | 파일 변경 없으면 skip |
-| 기록 없음 | 무조건 빌드 |
+| 성공      | 파일 변경 없으면 skip      |
+| 기록 없음   | 무조건 빌드              |
 
 ---
 
@@ -85,8 +85,8 @@ docker compose -f /home/opc/app/docker-compose.yml up -d frontend
 
 ## GitHub OAuth App 설정
 
-| 환경 | Callback URL |
-|-----|-------------|
-| local | `http://localhost:8080/login/oauth2/code/github` |
-| dev | `http://localhost:8080/login/oauth2/code/github` |
-| prod | `https://git-ai-blog.kr/login/oauth2/code/github` |
+| 환경    | Callback URL                                      |
+|-------|---------------------------------------------------|
+| local | `http://localhost:8080/login/oauth2/code/github`  |
+| dev   | `http://localhost:8080/login/oauth2/code/github`  |
+| prod  | `https://git-ai-blog.kr/login/oauth2/code/github` |

@@ -191,8 +191,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATA_REDIS_HOST: redis
-    env_file:
-      - /private/.env        # 서버의 암호화된 .env (이미지에 포함 안 함)
+    # JASYPT_ENCRYPTOR_PASSWORD 등 민감 환경변수는 서버 환경변수로 직접 주입
     depends_on:
       redis:
         condition: service_healthy
@@ -233,7 +232,7 @@ volumes:
   certbot_www:
 ```
 
-> `.env` 파일은 `/private/.env`에서 런타임 주입 (`env_file`). Docker 이미지에 절대 포함 금지.
+> 민감 환경변수(`JASYPT_ENCRYPTOR_PASSWORD` 등)는 서버 환경변수로 직접 설정. Docker 이미지에 절대 포함 금지.
 
 ### GitHub Actions CI/CD 흐름
 
@@ -692,4 +691,49 @@ Settings → Branches → main → Add rule
 | 7 | OCI 서버 세팅 + Nginx + Let's Encrypt | 도메인 준비 |
 | 8 | GitHub Actions 워크플로우 (테스트, 배포, 라벨링) | OCI 세팅 완료 |
 | 9 | Branch Protection Rule 설정 | 워크플로우 완료 |
+
+---
+
+## System Prompt 분리 + Prompt Caching — 설계 결정 기록 ✅ 완료
+
+> 분석 기준: 2026-04-01 / 구현 완료
+
+### 토큰 비용 분석
+
+`PromptBuilder.buildFull()` 기준 매 요청마다 전송되는 고정 지시문:
+
+| 항목                             | 대략적 크기 |
+|--------------------------------|--------:|
+| 4단계 파이프라인 지시문                  | ~600 토큰 |
+| `getBaseInstruction()` (공통 규칙) | ~700 토큰 |
+| **합계 (반복 고정 부분)**              | **~1,300 토큰** |
+
+하루 100회 기준 → 고정 지시문만으로 **130,000 토큰 소모**.
+
+### 채택된 전략
+
+**전략 1 — System Prompt 분리 + Claude Prompt Caching**
+- 공통 규칙(base)을 `system` 필드로 분리 (`buildSystemPrompt()`)
+- `cache_control: {"type": "ephemeral"}` + `anthropic-beta: prompt-caching-2024-07-31` 헤더
+- 캐시 히트 시 입력 토큰 **~90% 절감**. TTL = 5분 — 코드 배포 = 자동 캐시 갱신
+- ContentType별 추가 규칙은 User Prompt에 유지 (캐시 히트율 보존)
+- Claude 전용. Grok/GPT/Gemini는 전략 2로 절감
+
+**전략 2 — 공통 규칙 텍스트 압축**
+- 산문체 → 불릿 키워드로 압축 (~35% 절감)
+- 전체 모델 공통 적용
+
+**전략 3 — Haiku 자동 라우팅**
+- 조건: 모델 미지정 + content 1,000자 미만 + extraPrompt 있음
+- Haiku: Sonnet 대비 입력 ~10배 저렴. 단 품질 낮으므로 단순 수정 요청에만 적용
+
+### 주요 결정 사항
+
+| 질문 | 결론 |
+|------|------|
+| GPT/Grok/Gemini도 system 분리 시 캐싱 혜택? | **없음** — Claude만 공식 Prompt Caching 제공. 나머지는 텍스트 압축으로 절감 |
+| ContentType별 변형(8가지) → 캐시 히트율? | 공통 base만 system으로 분리, ContentType별 추가 규칙은 user로 유지 → 히트율 100% 유지 |
+| JSON 출력 방식 도입? | **불가** — SSE 스트리밍과 근본적으로 충돌. 현재 텍스트 파싱 구조 유지 |
+| System Prompt 변경 시 수동 캐시 초기화 필요? | **불필요** — 내용 변경 시 Anthropic 서버가 자동으로 새 캐시 생성 |
+| `prompt.yml` 규칙 텍스트 이관? | **하지 않음** — yml 블록 스칼라 지옥 + 오타 검출 불가. 규칙은 코드에 유지 |
 | 10 | API 유효성 검사 (`@Valid` 전수 적용) | - |
