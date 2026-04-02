@@ -47,6 +47,9 @@ export default defineConfig({
         environment: 'jsdom',
         globals: true,
         setupFiles: './src/test/setup.ts',
-        pool: 'vmThreads',          // vmThreads가 보통 더 빠름
+        pool: 'vmThreads',
+        typecheck: {
+            tsconfig: './tsconfig.test.json',
+        },
     },
 })

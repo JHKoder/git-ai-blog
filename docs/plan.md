@@ -12,6 +12,16 @@
 
 ## 다음 작업 후보
 
+### 긴급 — prod 배포 블로커
+
+- [ ] **prod Flyway V6 누락 문제 해결**
+  - 증상: prod 실행 시 `Schema validation: missing table [ai_evaluations]` 오류
+  - 원인: Supabase prod DB에 V6 마이그레이션이 적용되지 않은 상태
+  - 해결 방향:
+    1. Supabase prod DB에 V6 SQL 수동 실행 (`docs/db/V6__create_ai_evaluations.sql`)
+    2. 또는 prod 배포 파이프라인에서 Flyway migrate 자동 실행 확인
+    3. Flyway 적용 후 prod 재기동 검증 테스트 추가 (`FlywayMigrationTest`)
+
 ### 이슈로 보류
 
 - [ ] REST Docs Spring Boot 4 호환 지원 (라이브러리 출시 후 구현 예정)
