@@ -31,7 +31,8 @@ function OAuthCallback() {
     } else {
       navigate('/login', { replace: true })
     }
-  }, [navigate, setToken])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
