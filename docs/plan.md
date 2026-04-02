@@ -14,13 +14,10 @@
 
 ### 긴급 — prod 배포 블로커
 
-- [ ] **prod Flyway V6 누락 문제 해결**
-  - 증상: prod 실행 시 `Schema validation: missing table [ai_evaluations]` 오류
-  - 원인: Supabase prod DB에 V6 마이그레이션이 적용되지 않은 상태
-  - 해결 방향:
-    1. Supabase prod DB에 V6 SQL 수동 실행 (`docs/db/V6__create_ai_evaluations.sql`)
-    2. 또는 prod 배포 파이프라인에서 Flyway migrate 자동 실행 확인
-    3. Flyway 적용 후 prod 재기동 검증 테스트 추가 (`FlywayMigrationTest`)
+- [x] **prod Flyway V6 누락 문제 — 테스트로 방어막 구축** (`FlywayMigrationTest`)
+    - `FlywayMigrationTest`: V6 DDL을 H2에서 직접 실행해 테이블·컬럼·FK·CRUD 검증
+    - ⚠️ **prod DB에 V6 SQL 수동 실행 필요** (Supabase 대시보드에서 직접 실행)
+    - 앞으로 마이그레이션 추가 시 테스트도 함께 추가 (배포 프로세스 개선)
 
 ### 이슈로 보류
 
@@ -32,6 +29,8 @@
 
 **2026-04-02**
 
+- FlywayMigrationTest 추가 (V6 ai_evaluations DDL·컬럼·FK·CRUD 검증)
+- MockLoginControllerTest 수정 (redirect → JSON token 응답으로 변경)
 - 로그인 테스트 3종 추가 (JwtProviderTest, MockLoginControllerTest, OAuth2SuccessHandlerTest, AuthControllerTest)
 - OAuth2SuccessHandler `#token=` → `?token=` 수정 (프론트엔드 OAuthCallback과 일관성)
 - PromptBuilder 중복 규칙 제거 + ContentType별 규칙 경량화 (~50% 토큰 축소)
