@@ -8,6 +8,8 @@ import github.jhkoder.aiblog.member.domain.Member;
 import github.jhkoder.aiblog.member.domain.MemberRepository;
 import github.jhkoder.aiblog.post.domain.Post;
 import github.jhkoder.aiblog.post.domain.PostRepository;
+import github.jhkoder.aiblog.suggestion.domain.AiEvaluation;
+import github.jhkoder.aiblog.suggestion.domain.AiEvaluationRepository;
 import github.jhkoder.aiblog.suggestion.dto.AiSuggestionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +19,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * AI 평가 요청을 SSE 스트리밍으로 처리한다.
@@ -33,6 +36,7 @@ public class EvaluateAiSuggestionUseCase {
     private final AiUsageLimiter aiUsageLimiter;
     private final AiClientRouter aiClientRouter;
     private final PromptBuilder promptBuilder;
+    private final AiEvaluationRepository aiEvaluationRepository;
 
     private static final int EVAL_HEAD_CHARS = 2_000;
     private static final int EVAL_TAIL_CHARS = 500;
@@ -63,29 +67,41 @@ public class EvaluateAiSuggestionUseCase {
 
         long estimatedSec = FALLBACK_SECONDS.getOrDefault(route.model(), 30L);
         AtomicLong tokenCount = new AtomicLong(0);
+        AtomicLong startMs = new AtomicLong(System.currentTimeMillis());
+        StringBuilder accumulated = new StringBuilder();
 
         Flux<String> estimatedEvent = Flux.just("__estimated__:" + estimatedSec);
         Flux<String> tokenStream = route.client().streamComplete(prompt, route.model(), route.apiKey())
                 .doOnSubscribe(s -> log.info("[EvalAI][3] AI API 구독 시작"))
                 .doOnNext(token -> {
+                    accumulated.append(token);
                     long cnt = tokenCount.incrementAndGet();
                     if (cnt == 1) log.info("[EvalAI][4] 첫 토큰 수신");
                 })
                 .doOnComplete(() -> log.info("[EvalAI][5] 평가 스트림 완료 총 {}개", tokenCount.get()))
                 .doOnError(e -> log.error("[EvalAI][ERR] 평가 스트리밍 실패: {}", e.getMessage(), e));
 
-        // 평가 완료 후 사용량 기록 + __done__ emit (DB 저장 없음)
         Flux<String> doneSignal = Flux.defer(() -> {
-            log.info("[EvalAI][6] 평가 완료 → 사용량 기록 + __done__ emit");
+            long durationMs = System.currentTimeMillis() - startMs.get();
+            log.info("[EvalAI][6] 평가 완료 durationMs={} → 사용량 기록 + DB 저장", durationMs);
             try {
                 aiUsageLimiter.increment(memberId);
+                saveEvaluation(postId, memberId, accumulated.toString(), route.model(), durationMs);
             } catch (Exception e) {
-                log.error("[EvalAI][ERR] 사용량 기록 실패: {}", e.getMessage());
+                log.error("[EvalAI][ERR] 완료 후 처리 실패: {}", e.getMessage());
             }
             return Flux.just("__done__");
         });
 
         return estimatedEvent.concatWith(tokenStream).concatWith(doneSignal);
+    }
+
+    @Transactional
+    public void saveEvaluation(Long postId, Long memberId, String evaluationContent,
+                               String model, long durationMs) {
+        AiEvaluation evaluation = AiEvaluation.create(postId, memberId, evaluationContent, model, durationMs);
+        aiEvaluationRepository.save(evaluation);
+        log.info("[EvalAI][7] DB 저장 완료 postId={} model={} durationMs={}", postId, model, durationMs);
     }
 
     /**

@@ -12,17 +12,6 @@
 
 ## 다음 작업 후보
 
-### 프롬프트 / 토큰 최적화
-
-- [ ] `PromptBuilder` 중복 규칙 제거 — `SYSTEM_ROLE`과 `getBaseInstruction()` 내 중복 내용 통합
-- [ ] ContentType별 규칙 경량화 — 현재 verbose한 산문체 → 핵심 키워드만 유지 (~50% 축소 가능)
-
-### 기능 추가
-
-- [ ] 태그 기반 포스트 필터링 UI
-- [ ] 다크모드 전체 지원
-- [ ] AI 평가 점수 이력 저장 (현재 평가 결과는 DB 저장 안 함)
-
 ### 이슈로 보류
 
 - [ ] REST Docs Spring Boot 4 호환 지원 (라이브러리 출시 후 구현 예정)
@@ -32,6 +21,10 @@
 ## 최근 완료 작업 (최근 2주 이내)
 
 **2026-04-02**
+
+- PromptBuilder 중복 규칙 제거 + ContentType별 규칙 경량화 (~50% 토큰 축소)
+- AI 평가 이력 저장 (`AiEvaluation` 엔티티 + Flyway V6 + 스트리밍 완료 후 DB 저장)
+- 태그 기반 포스트 필터링 UI / 다크모드 — 이미 구현되어 있음 확인
 
 - SSE 스트리밍 System Prompt 캐싱 적용  
   → Claude 라우팅 시 system/user 분리 + cache_control: ephemeral, TTL 5분

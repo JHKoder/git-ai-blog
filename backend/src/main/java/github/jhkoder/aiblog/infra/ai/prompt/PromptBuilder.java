@@ -11,30 +11,13 @@ public class PromptBuilder {
             목표: 독자가 "이 글은 실무에서 바로 써먹을 수 있다"고 느끼게 하는 고품질 기술 블로그 글 작성.
             """;
 
-    private static final String COMMON_RULES = """
-            ## 출력 규칙 (반드시 준수)
-            - 최종 출력은 **순수 Markdown**만 반환. 설명, 분석, 메타 정보 절대 포함 금지.
-            - 첫 줄: `# 제목` (직접적이고 명확한 "~이다" 스타일, "완전 정복" 금지)
-            - 본문 끝 바로 위: `TAGS: tag1,tag2,tag3` (영문 소문자, 하이픈 사용, 3~8개)
-            - 맨 마지막: `> 이 글은 {모델명}이 작성을 도왔습니다.`
-            
-            **구조**:
-            - 문제 인식 → 원인 분석 → 해결 방안 → Before/After 비교 → 실무 팁 → 체크리스트 → 다음 단계
-            
-            **스타일**:
-            - 전문적이면서 친근한 톤
-            - 한 문단은 3줄 이하
-            - 코드 블록은 실행 가능하게 (import, 버전 주석 포함)
-            - 성능 개선은 반드시 수치로 명시 (ms, %, 배수)
-            """;
-
     /**
      * Claude System Prompt용 — cache_control: ephemeral 적용 대상.
      * 고정 규칙 전체(SYSTEM_ROLE + COMMON_RULES + 4단계 파이프라인 + 컨벤션 + ContentType 규칙) 포함.
      * TTL 5분 내 동일 ContentType 반복 요청 시 입력 토큰 절감.
      */
     public String buildSystemPrompt(ContentType contentType) {
-        return SYSTEM_ROLE + "\n" + COMMON_RULES + buildPipelineInstructions()
+        return SYSTEM_ROLE + "\n" + buildPipelineInstructions()
                 + "\n" + getBaseInstruction() + "\n" + getContentTypeInstruction(contentType);
     }
 
@@ -180,7 +163,7 @@ public class PromptBuilder {
     private String buildFull(ContentType contentType, String content, String extraPrompt) {
         StringBuilder sb = new StringBuilder();
 
-        sb.append(SYSTEM_ROLE).append("\n\n").append(COMMON_RULES);
+        sb.append(SYSTEM_ROLE).append("\n");
         sb.append(buildPipelineInstructions());
         sb.append(getBaseInstruction()).append("\n").append(getContentTypeInstruction(contentType)).append("\n\n");
 
@@ -196,56 +179,27 @@ public class PromptBuilder {
     private String getBaseInstruction() {
         return """
                 ## 공통 규칙
-                
+
+                **출력 형식**: 순수 Markdown만 반환 / 첫 줄 `# 제목` ("~이다" 스타일, "완전 정복" 금지) / 본문 끝 바로 위 `TAGS: tag1,tag2,tag3` (영문 소문자, 3~8개) / 맨 마지막 `> 이 글은 {모델명}이 작성을 도왔습니다.`
                 **제목·SEO**: `## 이 글에서 얻을 수 있는 것` 3줄 요약 / 본문 끝 `## 검색 키워드` 5개.
                 **글 구조**: h2/h3 헤딩 / 문제→원인→해결(코드)→Before/After 수치→자주 하는 실수→3줄 정리 / 실무 팁 3개 callout(`> 💡 팁:`) / 운영 시나리오 1개 이상 / `## 체크리스트` 5항목 / `## 다음 단계` CTA 2~3줄.
                 **코드**: 실행 가능(import·의존성 주석 포함) / 잘못된 예(`❌`)→개선 예(`✅`) / 성능 개선 수치(ms·%·배) 명시.
                 **다이어그램**: 복잡 흐름→Mermaid(```mermaid) / flowchart TD 단독 나열 금지 / 다이어그램 위 한 줄 요약 선행 / 상호작용·시간순·Lock 흐름→sequenceDiagram / 단순 인과→flowchart LR / 6노드 이상+단계 구분 필요 시만 subgraph.
                 **SQL**: 일반 블록은 ```sql만 사용(dialect 붙이기 금지).
                 **SQLViz**: DB·트랜잭션·동시성·격리수준 설명 시 `--SQLViz: [dialect] [시나리오]` 마커 SQL 블록 첫 줄 / dialect: postgresql·mysql·oracle·generic / 시나리오: deadlock·lost-update·dirty-read·non-repeatable·phantom-read·mvcc / 마커 아래 1~2줄 한국어 설명 / 최대 3개 / 실제 DB 실행 아님 명시.
-                **톤**: 전문적·친근 / 독자="여러분" / 핵심→근거→예시 순서.""";
+                **톤**: 전문적·친근 / 독자="여러분" / 핵심→근거→예시 순서 / 한 문단 3줄 이하.""";
     }
 
     private String getContentTypeInstruction(ContentType contentType) {
         return switch (contentType) {
-            case ALGORITHM -> """
-                    ## 알고리즘 추가 규칙
-                    - 시간/공간 복잡도 표 (Best·Average·Worst) 필수
-                    - 핵심 알고리즘 단계별(Step N) 설명
-                    - 코드 블록 핵심 줄 주석 필수""";
-            case CODING -> """
-                    ## 코딩 추가 규칙
-                    - 에러 재현→원인 분석→해결→리팩토링 전후 비교
-                    - 실제 오류 메시지/스택트레이스 코드 블록 인용
-                    - 트랜잭션 버그 시 SQLViz 권장: LOST_UPDATE·DIRTY_READ""";
-            case CS -> """
-                    ## CS 추가 규칙
-                    - 개념→실제 예시→트레이드오프 순서
-                    - 핵심 용어 **볼드** 후 한 문장 정의
-                    - DB/트랜잭션/동시성 시 SQLViz 권장: DEADLOCK·MVCC·PHANTOM_READ""";
-            case TEST -> """
-                    ## 테스트 추가 규칙
-                    - Given-When-Then 표 포함
-                    - 경계값·예외 케이스 별도 섹션
-                    - 커버리지 목표치 제시
-                    - 트랜잭션 테스트 시 SQLViz 권장: NON_REPEATABLE_READ""";
-            case AUTOMATION -> """
-                    ## 자동화 추가 규칙
-                    - 실행 결과 예시(터미널 출력) 코드 블록 포함
-                    - 단계별 튜토리얼(Step N) 형식
-                    - 자동화 전/후 소요 시간 비교 수치 명시""";
-            case DOCUMENT -> """
-                    ## 문서 추가 규칙
-                    - 목차(TOC)→본문→요약 구조
-                    - 표·다이어그램으로 복잡 정보 시각화""";
-            case CODE_REVIEW -> """
-                    ## 코드 리뷰 추가 규칙
-                    - Good 예시·Bad 예시·개선안 3단계 구조
-                    - 리뷰 기준(가독성·성능·보안) 명시 후 기준별 평가""";
-            case ETC -> """
-                    ## 일반 추가 규칙
-                    - 자유 형식이나 공통 규칙 전체 적용
-                    - 독자가 즉시 행동할 수 있는 구체적 조언 포함""";
+            case ALGORITHM -> "복잡도 표(Best·Avg·Worst) / Step N 단계별 설명 / 핵심 줄 주석 필수";
+            case CODING -> "에러재현→원인→해결→Before/After / 스택트레이스 인용 / SQLViz: LOST_UPDATE·DIRTY_READ";
+            case CS -> "개념→예시→트레이드오프 / 핵심 용어 **볼드** 정의 / SQLViz: DEADLOCK·MVCC·PHANTOM_READ";
+            case TEST -> "Given-When-Then 표 / 경계값·예외 별도 섹션 / 커버리지 목표 명시 / SQLViz: NON_REPEATABLE_READ";
+            case AUTOMATION -> "터미널 출력 코드블록 / Step N 튜토리얼 / 전후 소요 시간 수치";
+            case DOCUMENT -> "TOC→본문→요약 구조 / 표·다이어그램 적극 사용";
+            case CODE_REVIEW -> "Good·Bad·개선안 3단계 / 가독성·성능·보안 기준별 평가";
+            case ETC -> "공통 규칙 전체 적용 / 즉시 행동 가능한 구체적 조언";
         };
     }
 
