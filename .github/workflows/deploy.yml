@@ -178,11 +178,14 @@ jobs:
   deploy:
     runs-on: ubuntu-22.04
     needs: [ changes, build-backend, build-frontend ]
-    # 빌드가 성공한 경우에만 deploy 실행
+    # 변경사항이 있거나, 이전 빌드가 성공한 경우에만 배포
     if: >
       always() &&
-      needs.build-backend.result == 'success' &&
-      needs.build-frontend.result == 'success'
+      (needs.build-backend.result == 'success' || needs.build-backend.result == 'skipped') &&
+      (needs.build-frontend.result == 'success' || needs.build-frontend.result == 'skipped') &&
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || 
+       needs.check-prev-result.outputs.backend_needs_build == 'true' || 
+       needs.check-prev-result.outputs.frontend_needs_build == 'true')
     steps:
       - name: Deploy via SSH (Rolling Update)
         uses: appleboy/ssh-action@v1
@@ -193,17 +196,17 @@ jobs:
           script: |
             cd /home/opc/app
             
-            echo "=== Pulling new images ==="
+            echo "=== Pulling latest images ==="
             docker compose -f docker-compose.yml pull backend frontend
             
             echo "=== Restarting services ==="
             docker compose -f docker-compose.yml up -d --no-deps backend frontend
             
-            echo "=== Waiting for services to start ==="
+            echo "=== Waiting for startup ==="
             sleep 10
             
-            echo "=== Current status ==="
+            echo "=== Service Status ==="
             docker compose -f docker-compose.yml ps
             
-            echo "=== Cleaning up old images ==="
+            echo "=== Pruning old images ==="
             docker image prune -f
