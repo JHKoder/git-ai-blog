@@ -16,7 +16,7 @@
 
 - [x] **prod Flyway V6 누락 문제 — 테스트로 방어막 구축** (`FlywayMigrationTest`)
     - `FlywayMigrationTest`: V6 DDL을 H2에서 직접 실행해 테이블·컬럼·FK·CRUD 검증
-    - ⚠️ **prod DB에 V6 SQL 수동 실행 필요** (Supabase 대시보드에서 직접 실행)
+    - ✅ prod DB V6 SQL 수동 실행 완료 (Supabase)
     - 앞으로 마이그레이션 추가 시 테스트도 함께 추가 (배포 프로세스 개선)
 
 ### 이슈로 보류
