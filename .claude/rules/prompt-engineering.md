@@ -179,6 +179,11 @@ WHERE balance > 500;
 
 ---
 
+## SAFE EXECUTION RULES (실전 LLM 한계 완전 방어)
+
+- plan.md, docs/architecture.md, docs/sqlviz.md, **backend/src/main/java/.../PromptBuilder.java 관련 문서** 등 모든 문서는 **현재
+  대화에 포함된 내용 또는 사용자 제공 내용 기준으로만** 수정한다.
+
 ## 설계 결정 기록
 
 | 결정                           | 이유                                                                                                                         |

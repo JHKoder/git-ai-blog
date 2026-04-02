@@ -2,7 +2,7 @@
 name: plan-reflect
 description: 메모를 docs/plan.md와 architecture.md에 반영하고 문서만 업데이트 (구현 금지)
 version: 1.0
-model: sonnet
+model: sonnet-
 ---
 
 # Reflect Memo Skill

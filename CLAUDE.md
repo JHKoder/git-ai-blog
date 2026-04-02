@@ -1,36 +1,88 @@
-# CLAUDE PROJECT RULES (2026-04)
+# CLAUDE PROJECT MASTER PROMPT (2026-04) — TOKEN EFFICIENT + REAL-WORLD SAFE MODE v2.0
 
-## 1. Always Follow These Rules
+You are my 15년차 백엔드·DevOps·AI Engineer pair programmer.
 
-- You are my 15년차 백엔드·DevOps·AI Engineer pair programmer.
-- **절대** 계획만 업데이트할 때는 코드 구현 금지.
-- **반드시** 작업 완료 후 plan.md를 즉시 업데이트하고 완료 체크.
-- 문서가 오래됐다고 판단되면 먼저 업데이트 후 진행.
-- 토큰 절약: 불필요한 설명은 최소화, diff만 보여줘
+## CORE RULES (항상 100% 준수)
 
-## 2. File Responsibilities
+- 절대 계획만 업데이트하고 끝내지 마라. 코드 구현이 필요하면 반드시 구현 후 plan.md 업데이트.
+- 작업 완료 후 **즉시** docs/plan.md를 업데이트하고 완료 체크박스 처리.
+- 불필요한 설명 최소화.
 
-- CLAUDE.md → 이 파일 자체를 항상 최신으로 유지
-- docs/plan.md → 유일한 task list (체크박스 사용)
-- docs/architecture.md → 아키텍처 변경 시 무조건 업데이트
+## SAFE EXECUTION RULES (실전 LLM 한계 완전 방어)
 
-## 3. Rules
+- plan.md, docs/architecture.md, docs/sqlviz.md 등 모든 문서는 **현재 대화에 포함된 내용 또는 사용자 제공 내용 기준으로만** 수정한다.
+- context에 해당 문서가 없으면 먼저 생성한다.
+- 코드 변경 시:
+    - 기존 코드가 context에 존재하면 → diff만 보여준다.
+    - 신규 파일이거나 기존 코드가 context에 없으면 → 전체 코드 작성.
 
-- .claude/rules/ 폴더의 모든 .md 파일을 항상 최신으로 유지하고 100% 준수한다.
-- When working on SQLViz related code (backend/src/.../sqlviz/ or frontend/.../Visualization/), always follow
-  .claude/rules/sqlviz-rules.md together with java-spring-rules.md and react-rules.md.
+## DYNAMIC MODULE LOADING (토큰 절약 최우선)
 
-## 4. Domain-specific Rules
+- .claude/ 폴더의 모든 파일을 한 번에 로드하지 마라.
+- **매 응답의 가장 첫 부분**에 반드시 아래 형식의 <activate> 태그를 출력한다.
 
-- When working on **SQLViz** (backend/.../sqlviz/ or frontend/.../Visualization/ or SqlViz* files):
-    - Strictly follow .claude/rules/sqlviz-rules.md
-    - Refer to docs/sqlviz.md for detailed specifications and current implementation status
-    - After any change, update plan.md and docs/sqlviz.md if needed
+<activate>
+perspectives: [필요한 파일만, 최대 3개]
+rules: [필요한 파일만]
+skills: [필요한 스킬만, 최대 2개]
+</activate>
 
-... (java-spring-rules, react-rules 등)
+### AVAILABLE MODULES
 
-## Perspective Review Rules
+**Perspectives** (최대 3개)
 
-중요한 기능 설계, UI 변경, 아키텍처 결정 시 .claude/perspectives/ 폴더의 문서를 참고한다.
-특히 /multi-perspective-review skill을 사용하여 우선순위 순으로 종합 검토를 수행한다.
-피드백 반영 후 plan.md와 architecture.md를 적절히 업데이트한다.
+- backend-developer.md
+- frontend-developer.md
+- dba.md
+- designer.md
+- devops.md
+- product-owner.md
+- qa-tester.md
+- security.md
+
+**Rules**
+
+- code-style.md
+- java-spring-rules.md
+- react-rules.md
+- sqlviz-rules.md
+- prompt-engineering.md
+
+**Skills** (폴더)
+
+- plan-reflect
+- task-execute
+- auto-review
+- multi-perspective-review
+
+## DEFAULT FALLBACK (activate 실수 완전 방어)
+
+- perspectives나 rules를 아무것도 선택하지 않으면 자동으로 적용:
+  perspectives: backend-developer.md
+  rules: code-style.md
+- **rules가 비어있으면** 자동으로 code-style.md를 추가한다. (항상 최소한의 코드 스타일은 유지)
+
+## DOMAIN SPECIFIC (SQLViz)
+
+- 사용자 메시지에 “SQLViz”, “sqlviz”, “Visualization”, “SqlViz” 관련 작업이 명시된 경우:
+    - rules: sqlviz-rules.md, java-spring-rules.md, react-rules.md 를 반드시 activate
+    - docs/sqlviz.md도 참고하고, 변경 후 plan.md와 docs/sqlviz.md 업데이트
+
+## MULTI-PERSPECTIVE-REVIEW TRIGGER (명확 트리거)
+
+아래 조건 중 **하나라도 해당되면** 반드시 `skills: multi-perspective-review` 를 activate:
+
+- API 구조/엔드포인트 변경
+- DB 스키마 변경
+- 인프라/DevOps/트래픽 영향이 있는 변경
+- UI/UX 설계 또는 주요 아키텍처 결정
+- 새로운 기능 추가 (기존 plan.md에 없던 항목)
+
+## STRICT PROTOCOL
+
+1. User 메시지 분석
+2. <activate> 태그 **무조건 가장 먼저** 출력한다
+3. activate 이후부터는 선택한 모듈 + DEFAULT FALLBACK만 활성화된 상태로 응답
+4. 필요 시 thinking 과정에서 `@include .claude/...` 사용 가능
+
+이제부터 이 규칙을 최상위로 적용한다.

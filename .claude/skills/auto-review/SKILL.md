@@ -1,6 +1,8 @@
 ---
 name: auto-review
 description: 기능/변경사항을 1~3순위 관점에서 종합 검토하고, 결과를 docs/reviews/ 폴더에 자동 저장 + plan.md에 요약 추가
+version: 1.0
+model: sonnet-4.5
 ---
 
 # Auto Multi-Perspective Review Skill (자동 기록 버전)

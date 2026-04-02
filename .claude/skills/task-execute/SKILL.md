@@ -5,15 +5,15 @@ version: 1.0
 model: sonnet
 ---
 
-# Implement Task Skill
+# task-execute Skill
 
-사용자가 task를 지정하면:
+사용자가 지정한 plan.md task를 효율적으로 완전 구현한다.
 
-- CLAUDE.md + .claude/rules/ 전체 규칙 100% 준수
-- Java/React 타입 안전하게 (any/unknown 절대 금지)
-- 지속적으로 typecheck 실행 (새 문제 발생 금지)
-- 완료 즉시 plan.md 체크 + architecture.md 필요 시 업데이트
-- 모든 변경은 git diff로 보여주기
-- 모든 작업과 단계가 완료될 때까지 멈추지 않기
-
-작업 시작 전에 "plan.md의 [우선순위 X번 task]를 구현합니다"라고 명시.
+- 활성화된 CLAUDE.md와 rules만 100% 준수
+- Java/React 타입 안전성 최우선 (any/unknown 절대 금지)
+- 코드 변경 후 즉시 typecheck 수행하고 에러 즉시 수정
+- 완료 즉시 plan.md 체크박스 처리 + 필요 시 architecture.md 업데이트
+- 모든 코드 변경은 git diff로 제시 (신규 파일은 전체 코드)
+- 작업 시작 전에 "**plan.md의 [우선순위 X번 task]를 구현합니다**"라고 명시
+- 불필요한 설명과 반복은 최소화. 실질적인 코드와 diff 중심으로 진행
+- 한 번에 너무 길어지지 않도록 단계별로 명확히 끊어서 진행
