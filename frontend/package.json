@@ -4,10 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc --noEmit && vite build",
+    "type-check": "tsc --noEmit",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

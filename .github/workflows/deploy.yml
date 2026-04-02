@@ -140,9 +140,11 @@ jobs:
           cache-dependency-path: 'frontend/package-lock.json'
 
       - name: Install dependencies
+        working-directory: ./frontend
         run: |
-          cd frontend
-          npm ci                     # npm install 대신 ci 사용 (더 빠르고 안정적)
+          npm ci
+          npx tsc --noEmit || true     # 타입 체크 (스크립트 없어도 동작)
+          npm run build
 
       - name: Build frontend (타입 체크 포함)
         run: |
