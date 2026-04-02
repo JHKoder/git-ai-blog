@@ -17,7 +17,8 @@ import java.util.stream.Collectors;
 @Table(name = "posts", indexes = {
         @Index(name = "idx_posts_member_id", columnList = "memberId"),
         @Index(name = "idx_posts_member_status", columnList = "memberId, status"),
-        @Index(name = "idx_posts_member_created", columnList = "memberId, createdAt")
+        @Index(name = "idx_posts_member_created", columnList = "memberId, createdAt"),
+        @Index(name = "idx_posts_hashnode_member", columnList = "hashnodeId, memberId")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

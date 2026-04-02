@@ -12,13 +12,6 @@
 
 ## 다음 작업 후보
 
-### 긴급 — prod 배포 블로커
-
-- [x] **prod Flyway V6 누락 문제 — 테스트로 방어막 구축** (`FlywayMigrationTest`)
-    - `FlywayMigrationTest`: V6 DDL을 H2에서 직접 실행해 테이블·컬럼·FK·CRUD 검증
-    - ✅ prod DB V6 SQL 수동 실행 완료 (Supabase)
-    - 앞으로 마이그레이션 추가 시 테스트도 함께 추가 (배포 프로세스 개선)
-
 ### 이슈로 보류
 
 - [ ] REST Docs Spring Boot 4 호환 지원 (라이브러리 출시 후 구현 예정)
@@ -29,7 +22,9 @@
 
 **2026-04-02**
 
-- FlywayMigrationTest 추가 (V6 ai_evaluations DDL·컬럼·FK·CRUD 검증)
+- Flyway 완전 제거 → JPA `ddl-auto` 전환 (local=create, dev=update, prod=update)
+- DBA 관점 인덱스 최적화 (posts.hashnode_id, repos.owner+name) + 엔티티 @Table 동기화
+- Flyway V6~V9: prod 누락 컬럼·인덱스 수동 적용 완료 후 마이그레이션 파일 전체 삭제
 - MockLoginControllerTest 수정 (redirect → JSON token 응답으로 변경)
 - 로그인 테스트 3종 추가 (JwtProviderTest, MockLoginControllerTest, OAuth2SuccessHandlerTest, AuthControllerTest)
 - OAuth2SuccessHandler `#token=` → `?token=` 수정 (프론트엔드 OAuthCallback과 일관성)

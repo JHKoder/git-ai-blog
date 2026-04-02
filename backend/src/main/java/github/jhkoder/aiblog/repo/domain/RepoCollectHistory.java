@@ -9,7 +9,10 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "repo_collect_history",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"repoId", "refType", "refId"}))
+        uniqueConstraints = @UniqueConstraint(name = "uq_repo_collect_history", columnNames = {"repoId", "refType", "refId"}),
+        indexes = {
+                @Index(name = "idx_repo_collect_history_repo_id", columnList = "repoId")
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RepoCollectHistory {

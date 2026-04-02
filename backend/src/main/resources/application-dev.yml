@@ -10,8 +10,6 @@ spring:
       ddl-auto: update
     show-sql: false
     open-in-view: false
-  flyway:
-    enabled: false
   security:
     oauth2:
       client:
