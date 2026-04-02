@@ -172,3 +172,36 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/aiblog-frontend:latest
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+
+  deploy:
+    runs-on: ubuntu-22.04
+    needs: [ changes, build-backend, build-frontend ]
+    # 빌드가 성공한 경우에만 deploy 실행
+    if: >
+      always() &&
+      needs.build-backend.result == 'success' &&
+      needs.build-frontend.result == 'success'
+    steps:
+      - name: Deploy via SSH (Rolling Update)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 168.107.26.27
+          username: opc
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            cd /home/opc/app
+            
+            echo "=== Pulling new images ==="
+            docker compose -f docker-compose.yml pull backend frontend
+            
+            echo "=== Restarting services ==="
+            docker compose -f docker-compose.yml up -d --no-deps backend frontend
+            
+            echo "=== Waiting for services to start ==="
+            sleep 10
+            
+            echo "=== Current status ==="
+            docker compose -f docker-compose.yml ps
+            
+            echo "=== Cleaning up old images ==="
+            docker image prune -f
