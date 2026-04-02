@@ -22,9 +22,9 @@ function OAuthCallback() {
   const { setToken } = useAuthStore()
 
   useEffect(() => {
-    // fragment(#token=...)는 서버 로그에 기록되지 않음
-    const hash = window.location.hash.slice(1) // '#' 제거
-    const token = new URLSearchParams(hash).get('token')
+    // 백엔드는 ?token=... (query string) 으로 리다이렉트
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
     if (token) {
       setToken(token)
       navigate('/', { replace: true })
