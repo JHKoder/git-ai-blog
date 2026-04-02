@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -83,6 +84,9 @@ class StreamAiSuggestionSaveTest {
         given(claudeClient.streamComplete(anyString(), anyString(), anyString()))
                 .willAnswer(inv -> mockAiClient.streamComplete(
                         inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
+        given(claudeClient.streamCompleteWithSystem(any(), anyString(), anyString(), anyString()))
+                .willAnswer(inv -> mockAiClient.streamComplete(
+                        inv.getArgument(1), inv.getArgument(2), inv.getArgument(3)));
 
         given(claudeClient.getSonnet()).willReturn("claude-sonnet-4-6");
 

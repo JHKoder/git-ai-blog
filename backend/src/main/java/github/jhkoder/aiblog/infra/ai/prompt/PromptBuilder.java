@@ -29,11 +29,26 @@ public class PromptBuilder {
             """;
 
     /**
-     * Claude System Prompt용 베이스 규칙 (cache_control: ephemeral 적용 대상).
-     * 공통 규칙만 포함 — ContentType별 규칙은 buildContentTypeRules()로 분리.
+     * Claude System Prompt용 — cache_control: ephemeral 적용 대상.
+     * 고정 규칙 전체(SYSTEM_ROLE + COMMON_RULES + 4단계 파이프라인 + 컨벤션 + ContentType 규칙) 포함.
+     * TTL 5분 내 동일 ContentType 반복 요청 시 입력 토큰 절감.
      */
     public String buildSystemPrompt(ContentType contentType) {
-        return getBaseInstruction() + "\n" + getContentTypeInstruction(contentType);
+        return SYSTEM_ROLE + "\n" + COMMON_RULES + buildPipelineInstructions()
+                + "\n" + getBaseInstruction() + "\n" + getContentTypeInstruction(contentType);
+    }
+
+    /**
+     * User Prompt — system/user 분리 스트리밍 시 가변 부분만 담는다.
+     * extraPrompt + 개선할 포스트 원문만 포함.
+     */
+    public String buildUserPrompt(String content, String extraPrompt) {
+        StringBuilder sb = new StringBuilder();
+        if (extraPrompt != null && !extraPrompt.isBlank()) {
+            sb.append("## 추가 요청\n").append(extraPrompt).append("\n\n");
+        }
+        sb.append("## 개선할 포스트\n\n").append(content);
+        return sb.toString();
     }
 
     /**
@@ -159,36 +174,14 @@ public class PromptBuilder {
     }
 
     /**
-     * 30자 이상 — 4단계 파이프라인 + 평가 기준 통합 프롬프트
+     * 30자 이상 — 4단계 파이프라인 + 평가 기준 통합 프롬프트 (단일 전송용 폴백).
+     * Claude 스트리밍 시에는 buildSystemPrompt + buildUserPrompt 분리 방식을 우선 사용.
      */
     private String buildFull(ContentType contentType, String content, String extraPrompt) {
         StringBuilder sb = new StringBuilder();
 
-        sb.append(SYSTEM_ROLE + "\n\n" + COMMON_RULES);
-        sb.append("""
-                ## 1단계: 구조 설계 (내부, 출력 금지)
-                - "문제→원인→해결→검증" 흐름 설계
-                - Hook 문장 3개 구상
-                - 실무 장애 사례 1개 선정
-                
-                ## 2단계: 초안 작성
-                - 이론 최소화, "왜 장애가 나는지" 중심
-                - Before/After 비교 포함
-                - 단정적 문체 ("~일 수 있다" 금지)
-                
-                ## 3단계: 리뷰 (내부 평가, 출력 금지)
-                6기준 평가: Structure·Practicality·Depth·Evidence·Readability·Originality
-                - 치명적 문제 TOP 3 수정
-                - 빠진 핵심 내용 추가 (OS backlog·keepalive·GC 등)
-                - 가치 대비 긴 구간 삭제
-                
-                ## 4단계: 압축
-                - 분량 20~30% 축소, 정보량 유지
-                - 코드블록·수치·Before/After 표 절대 삭제 금지
-                - 한 문장 = 하나의 메시지
-                - 각 섹션 첫 줄에 핵심 한 줄 요약 추가
-                """);
-
+        sb.append(SYSTEM_ROLE).append("\n\n").append(COMMON_RULES);
+        sb.append(buildPipelineInstructions());
         sb.append(getBaseInstruction()).append("\n").append(getContentTypeInstruction(contentType)).append("\n\n");
 
         if (extraPrompt != null && !extraPrompt.isBlank()) {
@@ -254,5 +247,34 @@ public class PromptBuilder {
                     - 자유 형식이나 공통 규칙 전체 적용
                     - 독자가 즉시 행동할 수 있는 구체적 조언 포함""";
         };
+    }
+
+    /**
+     * 4단계 파이프라인 지시 — system prompt와 단일 프롬프트 양쪽에서 재사용.
+     */
+    private String buildPipelineInstructions() {
+        return """
+                ## 1단계: 구조 설계 (내부, 출력 금지)
+                - "문제→원인→해결→검증" 흐름 설계
+                - Hook 문장 3개 구상
+                - 실무 장애 사례 1개 선정
+
+                ## 2단계: 초안 작성
+                - 이론 최소화, "왜 장애가 나는지" 중심
+                - Before/After 비교 포함
+                - 단정적 문체 ("~일 수 있다" 금지)
+
+                ## 3단계: 리뷰 (내부 평가, 출력 금지)
+                6기준 평가: Structure·Practicality·Depth·Evidence·Readability·Originality
+                - 치명적 문제 TOP 3 수정
+                - 빠진 핵심 내용 추가 (OS backlog·keepalive·GC 등)
+                - 가치 대비 긴 구간 삭제
+
+                ## 4단계: 압축
+                - 분량 20~30% 축소, 정보량 유지
+                - 코드블록·수치·Before/After 표 절대 삭제 금지
+                - 한 문장 = 하나의 메시지
+                - 각 섹션 첫 줄에 핵심 한 줄 요약 추가
+                """;
     }
 }

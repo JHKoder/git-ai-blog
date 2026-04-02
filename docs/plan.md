@@ -30,7 +30,10 @@
 
 ## 진행중 작업 (항상 최상단에 유지)
 
-- [ ] SSE 스트리밍 System Prompt 캐싱 적용 — 설계 완료, 구현 대기
+- [x] SSE 스트리밍 System Prompt 캐싱 적용 — 구현 완료
+  → Claude 라우팅 시 system/user 분리 + cache_control: ephemeral
+  → `AiClient.streamCompleteWithSystem()` 인터페이스 추가, ClaudeClient 구현
+  → `PromptBuilder.buildSystemPrompt/buildUserPrompt()` 분리
 - [x] 프로파일별 ddl-auto 분리  
   → local: `create`, dev: `update`, prod: `validate` + Flyway  
   → `application-local.yml` ddl-auto: create + flyway.enabled: false  
@@ -48,6 +51,8 @@
 
 **2026-04-02**
 
+- SSE 스트리밍 System Prompt 캐싱 적용  
+  → Claude 라우팅 시 system/user 분리 + cache_control: ephemeral, TTL 5분
 - 토큰 최적화 3종 적용  
   → `CONTENT_MAX_CHARS` 600K→3K / Haiku 임계값 1K→3K / 평가 샘플링 HEAD 2K+TAIL 500
 - 프로파일별 ddl-auto 분리 (local=create, dev=update, prod=validate+Flyway)

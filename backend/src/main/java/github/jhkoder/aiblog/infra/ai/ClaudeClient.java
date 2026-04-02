@@ -105,6 +105,16 @@ public class ClaudeClient implements AiClient {
      */
     @Override
     public Flux<String> streamComplete(String prompt, String model, String apiKey) {
+        return streamCompleteWithSystem(null, prompt, model, apiKey);
+    }
+
+    /**
+     * System Prompt + cache_control: ephemeral 분리 스트리밍.
+     * systemPrompt는 Claude API system 필드로 분리 + cache_control: ephemeral 적용.
+     * TTL 5분 — 동일 시스템 프롬프트 반복 호출 시 입력 토큰 절감.
+     */
+    @Override
+    public Flux<String> streamCompleteWithSystem(String systemPrompt, String userPrompt, String model, String apiKey) {
         if (apiKey == null || apiKey.isBlank()) {
             return Flux.error(new ExternalApiException("Claude API 키가 설정되지 않았습니다."));
         }
@@ -112,17 +122,15 @@ public class ClaudeClient implements AiClient {
 
         String jsonBody;
         try {
-            jsonBody = objectMapper.writeValueAsString(Map.of(
-                    "model", textModel,
-                    "max_tokens", 16000,
-                    "stream", true,
-                    "messages", List.of(Map.of("role", "user", "content", prompt))
-            ));
+            jsonBody = buildStreamingBody(systemPrompt, userPrompt, textModel);
         } catch (Exception e) {
             return Flux.error(new ExternalApiException("Claude 요청 직렬화 실패: " + e.getMessage(), e));
         }
 
-        log.info("[Claude] streamComplete 호출 model={} promptLen={}", textModel, prompt.length());
+        log.info("[Claude] streamCompleteWithSystem 호출 model={} systemLen={} userLen={}",
+                textModel,
+                systemPrompt != null ? systemPrompt.length() : 0,
+                userPrompt.length());
         return webClientBuilder.build()
                 .post()
                 .uri(baseUrl + "/v1/messages")
@@ -156,6 +164,28 @@ public class ClaudeClient implements AiClient {
                     log.error("[Claude] 스트리밍 오류: {}", e.getMessage(), e);
                     return new ExternalApiException("Claude 스트리밍 실패: " + e.getMessage(), e);
                 });
+    }
+
+    private String buildStreamingBody(String systemPrompt, String userPrompt, String model) throws Exception {
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            return objectMapper.writeValueAsString(Map.of(
+                    "model", model,
+                    "max_tokens", 16000,
+                    "stream", true,
+                    "system", List.of(Map.of(
+                            "type", "text",
+                            "text", systemPrompt,
+                            "cache_control", Map.of("type", "ephemeral")
+                    )),
+                    "messages", List.of(Map.of("role", "user", "content", userPrompt))
+            ));
+        }
+        return objectMapper.writeValueAsString(Map.of(
+                "model", model,
+                "max_tokens", 16000,
+                "stream", true,
+                "messages", List.of(Map.of("role", "user", "content", userPrompt))
+        ));
     }
 
     @Retry(name = "ai-client")

@@ -3,6 +3,7 @@ package github.jhkoder.aiblog.suggestion.usecase;
 import github.jhkoder.aiblog.common.exception.NotFoundException;
 import github.jhkoder.aiblog.infra.ai.AiClientRouter;
 import github.jhkoder.aiblog.infra.ai.AiUsageLimiter;
+import github.jhkoder.aiblog.infra.ai.ClaudeClient;
 import github.jhkoder.aiblog.infra.ai.TokenUsageTracker;
 import github.jhkoder.aiblog.infra.ai.prompt.PromptBuilder;
 import github.jhkoder.aiblog.member.domain.Member;
@@ -82,14 +83,25 @@ public class StreamAiSuggestionUseCase {
 
         String effectiveExtraPrompt = resolveExtraPrompt(request);
         String safeContent = prepareSafeContent(request, post);
-        String prompt = promptBuilder.build(post.getContentType(), safeContent, effectiveExtraPrompt);
         AiClientRouter.RouteResult route = aiClientRouter.route(post.getContentType(), request.getModel(), member);
-        log.info("[StreamAI][2] 라우팅 완료 model={} promptLen={}", route.model(), prompt.length());
+
+        boolean useSystemSplit = route.client() instanceof ClaudeClient
+                && safeContent != null && safeContent.trim().length() >= 30;
+
+        String systemPrompt = useSystemSplit
+                ? promptBuilder.buildSystemPrompt(post.getContentType())
+                : null;
+        String userPrompt = useSystemSplit
+                ? promptBuilder.buildUserPrompt(safeContent, effectiveExtraPrompt)
+                : promptBuilder.build(post.getContentType(), safeContent, effectiveExtraPrompt);
+
+        int promptLen = (systemPrompt != null ? systemPrompt.length() : 0) + userPrompt.length();
+        log.info("[StreamAI][2] 라우팅 완료 model={} systemSplit={} promptLen={}", route.model(), useSystemSplit, promptLen);
 
         long estimatedSec = resolveEstimatedSeconds(route.model());
         log.info("[StreamAI][3] estimatedSec={}", estimatedSec);
 
-        return buildStream(postId, memberId, prompt, route, effectiveExtraPrompt, estimatedSec);
+        return buildStream(postId, memberId, systemPrompt, userPrompt, route, effectiveExtraPrompt, estimatedSec);
     }
 
     /**
@@ -139,22 +151,24 @@ public class StreamAiSuggestionUseCase {
         return safe;
     }
 
-    private Flux<String> buildStream(Long postId, Long memberId, String prompt,
+    private Flux<String> buildStream(Long postId, Long memberId, String systemPrompt, String userPrompt,
                                      AiClientRouter.RouteResult route, String effectiveExtraPrompt, long estimatedSec) {
         StringBuilder accumulated = new StringBuilder();
         AtomicLong startMs = new AtomicLong(System.currentTimeMillis());
         AtomicLong tokenCount = new AtomicLong(0);
 
+        int promptLen = (systemPrompt != null ? systemPrompt.length() : 0) + userPrompt.length();
         Flux<String> estimatedEvent = Flux.just("__estimated__:" + estimatedSec);
-        Flux<String> tokenStream = buildTokenStream(postId, memberId, route, prompt, accumulated, tokenCount);
-        Flux<String> saveAndDone = buildSaveAndDone(postId, memberId, prompt, route, effectiveExtraPrompt, accumulated, startMs);
+        Flux<String> tokenStream = buildTokenStream(postId, memberId, route, systemPrompt, userPrompt, accumulated, tokenCount);
+        Flux<String> saveAndDone = buildSaveAndDone(postId, memberId, promptLen, route, effectiveExtraPrompt, accumulated, startMs);
 
         return estimatedEvent.concatWith(tokenStream).concatWith(saveAndDone);
     }
 
     private Flux<String> buildTokenStream(Long postId, Long memberId, AiClientRouter.RouteResult route,
-                                          String prompt, StringBuilder accumulated, AtomicLong tokenCount) {
-        return route.client().streamComplete(prompt, route.model(), route.apiKey())
+                                          String systemPrompt, String userPrompt,
+                                          StringBuilder accumulated, AtomicLong tokenCount) {
+        return route.client().streamCompleteWithSystem(systemPrompt, userPrompt, route.model(), route.apiKey())
                 .doOnSubscribe(s -> log.info("[StreamAI][4] AI API 구독 시작 (streamComplete 호출)"))
                 .doOnNext(token -> {
                     accumulated.append(token);
@@ -166,7 +180,7 @@ public class StreamAiSuggestionUseCase {
                 .doOnError(e -> log.error("[StreamAI][ERR] 스트리밍 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e));
     }
 
-    private Flux<String> buildSaveAndDone(Long postId, Long memberId, String prompt,
+    private Flux<String> buildSaveAndDone(Long postId, Long memberId, int promptLen,
                                           AiClientRouter.RouteResult route, String effectiveExtraPrompt,
                                           StringBuilder accumulated, AtomicLong startMs) {
         return Flux.defer(() -> {
@@ -178,7 +192,7 @@ public class StreamAiSuggestionUseCase {
                 String parsedTags = parseTags(rawText);
                 String cleanContent = removeAiAuthorLine(removeTagsLine(removeFirstHeading(rawText)));
                 saveResult(postId, memberId, cleanContent,
-                        route.model(), effectiveExtraPrompt, durationMs, prompt.length(), parsedTitle, parsedTags);
+                        route.model(), effectiveExtraPrompt, durationMs, promptLen, parsedTitle, parsedTags);
                 log.info("[StreamAI][8] DB 저장 완료 → __done__ emit suggestedTitle={} suggestedTags={}", parsedTitle, parsedTags);
             } catch (Exception e) {
                 log.error("[StreamAI][ERR] 완료 후 저장 실패 postId={} memberId={}: {}", postId, memberId, e.getMessage(), e);

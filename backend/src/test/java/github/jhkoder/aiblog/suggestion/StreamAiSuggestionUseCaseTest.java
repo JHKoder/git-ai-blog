@@ -74,6 +74,9 @@ class StreamAiSuggestionUseCaseTest {
         given(claudeMock.streamComplete(anyString(), anyString(), anyString()))
                 .willAnswer(inv -> mockAiClient.streamComplete(
                         inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
+        given(claudeMock.streamCompleteWithSystem(any(), anyString(), anyString(), anyString()))
+                .willAnswer(inv -> mockAiClient.streamComplete(
+                        inv.getArgument(1), inv.getArgument(2), inv.getArgument(3)));
         given(claudeMock.complete(anyString(), anyString(), anyString()))
                 .willAnswer(inv -> mockAiClient.complete(
                         inv.getArgument(0), inv.getArgument(1), inv.getArgument(2)));
@@ -151,6 +154,8 @@ class StreamAiSuggestionUseCaseTest {
         given(postRepository.findByIdAndMemberId(POST_ID, MEMBER_ID)).willReturn(Optional.of(post));
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
         given(promptBuilder.build(any(), anyString(), any())).willReturn("프롬프트");
+        given(promptBuilder.buildSystemPrompt(any())).willReturn("시스템 프롬프트");
+        given(promptBuilder.buildUserPrompt(anyString(), any())).willReturn("유저 프롬프트");
         given(aiSuggestionRepository.save(any(AiSuggestion.class))).willAnswer(inv -> inv.getArgument(0));
 
         Flux<String> result = useCase.stream(POST_ID, MEMBER_ID, new AiSuggestionRequest());
@@ -167,6 +172,8 @@ class StreamAiSuggestionUseCaseTest {
         given(postRepository.findByIdAndMemberId(POST_ID, MEMBER_ID)).willReturn(Optional.of(post));
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
         given(promptBuilder.build(any(), anyString(), any())).willReturn("프롬프트");
+        given(promptBuilder.buildSystemPrompt(any())).willReturn("시스템 프롬프트");
+        given(promptBuilder.buildUserPrompt(anyString(), any())).willReturn("유저 프롬프트");
         given(aiSuggestionRepository.findAvgDurationMsByModel(anyString())).willReturn(Optional.empty());
         given(aiSuggestionRepository.save(any(AiSuggestion.class))).willAnswer(inv -> inv.getArgument(0));
     }
