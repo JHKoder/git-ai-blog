@@ -2,7 +2,7 @@
 name: task-execute
 description: plan.md의 특정 task를 완전 구현하고 문서 업데이트
 version: 1.0
-model: opus
+model: sonnet
 ---
 
 # Implement Task Skill
