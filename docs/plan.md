@@ -22,6 +22,8 @@
 
 **2026-04-02**
 
+- 로그인 테스트 3종 추가 (JwtProviderTest, MockLoginControllerTest, OAuth2SuccessHandlerTest, AuthControllerTest)
+- OAuth2SuccessHandler `#token=` → `?token=` 수정 (프론트엔드 OAuthCallback과 일관성)
 - PromptBuilder 중복 규칙 제거 + ContentType별 규칙 경량화 (~50% 토큰 축소)
 - AI 평가 이력 저장 (`AiEvaluation` 엔티티 + Flyway V6 + 스트리밍 완료 후 DB 저장)
 - 태그 기반 포스트 필터링 UI / 다크모드 — 이미 구현되어 있음 확인
@@ -60,5 +62,6 @@
 
 - 새로운 작업 시작 시 **진행중 작업** 섹션에 먼저 기록
 - 완료 즉시 **진행중 작업**에서 제거 + **최근 완료 작업**으로 이동
+- 완료된 작업들은 모두 테스트 까지 작업되야한다. (문서에서 유지보수가 아닌 테스트에서 유지보수를 의미 )
 - 완료된 대규모 작업의 상세는 `reviews/`에 기록
 - plan.md는 **현재 진행 상황을 한눈에 파악**하는 용도로만 유지

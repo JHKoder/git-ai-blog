@@ -45,7 +45,6 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         refreshCookie.setAttribute("SameSite", "Strict");
         response.addCookie(refreshCookie);
 
-        // fragment(#)는 서버 로그·브라우저 히스토리에 기록되지 않음
-        response.sendRedirect(frontendUrl + "/oauth/callback#token=" + accessToken);
+        response.sendRedirect(frontendUrl + "/oauth/callback?token=" + accessToken);
     }
 }
