@@ -1,12 +1,23 @@
+import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../../store/authStore'
 import styles from './LoginPage.module.css'
 
 export function LoginPage() {
+  const navigate = useNavigate()
+  const { setToken } = useAuthStore()
+
   const handleLogin = () => {
     window.location.href = '/oauth2/authorization/github'
   }
 
-  const handleMockLogin = () => {
-    window.location.href = '/api/auth/mock-login'
+  const handleMockLogin = async () => {
+    const res = await fetch('/api/auth/mock-login')
+    const body = await res.json()
+    const token: string | undefined = body?.data?.token
+    if (token) {
+      setToken(token)
+      navigate('/', { replace: true })
+    }
   }
 
   return (

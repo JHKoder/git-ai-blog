@@ -1,5 +1,4 @@
-import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { Layout } from '../components/Layout/Layout'
 import { LoginPage } from '../pages/LoginPage/LoginPage'
@@ -18,28 +17,16 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function OAuthCallback() {
-  const navigate = useNavigate()
-  const { setToken } = useAuthStore()
+  const params = new URLSearchParams(window.location.search)
+  const token = params.get('token')
 
-  useEffect(() => {
-    // 백엔드는 ?token=... (query string) 으로 리다이렉트
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
-    if (token) {
-      setToken(token)
-      navigate('/', { replace: true })
-    } else {
-      navigate('/login', { replace: true })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
-      <div className="w-10 h-10 rounded-full border-4 border-[#0066FF] border-t-transparent animate-spin" />
-      <p className="text-gray-500 text-sm font-medium">로그인 처리 중...</p>
-    </div>
-  )
+  if (token) {
+    localStorage.setItem('ai_blog_token', token)
+    window.location.replace('/')
+    return null
+  }
+  window.location.replace('/login')
+  return null
 }
 
 export function AppRouter() {

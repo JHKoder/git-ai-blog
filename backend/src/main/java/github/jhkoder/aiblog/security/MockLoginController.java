@@ -1,16 +1,16 @@
 package github.jhkoder.aiblog.security;
 
+import github.jhkoder.aiblog.common.ApiResponse;
 import github.jhkoder.aiblog.member.domain.Member;
 import github.jhkoder.aiblog.member.domain.MemberRepository;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.IOException;
+import java.util.Map;
 
 /**
  * local/dev 프로파일 전용 mock 로그인.
@@ -29,22 +29,19 @@ public class MockLoginController {
     private static final String DEV_USERNAME    = "dev-user";
     private static final String MOCK_AVATAR     = "https://avatars.githubusercontent.com/u/0";
 
-    @Value("${spring.profiles.active:local}")
+    @org.springframework.beans.factory.annotation.Value("${spring.profiles.active:local}")
     private String activeProfile;
 
     private final MemberRepository memberRepository;
     private final JwtProvider jwtProvider;
 
-    @Value("${frontend.url}")
-    private String frontendUrl;
-
     @GetMapping("/mock-login")
-    public void mockLogin(HttpServletResponse response) throws IOException {
+    public ResponseEntity<ApiResponse<Map<String, String>>> mockLogin() {
         String githubId = "dev".equals(activeProfile) ? DEV_GITHUB_ID : LOCAL_GITHUB_ID;
         String username = "dev".equals(activeProfile) ? DEV_USERNAME  : LOCAL_USERNAME;
         Member member = memberRepository.findByGithubId(githubId)
                 .orElseGet(() -> memberRepository.save(Member.create(githubId, username, MOCK_AVATAR)));
         String token = jwtProvider.generateToken(member.getId());
-        response.sendRedirect(frontendUrl + "/oauth/callback?token=" + token);
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("token", token)));
     }
 }
