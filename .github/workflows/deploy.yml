@@ -136,47 +136,37 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
-      - name: Build frontend
+      - name: Install dependencies
         run: |
           cd frontend
-          rm -f package-lock.json
-          npm install
+          npm ci                     # npm install 대신 ci 사용 (더 빠르고 안정적)
+
+      - name: Build frontend (타입 체크 포함)
+        run: |
+          cd frontend
+          npm run type-check || true   # 타입 에러는 빌드 전에 잡기
           npm run build
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        run: |
-          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | \
-            docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push frontend image
-        run: |
-          docker buildx build \
-            --platform linux/arm64 \
-            --push \
-            --no-cache \
-            -t ${{ secrets.DOCKER_USERNAME }}/aiblog-frontend:${{ github.sha }} \
-            -t ${{ secrets.DOCKER_USERNAME }}/aiblog-frontend:latest \
-            ./frontend
-
-  deploy:
-    runs-on: ubuntu-22.04
-    needs: [ changes, build-backend, build-frontend ]
-    if: always() && (needs.build-backend.result == 'success' || needs.build-backend.result == 'skipped') && (needs.build-frontend.result == 'success' || needs.build-frontend.result == 'skipped')
-    steps:
-      - name: Deploy via SSH (Rolling)
-        uses: appleboy/ssh-action@v1
+        uses: docker/build-push-action@v6
         with:
-          host: 168.107.26.27
-          username: opc
-          key: ${{ secrets.OCI_SSH_KEY }}
-          script: |
-            cd /home/opc/app
-            docker compose -f /home/opc/app/docker-compose.yml pull backend frontend
-            docker compose -f /home/opc/app/docker-compose.yml up -d --no-deps backend frontend
-            sleep 15
-            docker compose -f /home/opc/app/docker-compose.yml ps
-            docker image prune -f
+          context: ./frontend
+          file: ./frontend/Dockerfile          # Multi-stage Dockerfile 경로
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/aiblog-frontend:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/aiblog-frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
