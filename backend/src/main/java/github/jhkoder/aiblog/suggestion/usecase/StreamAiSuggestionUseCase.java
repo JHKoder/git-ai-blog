@@ -47,7 +47,7 @@ public class StreamAiSuggestionUseCase {
     private final TokenUsageTracker tokenUsageTracker;
     private final PromptRepository promptRepository;
 
-    private static final int CONTENT_MAX_CHARS = 600_000;
+    private static final int CONTENT_MAX_CHARS = 3_000;
     private static final int TAG_MIN_COUNT = 3;
     private static final int TAG_MAX_COUNT = 10;
     private static final int CHUNK_SIZE = 50;

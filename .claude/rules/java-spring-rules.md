@@ -1,4 +1,25 @@
-# 백엔드 코드 컨벤션 및 규칙 및 검증 과 테스트
+# 백엔드 규칙
+
+## 기술 스택
+
+> 기술은 절떄 변경하지 않는다( 다운그레이드는 절때로 하지 않는다)
+
+| 영역        | 기술                                                                               |
+|-----------|----------------------------------------------------------------------------------|
+| 프레임워크     | Spring Boot 4.0.3, Java 25, Gradle 9.3.1                                         |
+| 인증        | Spring Security 7.x + GitHub OAuth2 + JWT (Access 24h / Refresh 30일 HttpOnly 쿠키) |
+| DB        | H2 (local) / PostgreSQL Supabase (dev/prod) + JPA + Hibernate 7.2                |
+| 외부 API    | WebClient (WebFlux) — Claude, Grok, GPT, Gemini, GitHub, Hashnode, Cloudinary    |
+| 캐시        | Redis — AI 사용량, Rate Limit, JWT Refresh blacklist                                |
+| 암호화       | Jasypt `PBEWithMD5AndDES` — dev/prod yml 값 암호화                                   |
+| DB 컬럼 암호화 | `@Convert` + AES-256-GCM — Member 민감 필드                                          |
+| 탄력성       | Resilience4j (재시도, 서킷브레이커)                                                       |
+| API 문서    | springdoc-openapi 2.8.8 — `/swagger-ui/index.html`, JWT Bearer 인증 스킴             |
+
+## 핵심 제약
+
+- **기술 변경금지**
+- **백엔드 실행**: 항상 `dev` 프로파일로 실행 (`JASYPT_ENCRYPTOR_PASSWORD`는 각 PC 환경변수로 직접 설정)
 
 ## 중요 규칙 (강화)
 

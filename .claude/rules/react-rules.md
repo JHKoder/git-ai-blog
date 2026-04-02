@@ -1,5 +1,25 @@
 # React Rules - 토스스러운 디자인 & 코드 컨벤션 (2026)
 
+## 핵심 제약
+
+- **`any` / `unknown` 타입 사용 금지**
+- **기술 변경금지**
+
+---
+
+## 기술 스택
+
+| 영역       | 기술                                    |
+|----------|---------------------------------------|
+| 프레임워크    | React 18 + TypeScript + Vite 5        |
+| 상태관리     | Zustand + immer 미들웨어                  |
+| HTTP     | Axios (JWT interceptor 자동 주입)         |
+| 스타일      | CSS Modules + CSS 변수 (다크/라이트 모드)      |
+| 라우팅      | React Router v7                       |
+| Markdown | react-markdown + remark-gfm + Mermaid |
+| SQL 에디터  | @monaco-editor/react                  |
+| 플로우 그래프  | @xyflow/react (ReactFlow)             |
+
 ## 1. 토스 디자인 철학 (반드시 준수)
 
 - **Simplicity First**: 불필요한 요소는 모두 제거. "적을수록 강하다"

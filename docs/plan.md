@@ -1,120 +1,86 @@
 # AI Blog Automation — 작업 체크리스트
 
-> 최종 수정: 2026-04-02
+**최종 수정:** 2026-04-02
 
-## 진행중 / 예정 작업
-
-> 없으면 비워둔다. 작업 시작 시 여기에 먼저 기록.
+## plan 설계 작업대
 
 ---
 
-## 리뷰 메모 (2026-04-02)
+### 추가 기능 후보
 
-> 상세 → [`reviews/2026-04-02_backend-domain-refactor-flyway.md`](reviews/2026-04-02_backend-domain-refactor-flyway.md)
+- [ ] 태그 기반 포스트 필터링 UI
+- [ ] 다크모드 전체 지원
+- [ ] AI 평가 점수 이력 저장 (현재 평가 결과는 DB 저장 안 함)
 
-- [x] `Member.disconnectHashnode()` null 직접 할당 → 빈 문자열로 대체 + `isPresent()` 헬퍼 도입
-- [x] `StreamAiSuggestionUseCase` inline `java.util.*` FQN → import 정리 완료
-- [x] Flyway V4 추가: 7개 테이블 FK 제약 + `ai_suggestions.member_id` 인덱스
-- [x] `Post.normalizeTags()` 단위 테스트 6개 추가 — 한글/null원소/특수문자만/하이픈/30자경계/복합케이스
-- [x] `PostStatus` Enum 상태 전이 매트릭스 `canTransitionTo()` + `ACCEPTABLE_FROM` 상수 추가
-- [x] `Post.updateTags()` 동일 태그 조기 반환으로 불필요한 DELETE+INSERT 방지
-- [x] `SqlVizWidget` Entity `@Index`에 복합 인덱스 `(memberId, sqlsHash, scenario)` 추가
-- [x] `ai_suggestions` 테이블 `member_id` 인덱스 추가 (V4 마이그레이션에 포함)
-- [x] `Post.accept()` 상태 전이 허용 범위 테스트 7개 추가 (DRAFT/ACCEPTED/PUBLISHED → ACCEPTED)
-- [x] `OAuthCallback` `useEffect` 의존성 배열에 `navigate`, `setToken` 추가
-- [x] `OAuthCallback` 로딩 UI — 토스 스타일 스피너 (`border-[#0066FF] animate-spin`)로 교체
-- [x] Flyway V5 추가: `repo_collect_history.ref_id` `VARCHAR(255)` → `TEXT`
-- [ ] CI에 `./gradlew flywayValidate` 단계 추가
-- [ ] `parseTags()` / `parseTitle()` / `removeAiAuthorLine()` → `AiResponseParser` 유틸로 분리 (테스트 용이성)
-
----
-
-## 구현 현황 체크리스트
-
-### 환경별 설정
-
-- [x] local — H2, `JASYPT_ENCRYPTOR_PASSWORD` 없이 기동
-- [x] dev — `./gradlew serverRun` (Redis + PostgreSQL Docker 자동 기동)
-- [x] GitHub Actions — local 프로파일, Redis 제외
-- [x] mock 로그인 — `@Profile({"local","dev"})`, prod 빌드에서 자동 제거
-- [x] Hashnode 발행 — prod 프로파일에서만 실제 발행 허용
-
-### 인프라 / 배포
-
-> 상세 → [`infra.md`](infra.md)
-
-- [x] CI 스마트 재빌드 정책 (`check-prev-result` job)
-- [x] backend Dockerfile 레이어 캐시 최적화
-- [x] PostgreSQL prepared statement 충돌 해결 (`prepareThreshold: 0`)
-
-### AI 개선 / 평가
-
-- [x] AI 모델 선택 — Claude/Grok/GPT/Gemini 수동 또는 ContentType 자동 라우팅
-- [x] AI 사용량 제한 — 전체 + 모델별 일일 한도, Redis 기반, 초과 시 429
-- [x] AI SSE 스트리밍 — 토큰 단위 실시간 렌더링, `@Async` + 202 폴백, 예상 완료 시간 카운트다운
-- [x] AI 개선 시 제목/태그 자동 생성 — `suggestedTitle` / `TAGS:` 파싱, `accept` 시 Post에 반영
-- [x] AI 평가 패널 — 6가지 기준 평가 → 추가 요청사항 자동 생성 → AI 개선 재요청
-- [x] `PromptBuilder` 리뉴얼 — 4단계 파이프라인 + System Prompt 분리 + Prompt Caching
-- [x] 커스텀 프롬프트 — 사용자당 최대 30개, 공개/비공개, 인기순 탐색
-- [x] AI 태그 자동등록 UI — `AiSuggestionResult`에서 "+ 프로필에 추가" 원클릭 등록
-- [x] AI 개선 중복 생성 방지 — 내용 동일 시 기존 제안 재사용
-- [x] `prompt.yml` — 모델명 상수 `@Value`로 교체, Haiku 자동 라우팅 조건값 관리
-- [x] Haiku 자동 라우팅 — 모델 미지정 + content 1,000자 미만 + extraPrompt 있음 → Haiku
-- [x] 프롬프트 텍스트 압축 — 산문체 → 불릿 키워드, ~35% 절감
-
-### PostDetailPage UI
-
-- [x] 2컬럼 레이아웃 — 우측 사이드바(폼) + 본문 하단(결과)
-- [x] GFM + Mermaid 렌더링, AI 평가 결과 마크다운 완전 렌더링
-- [x] PDF 변환 — 제목+본문만 출력, 페이지 중간 잘림 방지
-- [x] 반응형 레이아웃 — 모바일/태블릿 미디어 쿼리
-
-### SQL Visualization Widget
-
-> 상세 → [`sqlviz.md`](sqlviz.md)
-
-- [x] 백엔드: `POST/GET/DELETE /api/sqlviz`, `GET /api/embed/sqlviz/{id}`
-- [x] 시뮬레이션 엔진 v2 — VirtualDatabase, 격리 수준 분기, `LOCK_WAIT` 시나리오
-- [x] `-- STEP:[n] TX:[id]` 주석 기반 인터리빙 런타임
-- [x] 재생 애니메이션, BLOCKED 일시정지, 수동 진행 버튼
-- [x] embed 페이지 다크모드, SQL 목록 TX별 컬럼 표시
-
-### 기타
-
-- [x] API 키 연동 검증 — 저장 시 실제 API 호출로 유효성 확인
-- [x] Hashnode 발행 연동 (태그 매핑, 버그 수정 완료)
-- [x] `durationMs` 컬럼 — AI 응답 소요 시간 저장
-- [x] Swagger UI (`/swagger-ui/index.html`)
-- [ ] REST Docs — Spring Boot 4 호환 라이브러리 출시 후 구현 예정
-
-### DB 개선 (우선순위 순)
-
-> 상세 → [`research.md`](research.md)
-
-- [x] 인덱스 추가 — `posts`, `ai_suggestions`, `repos`, `prompts`, `sqlviz_widgets`, `post_tags` (Critical)
-- [x] ElementCollection N+1 해결 — `PostTag` 별도 엔티티 분리 완료 (High)
-- [x] Flyway 도입 — `ddl-auto: validate` + `db/migration/` 마이그레이션 파일 관리 (High)
-- [x] 암호화 컬럼 길이 통일 — `Member` 모든 암호화 컬럼 `columnDefinition = "TEXT"` 적용 (Medium)
-- [x] `deleteByPostId` 트랜잭션 안전화 — `@Modifying @Transactional @Query` 벌크 DELETE 교체 (Medium)
-- [x] `findAvgDurationMsByModel` 반환 타입 — `Double` → `Optional<Double>` (Medium)
-- [x] `findPopularPublic` / `findPopularByMember` LIMIT 강제 — `PageRequest.of(0, 20)` 호출 측 확인 완료 (Medium)
-- [x] `SqlVizWidget` 해시 중복 감지 — `sqls_hash` 컬럼(SHA-256) 추가 + `findByMemberIdAndSqlsHashAndScenario` (Low)
-- [ ] `Member` 암호화 컬럼 분리 — `member_credentials` 별도 테이블로 9개 암호화 컬럼 이전 (Low, 중장기)
-- [x] HikariCP 운영 설정 추가 — `maximum-pool-size`, `idle-timeout`, `max-lifetime`, `leak-detection-threshold` (Low)
-
-### 테스트
-
-- [x] Controller 테스트 (`PostControllerTest`, `MemberControllerTest`)
-- [x] Repository 통합 테스트 (4개 — H2 기반)
-- [x] 도메인 단위 테스트 (`PostDomainTest`, `MemberDomainTest`)
-- [x] UseCase 단위 테스트 (`AiClientRouterTest` 등)
-- [x] SSE 스트리밍 통합 테스트
+- [x] `CONTENT_MAX_CHARS` 600,000 → 3,000 으로 축소  
+  → 블로그 글 개선에 전체 본문 불필요, 앞 3,000자면 충분  
+  → `StreamAiSuggestionUseCase.CONTENT_MAX_CHARS` 상수 변경
+- [x] Haiku 자동 라우팅 조건 확대: content < 1,000자 → **3,000자**  
+  → Sonnet 대비 ~20배 저렴, 짧은 글 개선 품질 차이 미미  
+  → `application.yml` `ai.haiku.content-length-threshold` 값 조정
+- [x] 평가(`buildEvaluation`) 본문 샘플링 — 앞 2,000자 + 뒤 500자만 전송  
+  → 전체 본문 전송 불필요, 평가 품질 동일
+- [ ] `PromptBuilder` 중복 규칙 제거 — `SYSTEM_ROLE`과 `getBaseInstruction()` 내 중복 내용 통합
+- [ ] ContentType별 규칙 경량화 — 현재 verbose한 산문체 → 핵심 키워드만 유지 (~50% 축소 가능)
+- [ ] SSE 스트리밍 system/user 분리 + `cache_control: ephemeral` 적용  
+  → TTL 5분, 이 프로젝트 사용 패턴상 캐시 히트율 낮음  
+  → `ClaudeClient.streamComplete()` 오버로드 신설 필요
 
 ---
 
-## 개발 규칙
+## 진행중 작업 (항상 최상단에 유지)
 
-- 발견한 내용(버그, 설계 결정)은 해당 도메인 `claude.md`에 기록
-- 새 리서치 내용은 `research.md`에 기록
-- 작업 완료 시 해당 체크박스 완료 표시
-- Mermaid: `sequenceDiagram`(시간 순서/주체 간 통신) / `flowchart LR`(인과관계) — 다이어그램 위 한 줄 핵심 요약 선행
+- [ ] SSE 스트리밍 System Prompt 캐싱 적용 — 설계 완료, 구현 대기
+- [x] 프로파일별 ddl-auto 분리  
+  → local: `create`, dev: `update`, prod: `validate` + Flyway  
+  → `application-local.yml` ddl-auto: create + flyway.enabled: false  
+  → `application-dev.yml` ddl-auto: update + flyway.enabled: false  
+  → `application-prod.yml` ddl-auto: validate + flyway.enabled: true (현재 유지)  
+  → `application.yml` (test) ddl-auto: create-drop + flyway.enabled: false 확인
+
+---
+
+## 이슈로 보류된 작업
+
+- [ ] REST Docs Spring Boot 4 호환 지원 (라이브러리 출시 후 구현 예정)
+
+## 최근 완료 작업 (최근 2주 이내)
+
+**2026-04-02**
+
+- 토큰 최적화 3종 적용  
+  → `CONTENT_MAX_CHARS` 600K→3K / Haiku 임계값 1K→3K / 평가 샘플링 HEAD 2K+TAIL 500
+- 프로파일별 ddl-auto 분리 (local=create, dev=update, prod=validate+Flyway)
+
+- 코드 품질 대규모 개선 및 Flyway V4/V5 마이그레이션  
+  → 상세: [`reviews/2026-04-02_backend-domain-refactor-flyway.md`](reviews/2026-04-02_backend-domain-refactor-flyway.md)
+- AI PromptBuilder 4단계 리뉴얼 + Haiku 자동 라우팅
+- PostStatus 상태 전이 매트릭스 + 태그 정규화 로직 개선
+- SqlVizWidget 복합 인덱스 추가 및 중복 감지 로직
+- OAuthCallback useEffect 최적화 + 토스 스타일 스피너 적용
+
+**2026-03-30 ~ 2026-04-01**
+
+- SQL Visualization Widget v2 완성 (재생 애니메이션, BLOCKED 수동 진행, TX별 SQL 표시, embed 다크모드)
+- AI 사용량 제한 + SSE 스트리밍 + Prompt Caching 적용
+- Flyway 도입 및 DB 인덱스 대규모 정리
+- ElementCollection N+1 문제 해결 (`PostTag` 별도 엔티티 분리)
+
+---
+
+## 아카이브 & 참고 문서
+
+- **전체 완료 이력**: `docs/reviews/` 폴더 참고
+- **DB 개선 이력**: [`research.md`](research.md)
+- **SQLViz 상세 설계**: [`sqlviz.md`](sqlviz.md)
+- **인프라/배포**: [`infra.md`](infra.md)
+- **과거 plan 아카이브**: `docs/archive/plan-archive-2026-03.md` (필요 시 생성)
+
+---
+
+## 개발 규칙 (간략)
+
+- 새로운 작업 시작 시 **진행중 작업** 섹션에 먼저 기록
+- 완료된 대규모 작업은 **최근 완료 작업**으로 이동 후 상세는 reviews/에 기록
+- 중요한 리뷰나 결정사항은 해당 `reviews/` 파일 또는 `research.md`에 기록
+- plan.md는 **현재 진행 상황을 한눈에 파악**하는 용도로만 유지

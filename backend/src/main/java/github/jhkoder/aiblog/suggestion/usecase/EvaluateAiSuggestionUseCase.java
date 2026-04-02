@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -33,7 +34,10 @@ public class EvaluateAiSuggestionUseCase {
     private final AiClientRouter aiClientRouter;
     private final PromptBuilder promptBuilder;
 
-    private static final java.util.Map<String, Long> FALLBACK_SECONDS = java.util.Map.of(
+    private static final int EVAL_HEAD_CHARS = 2_000;
+    private static final int EVAL_TAIL_CHARS = 500;
+
+    private static final Map<String, Long> FALLBACK_SECONDS = Map.of(
             "claude-sonnet-4-6", 40L,
             "claude-opus-4-5",   60L,
             "grok-3",            20L,
@@ -52,7 +56,7 @@ public class EvaluateAiSuggestionUseCase {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다."));
 
-        String content = post.getContent();
+        String content = sampleContent(post.getContent());
         String prompt = promptBuilder.buildEvaluation(post.getContentType(), content);
         AiClientRouter.RouteResult route = aiClientRouter.route(post.getContentType(), request.getModel(), member);
         log.info("[EvalAI][2] 라우팅 완료 model={} promptLen={}", route.model(), prompt.length());
@@ -82,5 +86,20 @@ public class EvaluateAiSuggestionUseCase {
         });
 
         return estimatedEvent.concatWith(tokenStream).concatWith(doneSignal);
+    }
+
+    /**
+     * 평가용 본문 샘플링 — 앞 2,000자 + 뒤 500자만 전송.
+     * 전체 본문 불필요, 평가 품질 동일하면서 토큰 절약.
+     */
+    private String sampleContent(String content) {
+        if (content == null || content.length() <= EVAL_HEAD_CHARS + EVAL_TAIL_CHARS) {
+            return content;
+        }
+        String head = content.substring(0, EVAL_HEAD_CHARS);
+        String tail = content.substring(content.length() - EVAL_TAIL_CHARS);
+        log.info("[EvalAI] 본문 샘플링 original={}chars head={}+tail={}chars",
+                content.length(), EVAL_HEAD_CHARS, EVAL_TAIL_CHARS);
+        return head + "\n\n...(중략)...\n\n" + tail;
     }
 }
