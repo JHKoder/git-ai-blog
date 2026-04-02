@@ -1,30 +1,43 @@
-/// <reference types="vitest" />
+/// <reference types="vitest/config" />   // ← 이 줄이 중요!
+
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
     plugins: [react()],
 
-    // ==================== 빌드 속도 & 크기 최적화 ====================
+    // ==================== 빌드 최적화 ====================
     build: {
-        sourcemap: false,                    // 프로덕션에서는 sourcemap 끄기 (빌드 속도 크게 ↑)
-        minify: 'esbuild',                   // esbuild가 terser보다 훨씬 빠름 (기본값이지만 명시 추천)
-        target: 'es2022',                    // 최신 브라우저 대상으로 빌드 (작고 빠름)
-        chunkSizeWarningLimit: 1000,         // 청크 크기 경고 기준 완화
+        sourcemap: false,
+        minify: 'esbuild',
+        target: 'es2022',
+        chunkSizeWarningLimit: 1600,
 
         rollupOptions: {
             output: {
-                manualChunks: {
-                    // 큰 라이브러리들을 별도 청크로 분리 → 빌드/로딩 속도 향상
-                    vendor: ['react', 'react-dom'],
-                    router: ['react-router-dom'],
-                    // 필요하면 더 추가: ['axios', '@tanstack/react-query'] 등
+                manualChunks: (id: string) => {
+                    // React 핵심 라이브러리
+                    if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+                        return 'vendor-react';
+                    }
+                    // Mermaid 관련 대형 라이브러리 강제 분리 (빌드 속도에 가장 큰 영향)
+                    if (id.includes('mermaid') ||
+                        id.includes('cytoscape') ||
+                        id.includes('katex') ||
+                        id.includes('dagre') ||
+                        id.includes('d3')) {
+                        return 'vendor-mermaid';
+                    }
+                    // 나머지 node_modules
+                    if (id.includes('node_modules')) {
+                        return 'vendor';
+                    }
                 },
             },
         },
     },
 
-    // ==================== 개발 서버 (기존 유지) ====================
+    // ==================== 개발 서버 Proxy ====================
     server: {
         proxy: {
             '/api': {
@@ -42,14 +55,11 @@ export default defineConfig({
         },
     },
 
-    // ==================== Vitest 설정 (기존 유지) ====================
+    // ==================== Vitest 설정 ====================
     test: {
         environment: 'jsdom',
         globals: true,
         setupFiles: './src/test/setup.ts',
         pool: 'vmThreads',
-        typecheck: {
-            tsconfig: './tsconfig.test.json',
-        },
     },
 })
