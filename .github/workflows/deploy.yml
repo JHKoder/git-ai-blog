@@ -143,7 +143,6 @@ jobs:
         working-directory: ./frontend
         run: |
           npm ci
-          npx tsc --noEmit || true     # 타입 체크 (스크립트 없어도 동작)
           npm run build
 
       - name: Build frontend (타입 체크 포함)
