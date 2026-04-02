@@ -1,4 +1,4 @@
-/// <reference types="vitest/config" />   // ← 이 줄이 중요!
+/// <reference types="vitest/config" />   // ← 이 줄 추가 (test 옵션 인식용)'
 
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
@@ -13,25 +13,14 @@ export default defineConfig({
         target: 'es2022',
         chunkSizeWarningLimit: 1600,
 
+
         rollupOptions: {
             output: {
-                manualChunks: (id: string) => {
-                    // React 핵심 라이브러리
-                    if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-                        return 'vendor-react';
-                    }
-                    // Mermaid 관련 대형 라이브러리 강제 분리 (빌드 속도에 가장 큰 영향)
-                    if (id.includes('mermaid') ||
-                        id.includes('cytoscape') ||
-                        id.includes('katex') ||
-                        id.includes('dagre') ||
-                        id.includes('d3')) {
-                        return 'vendor-mermaid';
-                    }
-                    // 나머지 node_modules
-                    if (id.includes('node_modules')) {
-                        return 'vendor';
-                    }
+                manualChunks: {
+                    // 큰 라이브러리들을 별도 청크로 분리 → 빌드/로딩 속도 향상
+                    vendor: ['react', 'react-dom'],
+                    router: ['react-router-dom'],
+                    // 필요하면 더 추가: ['axios', '@tanstack/react-query'] 등
                 },
             },
         },
@@ -56,10 +45,14 @@ export default defineConfig({
     },
 
     // ==================== Vitest 설정 ====================
+    // @ts-ignore
     test: {
         environment: 'jsdom',
         globals: true,
         setupFiles: './src/test/setup.ts',
         pool: 'vmThreads',
+        typecheck: {
+            tsconfig: './tsconfig.test.json',
+        },
     },
 })
